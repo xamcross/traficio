@@ -19,3 +19,15 @@ object TestMongo {
         return db
     }
 }
+
+class RecordingEmailSender : app.geostrategy.email.EmailSender {
+    data class Sent(val to: String, val subject: String, val html: String)
+    val sent = mutableListOf<Sent>()
+    override suspend fun send(to: String, subject: String, html: String) {
+        sent.add(Sent(to, subject, html))
+    }
+}
+
+fun extractToken(html: String): String =
+    Regex("token=([A-Za-z0-9_-]+)").find(html)?.groupValues?.get(1)
+        ?: error("no token found in email html")
