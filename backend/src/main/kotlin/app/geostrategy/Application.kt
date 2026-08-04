@@ -1,6 +1,7 @@
 package app.geostrategy
 
 import app.geostrategy.config.AppConfig
+import app.geostrategy.http.installErrorHandling
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -21,6 +22,7 @@ fun main() {
 fun Application.appModule(config: AppConfig) {
     install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; encodeDefaults = true }) }
     install(CallLogging)
+    installErrorHandling()
     routing {
         get("/healthz") { call.respondText("ok") }
     }
