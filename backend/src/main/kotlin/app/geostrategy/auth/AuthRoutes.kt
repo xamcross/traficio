@@ -1,6 +1,7 @@
 package app.geostrategy.auth
 
 import app.geostrategy.AppDeps
+import app.geostrategy.email.resetEmailHtml
 import app.geostrategy.email.verifyEmailHtml
 import app.geostrategy.http.AppException
 import app.geostrategy.users.User
@@ -21,6 +22,8 @@ private val EMAIL_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
 @Serializable data class RegisterRequest(val email: String, val password: String)
 @Serializable data class VerifyEmailRequest(val token: String)
 @Serializable data class LoginRequest(val email: String, val password: String)
+@Serializable data class ResetRequest(val email: String)
+@Serializable data class ResetConfirmRequest(val token: String, val newPassword: String)
 
 fun User.toDto() = UserDto(id = id.toHexString(), email = email, emailVerified = emailVerified, tier = tier)
 
@@ -70,5 +73,27 @@ fun Route.authRoutes(deps: AppDeps) {
         call.request.cookies[SESSION_COOKIE]?.let { deps.sessions.revoke(it) }
         call.clearSessionCookie(deps.config)
         call.respond(HttpStatusCode.NoContent)
+    }
+
+    post("/v1/auth/password-reset/request") {
+        val body = call.receive<ResetRequest>()
+        val user = deps.users.findByEmail(body.email.trim().lowercase())
+        if (user != null) {
+            val token = deps.tokens.issue(user.id, TokenPurpose.PASSWORD_RESET, Duration.ofHours(1))
+            deps.emailSender.send(user.email, "Reset your GeoStrategy password", resetEmailHtml(deps.config.appUrl, token))
+        }
+        call.respond(HttpStatusCode.Accepted, OkResponse())
+    }
+
+    post("/v1/auth/password-reset/confirm") {
+        val body = call.receive<ResetConfirmRequest>()
+        if (body.newPassword.length < 8) {
+            throw AppException(HttpStatusCode.BadRequest, "weak_password", "Your password must be at least 8 characters.")
+        }
+        val userId = deps.tokens.consume(body.token, TokenPurpose.PASSWORD_RESET)
+            ?: throw AppException(HttpStatusCode.BadRequest, "invalid_token", "This link is invalid or has expired. Please request a new one.")
+        deps.users.setPasswordHash(userId, deps.passwordHasher.hash(body.newPassword))
+        deps.sessions.revokeAllFor(userId)
+        call.respond(OkResponse())
     }
 }
