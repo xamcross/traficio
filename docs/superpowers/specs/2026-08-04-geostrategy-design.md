@@ -35,7 +35,7 @@ MongoDB Atlas (users, sites, assessments, plans, jobs, sessions)
 - **Database:** MongoDB Atlas (M0 to start; M10 upgrade path), co-located with the Fly.io region.
 - **Cloudflare in front of the API:** the API domain (`api.<domain>`) is proxied through Cloudflare for DNS, TLS, WAF, bot fighting, and edge rate-limiting rules — the first line of defense for the expensive assessment endpoint.
 - **Anthropic API:** server-side only, official Anthropic **Java SDK** (Kotlin-compatible). API key stored in Fly.io secrets; never exposed to the frontend.
-- **Email:** transactional email (verification, password reset, "your plan is ready") via an SMTP-API provider (Resend or Postmark — pick during implementation; the integration is a thin interface).
+- **Email:** transactional email (verification, password reset, "your plan is ready") via **Resend**, behind a thin `EmailSender` interface so the provider is swappable.
 
 ## 3. Assessment Pipeline
 
@@ -71,7 +71,7 @@ No headless browser in v1 — plain HTTP fetching with an honest User-Agent.
 
 ### 3.5 Cost model
 
-Estimated **$0.30–0.75 per assessment** at Opus 5 pricing ($5/$25 per MTok): ~20–50K input tokens across both calls, ~8K output tokens. Per-assessment token usage and computed cost are recorded on the assessment document (telemetry, §8). Free-tier quotas exist to bound this cost.
+Estimated **$0.30–0.75 per assessment** at Opus 5 pricing ($5/$25 per MTok): ~20–50K input tokens across both calls, ~8K output tokens. Per-assessment token usage and computed cost are recorded on the assessment document (telemetry, §9). Free-tier quotas exist to bound this cost.
 
 ### 3.6 Re-assessment (Pro)
 
@@ -116,7 +116,7 @@ Limits are configuration values, not code constants.
 
 ## 7. Billing — Freemius (v1)
 
-Freemius is the **merchant of record** (handles payment processing, VAT/sales tax, invoices).
+Freemius is the **merchant of record** (handles payment processing, VAT/sales tax, invoices). The Pro plan and its price are defined in the Freemius dashboard, not in our code — the app only knows plan IDs.
 
 1. **Checkout:** the pricing page opens the Freemius Checkout JS overlay with the Pro plan ID, pre-filled with the user's email. No card data touches our stack.
 2. **Webhooks:** Freemius calls our webhook endpoint on `license.created`, `subscription.cancelled`, `payment.refund`, and related events. The backend **verifies the webhook signature**, matches the Freemius user to our account by email, and updates `tier`, license IDs, and expiry.
