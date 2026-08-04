@@ -1,7 +1,9 @@
 package app.geostrategy.http
 
+import app.geostrategy.AppDeps
+import app.geostrategy.TestMongo
 import app.geostrategy.appModule
-import app.geostrategy.config.AppConfig
+import app.geostrategy.testDeps
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
@@ -15,8 +17,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class ErrorsTest {
-    private fun Application.withThrowingRoutes(config: AppConfig) {
-        appModule(config)
+    private fun Application.withThrowingRoutes(deps: AppDeps) {
+        appModule(deps)
         routing {
             get("/boom-known") { throw AppException(HttpStatusCode.Conflict, "email_taken", "That email is already registered.") }
             get("/boom-unknown") { error("db exploded: secret detail") }
@@ -25,7 +27,7 @@ class ErrorsTest {
 
     @Test
     fun `AppException maps to its status and envelope`() = testApplication {
-        application { withThrowingRoutes(AppConfig.fromEnv(emptyMap())) }
+        application { withThrowingRoutes(testDeps(TestMongo.freshDb())) }
         val res = client.get("/boom-known")
         assertEquals(HttpStatusCode.Conflict, res.status)
         assertEquals("""{"code":"email_taken","message":"That email is already registered."}""", res.bodyAsText())
@@ -33,7 +35,7 @@ class ErrorsTest {
 
     @Test
     fun `unexpected exceptions map to 500 without leaking details`() = testApplication {
-        application { withThrowingRoutes(AppConfig.fromEnv(emptyMap())) }
+        application { withThrowingRoutes(testDeps(TestMongo.freshDb())) }
         val res = client.get("/boom-unknown")
         assertEquals(HttpStatusCode.InternalServerError, res.status)
         assertTrue(res.bodyAsText().contains("internal_error"))

@@ -1,11 +1,15 @@
 package app.geostrategy.auth
 
+import app.geostrategy.AppDeps
 import app.geostrategy.config.AppConfig
+import app.geostrategy.http.AppException
+import app.geostrategy.users.User
 import com.mongodb.client.model.Filters.and
 import com.mongodb.client.model.Filters.eq
 import com.mongodb.client.model.Filters.gt
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import io.ktor.http.Cookie
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import kotlinx.coroutines.flow.firstOrNull
 import org.bson.codecs.pojo.annotations.BsonId
@@ -67,4 +71,13 @@ fun ApplicationCall.clearSessionCookie(config: AppConfig) {
             extensions = mapOf("SameSite" to "Lax"),
         ),
     )
+}
+
+suspend fun ApplicationCall.requireUser(deps: AppDeps): User {
+    val unauthenticated = AppException(
+        HttpStatusCode.Unauthorized, "unauthenticated", "Please log in.",
+    )
+    val raw = request.cookies[SESSION_COOKIE] ?: throw unauthenticated
+    val userId = deps.sessions.userIdFor(raw) ?: throw unauthenticated
+    return deps.users.findById(userId) ?: throw unauthenticated
 }
