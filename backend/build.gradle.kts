@@ -36,4 +36,9 @@ kotlin { jvmToolchain(21) }
 
 application { mainClass.set("app.geostrategy.ApplicationKt") }
 
-tasks.test { useJUnitPlatform() }
+tasks.test {
+    useJUnitPlatform()
+    // Docker Engine 29+ rejects the default API version requested by
+    // Testcontainers' bundled docker-java; pin a supported version.
+    systemProperty("api.version", "1.44")
+}
