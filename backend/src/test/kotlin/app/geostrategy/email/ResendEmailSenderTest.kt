@@ -26,9 +26,11 @@ class ResendEmailSenderTest {
     @Test
     fun `posts the expected payload with bearer auth`() = runBlocking {
         var authHeader: String? = null
+        var url: String? = null
         var body: String? = null
         val engine = MockEngine { request ->
             authHeader = request.headers[HttpHeaders.Authorization]
+            url = request.url.toString()
             body = String(request.body.toByteArray())
             respond("""{"id":"email_1"}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
         }
@@ -36,9 +38,12 @@ class ResendEmailSenderTest {
             .send("ada@example.com", "Hello", "<p>Hi</p>")
 
         assertEquals("Bearer re_test_key", authHeader)
+        assertEquals("https://api.resend.com/emails", url)
         val parsed = Json.parseToJsonElement(body!!).jsonObject
         assertEquals("ada@example.com", parsed["to"]!!.jsonArray[0].jsonPrimitive.content)
         assertEquals("Hello", parsed["subject"]!!.jsonPrimitive.content)
+        assertEquals("GeoStrategy <noreply@geostrategy.app>", parsed["from"]!!.jsonPrimitive.content)
+        assertEquals("<p>Hi</p>", parsed["html"]!!.jsonPrimitive.content)
     }
 
     @Test
