@@ -2,8 +2,10 @@ package app.geostrategy
 
 import app.geostrategy.auth.OneTimeTokenService
 import app.geostrategy.auth.PasswordHasher
+import app.geostrategy.auth.RealGoogleIdentityClient
 import app.geostrategy.auth.SessionService
 import app.geostrategy.auth.authRoutes
+import app.geostrategy.auth.googleAuthRoutes
 import app.geostrategy.config.AppConfig
 import app.geostrategy.email.LoggingEmailSender
 import app.geostrategy.email.ResendEmailSender
@@ -43,7 +45,9 @@ fun main() {
         sessions = SessionService(db),
         passwordHasher = PasswordHasher(),
         emailSender = config.resendApiKey?.let { ResendEmailSender(it, config.emailFrom, httpClient) } ?: LoggingEmailSender(),
-        googleIdentity = null, // wired in Task 11
+        googleIdentity = if (config.googleClientId != null && config.googleClientSecret != null) {
+            RealGoogleIdentityClient(config.googleClientId, config.googleClientSecret, httpClient)
+        } else null,
     )
     embeddedServer(Netty, port = config.port) { appModule(deps) }.start(wait = true)
 }
@@ -55,5 +59,6 @@ fun Application.appModule(deps: AppDeps) {
     routing {
         get("/healthz") { call.respondText("ok") }
         authRoutes(deps)
+        googleAuthRoutes(deps)
     }
 }
