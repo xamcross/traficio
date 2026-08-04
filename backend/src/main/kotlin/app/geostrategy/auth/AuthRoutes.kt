@@ -8,6 +8,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import kotlinx.serialization.Serializable
 import java.time.Duration
@@ -18,6 +19,8 @@ private val EMAIL_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
 @Serializable data class OkResponse(val ok: Boolean = true)
 @Serializable data class UserDto(val id: String, val email: String, val emailVerified: Boolean, val tier: String)
 @Serializable data class RegisterRequest(val email: String, val password: String)
+@Serializable data class VerifyEmailRequest(val token: String)
+@Serializable data class LoginRequest(val email: String, val password: String)
 
 fun User.toDto() = UserDto(id = id.toHexString(), email = email, emailVerified = emailVerified, tier = tier)
 
@@ -38,5 +41,34 @@ fun Route.authRoutes(deps: AppDeps) {
         val token = deps.tokens.issue(user.id, TokenPurpose.VERIFY_EMAIL, Duration.ofHours(24))
         deps.emailSender.send(email, "Confirm your GeoStrategy email", verifyEmailHtml(deps.config.appUrl, token))
         call.respond(HttpStatusCode.Created, OkResponse())
+    }
+
+    post("/v1/auth/verify-email") {
+        val body = call.receive<VerifyEmailRequest>()
+        val userId = deps.tokens.consume(body.token, TokenPurpose.VERIFY_EMAIL)
+            ?: throw AppException(HttpStatusCode.BadRequest, "invalid_token", "This link is invalid or has expired. Please request a new one.")
+        deps.users.setEmailVerified(userId)
+        call.respond(OkResponse())
+    }
+
+    post("/v1/auth/login") {
+        val body = call.receive<LoginRequest>()
+        val invalid = AppException(HttpStatusCode.Unauthorized, "invalid_credentials", "Email or password is incorrect.")
+        val user = deps.users.findByEmail(body.email.trim().lowercase()) ?: throw invalid
+        val hash = user.passwordHash ?: throw invalid
+        if (!deps.passwordHasher.verify(hash, body.password)) throw invalid
+        val raw = deps.sessions.create(user.id)
+        call.setSessionCookie(raw, deps.config)
+        call.respond(user.toDto())
+    }
+
+    get("/v1/me") {
+        call.respond(call.requireUser(deps).toDto())
+    }
+
+    post("/v1/auth/logout") {
+        call.request.cookies[SESSION_COOKIE]?.let { deps.sessions.revoke(it) }
+        call.clearSessionCookie(deps.config)
+        call.respond(HttpStatusCode.NoContent)
     }
 }
