@@ -76,3 +76,8 @@ suspend fun registerAndLogin(
         setBody("""{"email":"$email","password":"$password"}""")
     }
 }
+
+class MapFetcher(private val pages: Map<String, String>) : app.geostrategy.crawl.Fetcher {
+    override suspend fun fetch(url: String): app.geostrategy.crawl.FetchResult? =
+        pages[url]?.let { app.geostrategy.crawl.FetchResult(url, 200, "text/html", it) }
+}

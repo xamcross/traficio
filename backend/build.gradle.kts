@@ -24,6 +24,7 @@ dependencies {
     implementation("de.mkammerer:argon2-jvm:2.12")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     implementation("ch.qos.logback:logback-classic:1.5.18")
+    implementation("org.jsoup:jsoup:1.18.3")
 
     testImplementation(kotlin("test"))
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
