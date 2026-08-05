@@ -22,5 +22,8 @@ class CorsTest {
 
         val denied = client.get("/healthz") { header(HttpHeaders.Origin, "https://evil.example") }
         assertNull(denied.headers[HttpHeaders.AccessControlAllowOrigin])
+
+        val wrongScheme = client.get("/healthz") { header(HttpHeaders.Origin, "https://localhost:4200") }
+        assertNull(wrongScheme.headers[HttpHeaders.AccessControlAllowOrigin])
     }
 }

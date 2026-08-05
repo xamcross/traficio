@@ -8,9 +8,10 @@ import io.ktor.server.application.install
 import io.ktor.server.plugins.cors.routing.CORS
 
 fun Application.installCors(config: AppConfig) {
+    val appScheme = config.appUrl.substringBefore("://")
     val appHost = config.appUrl.substringAfter("://")
     install(CORS) {
-        allowHost(appHost, schemes = listOf("http", "https"))
+        allowHost(appHost, schemes = listOf(appScheme))
         allowCredentials = true
         allowHeader(HttpHeaders.ContentType)
         allowMethod(HttpMethod.Get)
