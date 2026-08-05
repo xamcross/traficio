@@ -101,6 +101,13 @@ fun Route.googleAuthRoutes(deps: AppDeps) {
 
         val identity = google.exchange(code, redirectUri)
         val existing = deps.users.findByEmail(identity.email)
+        if (existing != null && !identity.emailVerified) {
+            throw AppException(
+                HttpStatusCode.Forbidden,
+                "google_email_unverified",
+                "Google hasn't verified this email address. Please verify it with Google first, or log in with your password.",
+            )
+        }
         val user = if (existing != null) {
             if (existing.googleId == null) deps.users.linkGoogle(existing.id, identity.subject)
             existing

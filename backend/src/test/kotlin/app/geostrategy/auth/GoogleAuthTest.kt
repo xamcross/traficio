@@ -7,6 +7,7 @@ import app.geostrategy.users.User
 import app.geostrategy.users.UserRepository
 import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Url
@@ -18,10 +19,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-class FakeGoogleIdentityClient(private val email: String = "ada@example.com") : GoogleIdentityClient {
+class FakeGoogleIdentityClient(
+    private val email: String = "ada@example.com",
+    private val verified: Boolean = true,
+) : GoogleIdentityClient {
     override suspend fun exchange(code: String, redirectUri: String): GoogleIdentity {
         check(code == "good-code") { "unexpected code" }
-        return GoogleIdentity(subject = "google-sub-1", email = email, emailVerified = true)
+        return GoogleIdentity(subject = "google-sub-1", email = email, emailVerified = verified)
     }
 }
 
@@ -74,6 +78,28 @@ class GoogleAuthTest {
 
         val user = runBlocking { UserRepository(db).findByEmail("ada@example.com") }!!
         assertEquals("google-sub-1", user.googleId)
+    }
+
+    @Test
+    fun `callback rejects an unverified google email matching an existing account`() = testApplication {
+        val db = TestMongo.freshDb()
+        runBlocking {
+            UserRepository(db).insert(
+                User(email = "ada@example.com", passwordHash = "x", createdAt = Instant.now(), updatedAt = Instant.now()),
+            )
+        }
+        application {
+            appModule(testDeps(db, google = FakeGoogleIdentityClient(verified = false)))
+        }
+        val http = createClient { followRedirects = false; install(HttpCookies) }
+        val state = Url(http.get("/v1/auth/google/start").headers[HttpHeaders.Location]!!).parameters["state"]!!
+        val cb = http.get("/v1/auth/google/callback?code=good-code&state=$state")
+
+        assertEquals(HttpStatusCode.Forbidden, cb.status)
+        assertTrue(cb.bodyAsText().contains("google_email_unverified"))
+
+        val user = runBlocking { UserRepository(db).findByEmail("ada@example.com") }!!
+        assertEquals(null, user.googleId)
     }
 
     @Test
