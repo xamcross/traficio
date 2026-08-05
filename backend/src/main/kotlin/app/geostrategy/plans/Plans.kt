@@ -4,6 +4,7 @@ import app.geostrategy.assessment.Assessment
 import app.geostrategy.claude.PlanResult
 import com.mongodb.client.model.Filters.eq
 import com.mongodb.client.model.Sorts
+import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import kotlinx.coroutines.flow.firstOrNull
 import org.bson.codecs.pojo.annotations.BsonId
@@ -62,4 +63,18 @@ class PlanRepository(db: MongoDatabase) {
     suspend fun findByAssessment(assessmentId: ObjectId): PlanDoc? = col.find(eq("assessmentId", assessmentId)).firstOrNull()
     suspend fun latestFor(siteId: ObjectId): PlanDoc? =
         col.find(eq("siteId", siteId)).sort(Sorts.descending("createdAt")).firstOrNull()
+
+    suspend fun updateTaskStatus(planId: ObjectId, taskId: String, status: String): PlanDoc? {
+        val doc = findById(planId) ?: return null
+        if (doc.tasks.none { it.taskId == taskId }) return null
+        val now = Instant.now()
+        val updated = doc.tasks.map {
+            if (it.taskId == taskId) it.copy(status = status, completedAt = if (status == "done") now else null) else it
+        }
+        col.updateOne(eq("_id", planId), Updates.combine(
+            Updates.set("tasks", updated),
+            Updates.set("updatedAt", now),
+        ))
+        return doc.copy(tasks = updated, updatedAt = now)
+    }
 }

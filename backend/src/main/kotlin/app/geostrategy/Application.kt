@@ -24,6 +24,7 @@ import app.geostrategy.jobs.JobQueue
 import app.geostrategy.jobs.JobWorker
 import app.geostrategy.persistence.ensureIndexes
 import app.geostrategy.plans.PlanRepository
+import app.geostrategy.plans.planRoutes
 import app.geostrategy.sites.SiteRepository
 import app.geostrategy.sites.siteRoutes
 import app.geostrategy.users.UserRepository
@@ -99,5 +100,6 @@ fun Application.appModule(deps: AppDeps) {
         googleAuthRoutes(deps)
         siteRoutes(deps)
         assessmentRoutes(deps)
+        planRoutes(deps)
     }
 }
