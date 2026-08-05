@@ -5,6 +5,7 @@ import app.geostrategy.auth.requireUser
 import app.geostrategy.claude.Finding
 import app.geostrategy.claude.Scores
 import app.geostrategy.http.AppException
+import app.geostrategy.sites.allowedSiteIds
 import io.ktor.http.CacheControl
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -52,6 +53,11 @@ fun Route.assessmentRoutes(deps: AppDeps) {
         val site = deps.sites.findById(call.parameters["siteId"]!!.toObjectIdOr404())
             ?.takeIf { it.userId == user.id }
             ?: throw AppException(HttpStatusCode.NotFound, "not_found", "We couldn't find that site.")
+
+        val allowed = allowedSiteIds(deps.sites.listFor(user.id), deps.config.tierLimits.maxSitesFor(user.tier))
+        if (site.id !in allowed) {
+            throw AppException(HttpStatusCode.Forbidden, "site_read_only", "This site is read-only on your current plan. Upgrade to work with it again.")
+        }
 
         if (deps.assessments.anyNonFailedFor(site.id) && user.tier != "pro") {
             throw AppException(HttpStatusCode.Forbidden, "upgrade_required", "Re-checking your site is a Pro feature. Upgrade to track your progress over time.")

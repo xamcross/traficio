@@ -13,13 +13,16 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import kotlinx.serialization.Serializable
+import org.bson.types.ObjectId
 import java.time.Instant
 
 @Serializable data class CreateSiteRequest(val url: String)
-@Serializable data class SiteDto(val id: String, val domain: String, val url: String, val platform: String?, val latestScores: Scores?)
+@Serializable data class SiteDto(val id: String, val domain: String, val url: String, val platform: String?, val latestScores: Scores?, val readOnly: Boolean)
 @Serializable data class SiteListResponse(val sites: List<SiteDto>)
 
-fun Site.toDto() = SiteDto(id.toHexString(), domain, url, platform, latestScores)
+fun Site.toDto(readOnly: Boolean) = SiteDto(id.toHexString(), domain, url, platform, latestScores, readOnly)
+
+fun allowedSiteIds(sites: List<Site>, max: Int): Set<ObjectId> = sites.sortedBy { it.createdAt }.take(max).map { it.id }.toSet()
 
 fun Route.siteRoutes(deps: AppDeps) {
     post("/v1/sites") {
@@ -35,11 +38,13 @@ fun Route.siteRoutes(deps: AppDeps) {
         }
         val now = Instant.now()
         val site = deps.sites.insert(Site(userId = user.id, domain = domain, url = url, createdAt = now, updatedAt = now))
-        call.respond(HttpStatusCode.Created, site.toDto())
+        call.respond(HttpStatusCode.Created, site.toDto(readOnly = false))
     }
 
     get("/v1/sites") {
         val user = call.requireUser(deps)
-        call.respond(SiteListResponse(deps.sites.listFor(user.id).map { it.toDto() }))
+        val sites = deps.sites.listFor(user.id)
+        val allowed = allowedSiteIds(sites, deps.config.tierLimits.maxSitesFor(user.tier))
+        call.respond(SiteListResponse(sites.map { it.toDto(readOnly = it.id !in allowed) }))
     }
 }
