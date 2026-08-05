@@ -98,7 +98,7 @@ fun main() {
         emailSender = deps.emailSender, users = deps.users,
     )
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    JobWorker(deps.jobs, mapOf("assessment" to pipeline::handle)).start(appScope)
+    JobWorker(deps.jobs, mapOf("assessment" to pipeline::handle), leaseSeconds = 900).start(appScope)
 
     val revalidator = BillingRevalidator(deps.users, CannedFreemiusClient())
     appScope.launch {

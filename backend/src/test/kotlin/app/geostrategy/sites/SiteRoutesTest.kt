@@ -13,6 +13,8 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.runBlocking
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -60,5 +62,35 @@ class SiteRoutesTest {
     fun `sites require login`() = testApplication {
         application { appModule(testDeps(TestMongo.freshDb())) }
         assertEquals(HttpStatusCode.Unauthorized, client.get("/v1/sites").status)
+    }
+
+    @Test
+    fun `cap recheck removes a raced insert`() = testApplication {
+        val db = TestMongo.freshDb()
+        val deps = testDeps(db)
+        application { appModule(deps) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+
+        val first = http.post("/v1/sites") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"url":"one.example.com"}""")
+        }
+        assertEquals(HttpStatusCode.Created, first.status)
+
+        val user = runBlocking { deps.users.findByEmail("ada@example.com")!! }
+        runBlocking {
+            val now = Instant.now()
+            deps.sites.insert(Site(userId = user.id, domain = "raced.example.com", url = "https://raced.example.com", createdAt = now, updatedAt = now))
+        }
+
+        val third = http.post("/v1/sites") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"url":"third.example.com"}""")
+        }
+        assertEquals(HttpStatusCode.Forbidden, third.status)
+        assertTrue(third.bodyAsText().contains("site_limit_reached"))
+
+        assertEquals(2L, runBlocking { deps.sites.countFor(user.id) })
     }
 }

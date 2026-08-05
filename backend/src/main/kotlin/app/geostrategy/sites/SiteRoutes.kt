@@ -38,6 +38,13 @@ fun Route.siteRoutes(deps: AppDeps) {
         }
         val now = Instant.now()
         val site = deps.sites.insert(Site(userId = user.id, domain = domain, url = url, createdAt = now, updatedAt = now))
+        // A concurrent request may have inserted its own site between the check above and
+        // this insert; recheck the true count and roll back this insert if it pushed the
+        // account over its cap.
+        if (deps.sites.countFor(user.id) > max) {
+            deps.sites.delete(site.id)
+            throw AppException(HttpStatusCode.Forbidden, "site_limit_reached", "Your plan includes $max site${if (max == 1) "" else "s"}. Upgrade to add more.")
+        }
         call.respond(HttpStatusCode.Created, site.toDto(readOnly = false))
     }
 

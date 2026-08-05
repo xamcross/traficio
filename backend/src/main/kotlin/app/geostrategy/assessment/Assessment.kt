@@ -45,6 +45,10 @@ class AssessmentRepository(db: MongoDatabase) {
 
     suspend fun insert(a: Assessment): Assessment { col.insertOne(a); return a }
 
+    suspend fun delete(id: ObjectId) {
+        col.deleteOne(eq("_id", id))
+    }
+
     suspend fun findById(id: ObjectId): Assessment? = col.find(eq("_id", id)).firstOrNull()
 
     suspend fun listFor(siteId: ObjectId): List<Assessment> =

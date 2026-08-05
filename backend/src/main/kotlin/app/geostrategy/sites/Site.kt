@@ -47,6 +47,10 @@ class SiteRepository(db: MongoDatabase) {
 
     suspend fun countFor(userId: ObjectId): Long = col.countDocuments(eq("userId", userId))
 
+    suspend fun delete(id: ObjectId) {
+        col.deleteOne(eq("_id", id))
+    }
+
     suspend fun updateAfterAssessment(id: ObjectId, platform: String, scores: Scores) {
         col.updateOne(
             eq("_id", id),

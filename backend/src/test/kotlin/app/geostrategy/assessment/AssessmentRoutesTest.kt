@@ -19,6 +19,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.bson.types.ObjectId
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -115,5 +116,41 @@ class AssessmentRoutesTest {
         val bob = createClient { install(HttpCookies) }
         registerVerifyLogin(bob, emails, "bob@example.com")
         assertEquals(HttpStatusCode.NotFound, bob.get("/v1/assessments/$id").status)
+    }
+
+    @Test
+    fun `quota recheck removes a raced insert`() = testApplication {
+        val db = TestMongo.freshDb()
+        val emails = RecordingEmailSender()
+        val deps = testDeps(db, email = emails, env = mapOf("FREE_MAX_SITES" to "2"))
+        application { appModule(deps) }
+        val http = createClient { install(HttpCookies) }
+        registerVerifyLogin(http, emails, "ada@example.com")
+
+        suspend fun addSite(url: String): String {
+            val res = http.post("/v1/sites") {
+                contentType(ContentType.Application.Json)
+                setBody("""{"url":"$url"}""")
+            }
+            return Json.parseToJsonElement(res.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        }
+        val siteAId = addSite("one.example.com")
+        val siteBId = addSite("two.example.com")
+
+        // one route-created assessment uses up the free monthly limit of 1
+        assertEquals(HttpStatusCode.Accepted, http.post("/v1/sites/$siteAId/assessments").status)
+
+        val user = runBlocking { deps.users.findByEmail("ada@example.com")!! }
+        // the racer: a second assessment inserted directly, bypassing the route entirely
+        runBlocking {
+            val now = Instant.now()
+            deps.assessments.insert(Assessment(siteId = ObjectId(siteAId), userId = user.id, createdAt = now, updatedAt = now))
+        }
+
+        val third = http.post("/v1/sites/$siteBId/assessments")
+        assertEquals(HttpStatusCode.Forbidden, third.status)
+        assertTrue(third.bodyAsText().contains("quota_exceeded"))
+
+        assertEquals(2L, runBlocking { deps.assessments.countNonFailedForUserSince(user.id, Instant.EPOCH) })
     }
 }

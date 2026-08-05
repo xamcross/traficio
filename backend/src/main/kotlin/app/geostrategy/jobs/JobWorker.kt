@@ -11,12 +11,13 @@ class JobWorker(
     private val queue: JobQueue,
     private val handlers: Map<String, suspend (Job) -> Unit>,
     private val pollMillis: Long = 1000,
+    private val leaseSeconds: Long = 300,
 ) {
     private val log = LoggerFactory.getLogger(JobWorker::class.java)
 
     fun start(scope: CoroutineScope): kotlinx.coroutines.Job = scope.launch {
         while (isActive) {
-            val job = queue.claim()
+            val job = queue.claim(leaseSeconds)
             if (job == null) {
                 delay(pollMillis)
                 continue

@@ -74,6 +74,15 @@ fun Route.assessmentRoutes(deps: AppDeps) {
 
         val now = Instant.now()
         val assessment = deps.assessments.insert(Assessment(siteId = site.id, userId = user.id, createdAt = now, updatedAt = now))
+        // A concurrent submission may have inserted its own assessment between the quota
+        // check above and this insert; recheck the true count and roll back this insert
+        // (before it's ever enqueued) if it pushed the account over its monthly quota.
+        val recount = deps.assessments.countNonFailedForUserSince(user.id, Instant.now().minus(Duration.ofDays(30)))
+        if (recount > limit) {
+            deps.assessments.delete(assessment.id)
+            val noun = if (limit == 1) "assessment" else "assessments"
+            throw AppException(HttpStatusCode.Forbidden, "quota_exceeded", "You've used your $limit $noun for this month. Upgrade for more.")
+        }
         deps.jobs.enqueue("assessment", Document("assessmentId", assessment.id))
         call.respond(HttpStatusCode.Accepted, assessment.toDto())
     }

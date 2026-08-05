@@ -2,7 +2,9 @@ package app.geostrategy.jobs
 
 import com.mongodb.client.model.Filters.and
 import com.mongodb.client.model.Filters.eq
+import com.mongodb.client.model.Filters.gte
 import com.mongodb.client.model.Filters.lt
+import com.mongodb.client.model.Filters.ne
 import com.mongodb.client.model.Filters.or
 import com.mongodb.client.model.FindOneAndUpdateOptions
 import com.mongodb.client.model.ReturnDocument
@@ -58,16 +60,24 @@ class JobQueue(db: MongoDatabase, private val maxAttempts: Int = 2) {
     }
 
     suspend fun complete(id: ObjectId) {
-        col.updateOne(eq("_id", id), combine(set("status", "done"), unset("leasedUntil"), set("updatedAt", Instant.now())))
+        col.updateOne(
+            and(eq("_id", id), eq("status", "running")),
+            combine(set("status", "done"), unset("leasedUntil"), set("updatedAt", Instant.now())),
+        )
     }
 
     suspend fun fail(id: ObjectId, error: String) {
-        val job = findById(id) ?: return
-        val newStatus = if (job.attempts >= maxAttempts) "failed" else "queued"
-        col.updateOne(
-            eq("_id", id),
-            combine(set("status", newStatus), set("error", error), unset("leasedUntil"), set("updatedAt", Instant.now())),
+        val now = Instant.now()
+        val toFailed = col.updateOne(
+            and(eq("_id", id), gte("attempts", maxAttempts), ne("status", "done")),
+            combine(set("status", "failed"), set("error", error), unset("leasedUntil"), set("updatedAt", now)),
         )
+        if (toFailed.modifiedCount == 0L) {
+            col.updateOne(
+                and(eq("_id", id), lt("attempts", maxAttempts), ne("status", "done")),
+                combine(set("status", "queued"), set("error", error), unset("leasedUntil"), set("updatedAt", now)),
+            )
+        }
     }
 
     suspend fun findById(id: ObjectId): Job? = col.find(eq("_id", id)).firstOrNull()
