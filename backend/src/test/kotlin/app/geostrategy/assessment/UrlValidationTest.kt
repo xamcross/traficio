@@ -22,8 +22,8 @@ class UrlValidationTest {
     }
 
     @Test
-    fun `ssrf guard rejects private, loopback, link-local and unique-local addresses`() {
-        for (ip in listOf("127.0.0.1", "10.1.2.3", "192.168.1.1", "172.16.0.9", "169.254.1.1", "::1", "fc00::1")) {
+    fun `ssrf guard rejects private, loopback, link-local, unique-local, multicast and cgnat addresses`() {
+        for (ip in listOf("127.0.0.1", "10.1.2.3", "192.168.1.1", "172.16.0.9", "169.254.1.1", "::1", "fc00::1", "100.64.1.1", "224.0.0.1")) {
             val guard = SsrfGuard { listOf(InetAddress.getByName(ip)) }
             assertEquals("invalid_url", assertFailsWith<AppException> { guard.check("evil.example") }.code)
         }

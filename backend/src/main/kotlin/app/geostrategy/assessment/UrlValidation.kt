@@ -38,13 +38,25 @@ class SsrfGuard(
         if (addresses.isEmpty()) {
             throw AppException(HttpStatusCode.BadRequest, "site_unreachable", "We couldn't find that website. Double-check the address and try again.")
         }
-        if (addresses.any { it.isLoopbackAddress || it.isSiteLocalAddress || it.isLinkLocalAddress || it.isAnyLocalAddress || isUniqueLocal(it) }) {
+        if (addresses.any {
+                it.isLoopbackAddress || it.isSiteLocalAddress || it.isLinkLocalAddress || it.isAnyLocalAddress ||
+                    it.isMulticastAddress || isUniqueLocal(it) || isCgnat(it)
+            }
+        ) {
             throw AppException(HttpStatusCode.BadRequest, "invalid_url", "That address points to a private network, which we can't assess.")
         }
     }
 
     private fun isUniqueLocal(a: InetAddress): Boolean =
         a.address.size == 16 && (a.address[0].toInt() and 0xfe) == 0xfc
+
+    private fun isCgnat(a: InetAddress): Boolean {
+        val b = a.address
+        if (b.size != 4) return false
+        val first = b[0].toInt() and 0xff
+        val second = b[1].toInt() and 0xff
+        return first == 100 && second in 64..127
+    }
 }
 
 fun String.toObjectIdOr404(): ObjectId =

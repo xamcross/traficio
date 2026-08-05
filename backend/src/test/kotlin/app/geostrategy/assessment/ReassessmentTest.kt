@@ -33,6 +33,12 @@ import kotlin.test.assertTrue
 class ReassessmentTest {
     private val pageNoMeta = """<html><head><title>T</title></head><body><h1>H</h1><p>${"w ".repeat(60)}</p></body></html>"""
     private val pageWithMeta = """<html><head><title>T</title><meta name="description" content="Now present."></head><body><h1>H</h1><p>${"w ".repeat(60)}</p></body></html>"""
+    private val homeLinkingToMenuNoMeta =
+        """<html><head><title>T</title></head><body><h1>H</h1><p>${"w ".repeat(60)}</p><a href="/menu">Menu</a></body></html>"""
+    private val menuPageNoMeta =
+        """<html><head><title>Menu</title></head><body><h1>Menu</h1><p>${"w ".repeat(60)}</p></body></html>"""
+    private val homeLinkingToMenuWithMeta =
+        """<html><head><title>T</title><meta name="description" content="Now present."></head><body><h1>H</h1><p>${"w ".repeat(60)}</p><a href="/menu">Menu</a></body></html>"""
 
     private suspend fun makePro(db: com.mongodb.kotlin.client.coroutine.MongoDatabase, email: String) {
         db.getCollection<User>("users").updateOne(eq("email", email), set("tier", "pro"))
@@ -167,5 +173,51 @@ class ReassessmentTest {
             val plan = deps.plans.latestFor(ObjectId(siteId))!!
             assertTrue(plan.tasks.none { it.status == "verified" })
         }
+    }
+
+    @Test
+    fun `auto-verify only fires for findings whose pages were actually re-crawled`() = testApplication {
+        val db = TestMongo.freshDb()
+        val emails = RecordingEmailSender()
+        val deps = testDeps(db, email = emails)
+        application { appModule(deps) }
+        val http = createClient { install(HttpCookies) }
+        registerVerifyLogin(http, emails, "ada@example.com")
+        runBlocking { makePro(db, "ada@example.com") }
+        val siteId = Json.parseToJsonElement(
+            http.post("/v1/sites") { contentType(ContentType.Application.Json); setBody("""{"url":"example.com"}""") }.bodyAsText(),
+        ).jsonObject["id"]!!.jsonPrimitive.content
+        val siteOid = ObjectId(siteId)
+
+        // run 1: crawls both the homepage and /menu, neither has a meta description
+        http.post("/v1/sites/$siteId/assessments")
+        val run1 = AssessmentPipeline(
+            deps.assessments, deps.sites, deps.plans,
+            Crawler(MapFetcher(mapOf(
+                "https://example.com" to homeLinkingToMenuNoMeta,
+                "https://example.com/menu" to menuPageNoMeta,
+            ))),
+            CannedClaudeClient(),
+        )
+        runBlocking { run1.handle(deps.jobs.claim()!!) }
+        val firstPlan = runBlocking { deps.plans.latestFor(siteOid)!! }
+        assertTrue(firstPlan.tasks.any { it.findingId == "missing-meta-description:/" && it.status == "todo" })
+        assertTrue(firstPlan.tasks.any { it.findingId == "missing-meta-description:/menu" && it.status == "todo" })
+
+        // run 2: only the homepage is crawled (now with a meta description); /menu is unreachable this time
+        http.post("/v1/sites/$siteId/assessments")
+        val run2 = AssessmentPipeline(
+            deps.assessments, deps.sites, deps.plans,
+            Crawler(MapFetcher(mapOf("https://example.com" to homeLinkingToMenuWithMeta))),
+            CannedClaudeClient(),
+        )
+        runBlocking { run2.handle(deps.jobs.claim()!!) }
+
+        val verifiedPlan = runBlocking { PlanRepository(db).findById(firstPlan.id)!! }
+        val homeTask = verifiedPlan.tasks.first { it.findingId == "missing-meta-description:/" }
+        assertEquals("verified", homeTask.status)
+        // the /menu finding vanished only because the page wasn't crawled this run, not because it was fixed
+        val menuTask = verifiedPlan.tasks.first { it.findingId == "missing-meta-description:/menu" }
+        assertEquals("todo", menuTask.status)
     }
 }

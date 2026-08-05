@@ -10,6 +10,7 @@ import com.mongodb.client.model.Filters.eq
 import com.mongodb.client.model.Filters.gte
 import com.mongodb.client.model.Filters.ne
 import com.mongodb.client.model.Sorts
+import com.mongodb.client.model.Updates
 import com.mongodb.client.model.Updates.combine
 import com.mongodb.client.model.Updates.set
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
@@ -63,22 +64,39 @@ class AssessmentRepository(db: MongoDatabase) {
         col.updateOne(eq("_id", id), combine(set("crawlDigest", digest), set("updatedAt", Instant.now())))
     }
 
-    suspend fun saveAnalysis(id: ObjectId, analysis: AnalysisResult) {
+    suspend fun saveAnalysis(id: ObjectId, analysis: AnalysisResult, usage: ClaudeUsage) {
         col.updateOne(
             eq("_id", id),
-            combine(set("scores", analysis.scores), set("findings", analysis.findings), set("updatedAt", Instant.now())),
+            combine(
+                set("scores", analysis.scores),
+                set("findings", analysis.findings),
+                Updates.inc("inputTokens", usage.inputTokens),
+                Updates.inc("outputTokens", usage.outputTokens),
+                set("updatedAt", Instant.now()),
+            ),
         )
     }
 
-    suspend fun markReady(id: ObjectId, usage: ClaudeUsage) {
+    suspend fun addUsage(id: ObjectId, usage: ClaudeUsage) {
+        col.updateOne(
+            eq("_id", id),
+            combine(
+                Updates.inc("inputTokens", usage.inputTokens),
+                Updates.inc("outputTokens", usage.outputTokens),
+                set("updatedAt", Instant.now()),
+            ),
+        )
+    }
+
+    suspend fun markReady(id: ObjectId) {
         val now = Instant.now()
+        val doc = findById(id) ?: return
+        val costUsd = ClaudeUsage(doc.inputTokens, doc.outputTokens).costUsd()
         col.updateOne(
             eq("_id", id),
             combine(
                 set("status", "ready"),
-                set("inputTokens", usage.inputTokens),
-                set("outputTokens", usage.outputTokens),
-                set("costUsd", usage.costUsd()),
+                set("costUsd", costUsd),
                 set("completedAt", now),
                 set("updatedAt", now),
             ),
@@ -87,9 +105,18 @@ class AssessmentRepository(db: MongoDatabase) {
 
     suspend fun markFailed(id: ObjectId, code: String, message: String) {
         val now = Instant.now()
+        val doc = findById(id)
+        val costUsd = ClaudeUsage(doc?.inputTokens ?: 0, doc?.outputTokens ?: 0).costUsd()
         col.updateOne(
             eq("_id", id),
-            combine(set("status", "failed"), set("errorCode", code), set("errorMessage", message), set("completedAt", now), set("updatedAt", now)),
+            combine(
+                set("status", "failed"),
+                set("errorCode", code),
+                set("errorMessage", message),
+                set("costUsd", costUsd),
+                set("completedAt", now),
+                set("updatedAt", now),
+            ),
         )
     }
 }

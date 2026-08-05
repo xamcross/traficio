@@ -2,7 +2,6 @@ package app.geostrategy.assessment
 
 import app.geostrategy.claude.AnalysisResult
 import app.geostrategy.claude.ClaudeClient
-import app.geostrategy.claude.ClaudeUsage
 import app.geostrategy.crawl.Crawler
 import app.geostrategy.email.EmailSender
 import app.geostrategy.http.AppException
@@ -45,23 +44,28 @@ class AssessmentPipeline(
             }
             val saved = assessments.findById(id) ?: return
             val analysis: AnalysisResult
-            var usage = ClaudeUsage(0, 0)
             if (saved.scores != null) {
                 analysis = AnalysisResult(saved.scores, saved.findings)
             } else {
                 assessments.setStatus(id, "analyzing")
                 val result = claude.analyze(digest)
                 analysis = result.value
-                usage += result.usage
-                assessments.saveAnalysis(id, analysis)
+                assessments.saveAnalysis(id, analysis, result.usage)
             }
 
             val previousPlan = plans.latestFor(site.id)
             if (previousPlan != null && previousPlan.assessmentId != id) {
                 val openFindingIds = analysis.findings.map { it.id }.toSet()
-                val fixed = previousPlan.tasks
-                    .filter { it.findingId != null && it.findingId !in openFindingIds && it.status != "verified" }
-                    .map { it.taskId }
+                val crawledUrls = digest.pages.map { it.url }.toSet()
+                val previousFindings = assessments.findById(previousPlan.assessmentId)?.findings.orEmpty().associateBy { it.id }
+                val fixed = previousPlan.tasks.filter { task ->
+                    val finding = task.findingId?.let { previousFindings[it] }
+                    task.findingId != null &&
+                        task.findingId !in openFindingIds &&
+                        task.status != "verified" &&
+                        finding != null &&
+                        finding.affectedPages.all { it in crawledUrls }
+                }.map { it.taskId }
                 plans.markTasksVerified(previousPlan.id, fixed)
             }
 
@@ -69,11 +73,11 @@ class AssessmentPipeline(
             if (plans.findByAssessment(id) == null) {
                 val planResult = claude.plan(analysis, digest.platform)
                 plans.insert(buildPlanDoc(saved, planResult.value))
-                usage += planResult.usage
+                assessments.addUsage(id, planResult.usage)
             }
 
             sites.updateAfterAssessment(site.id, digest.platform, analysis.scores)
-            assessments.markReady(id, usage)
+            assessments.markReady(id)
             if (emailSender != null && users != null) {
                 try {
                     users.findById(assessment.userId)?.let { owner ->

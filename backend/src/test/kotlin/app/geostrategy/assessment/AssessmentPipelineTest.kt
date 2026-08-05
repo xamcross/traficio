@@ -6,6 +6,7 @@ import app.geostrategy.claude.CannedClaudeClient
 import app.geostrategy.claude.AnalysisResult
 import app.geostrategy.claude.ClaudeClient
 import app.geostrategy.claude.ClaudeResponse
+import app.geostrategy.claude.ClaudeUsage
 import app.geostrategy.claude.PlanResult
 import app.geostrategy.crawl.Crawler
 import app.geostrategy.crawl.CrawlDigest
@@ -125,7 +126,7 @@ class AssessmentPipelineTest {
         val digest = crawler.crawl("https://example.com")
         f.assessments.saveCrawl(f.assessment.id, digest)
         val analysis = canned.analyze(digest).value
-        f.assessments.saveAnalysis(f.assessment.id, analysis)
+        f.assessments.saveAnalysis(f.assessment.id, analysis, ClaudeUsage(0, 0))
         f.plans.insert(buildPlanDoc(f.assessment, canned.plan(analysis, digest.platform).value))
 
         val throwingClaude = object : ClaudeClient {
@@ -140,5 +141,56 @@ class AssessmentPipelineTest {
         val planCount = db.getCollection<PlanDoc>("plans")
             .countDocuments(Filters.eq("assessmentId", f.assessment.id))
         assertEquals(1L, planCount)
+    }
+
+    @Test
+    fun `usage tokens and cost accumulate across the analyze and plan calls`() = runBlocking {
+        val db = TestMongo.freshDb()
+        val f = fixtures(db)
+        val meteredClaude = object : ClaudeClient {
+            val real = CannedClaudeClient()
+            override suspend fun analyze(digest: CrawlDigest): ClaudeResponse<AnalysisResult> =
+                ClaudeResponse(real.analyze(digest).value, ClaudeUsage(1000, 500))
+            override suspend fun plan(analysis: AnalysisResult, platform: String): ClaudeResponse<PlanResult> =
+                ClaudeResponse(real.plan(analysis, platform).value, ClaudeUsage(1000, 500))
+        }
+        val crawler = Crawler(MapFetcher(mapOf("https://example.com" to homeHtml)))
+        val pipeline = AssessmentPipeline(f.assessments, f.sites, f.plans, crawler, meteredClaude)
+        f.jobs.enqueue("assessment", Document("assessmentId", f.assessment.id))
+        pipeline.handle(f.jobs.claim()!!)
+
+        val done = f.assessments.findById(f.assessment.id)!!
+        assertEquals("ready", done.status)
+        assertEquals(2000L, done.inputTokens)
+        assertEquals(1000L, done.outputTokens)
+        assertEquals(2000 * 5.0 / 1_000_000 + 1000 * 25.0 / 1_000_000, done.costUsd, 1e-9)
+    }
+
+    @Test
+    fun `usage tokens persist and cost is recomputed even when a retry makes zero claude calls`() = runBlocking {
+        val db = TestMongo.freshDb()
+        val f = fixtures(db)
+        // seed all checkpoints as a prior attempt would have left them, with usage already recorded
+        val canned = CannedClaudeClient()
+        val crawler = Crawler(MapFetcher(mapOf("https://example.com" to homeHtml)))
+        val digest = crawler.crawl("https://example.com")
+        f.assessments.saveCrawl(f.assessment.id, digest)
+        val analysis = canned.analyze(digest).value
+        f.assessments.saveAnalysis(f.assessment.id, analysis, ClaudeUsage(1000, 500))
+        f.plans.insert(buildPlanDoc(f.assessment, canned.plan(analysis, digest.platform).value))
+
+        val throwingClaude = object : ClaudeClient {
+            override suspend fun analyze(digest: CrawlDigest) = error("analyze must not be called")
+            override suspend fun plan(analysis: AnalysisResult, platform: String) = error("plan must not be called")
+        }
+        val pipeline = AssessmentPipeline(f.assessments, f.sites, f.plans, crawler, throwingClaude)
+        f.jobs.enqueue("assessment", Document("assessmentId", f.assessment.id))
+        pipeline.handle(f.jobs.claim()!!)
+
+        val done = f.assessments.findById(f.assessment.id)!!
+        assertEquals("ready", done.status)
+        assertEquals(1000L, done.inputTokens)
+        assertEquals(500L, done.outputTokens)
+        assertEquals(1000 * 5.0 / 1_000_000 + 500 * 25.0 / 1_000_000, done.costUsd, 1e-9)
     }
 }

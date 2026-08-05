@@ -58,6 +58,7 @@ fun main() {
     val httpClient = HttpClient(CIO) {
         install(ClientContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
     }
+    val crawlClient = HttpClient(CIO) { followRedirects = false }
     val deps = AppDeps(
         config = config,
         users = UserRepository(db),
@@ -81,7 +82,7 @@ fun main() {
         ?: CannedClaudeClient().also {
             claudeLog.warn("ANTHROPIC_API_KEY is not set. Assessments use the canned Claude client.")
         }
-    val crawler = Crawler(HttpFetcher(httpClient))
+    val crawler = Crawler(HttpFetcher(crawlClient, guard = SsrfGuard()))
     val pipeline = AssessmentPipeline(
         deps.assessments, deps.sites, deps.plans, crawler, claude,
         emailSender = deps.emailSender, users = deps.users,

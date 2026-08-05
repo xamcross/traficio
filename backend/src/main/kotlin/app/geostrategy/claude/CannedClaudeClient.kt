@@ -9,6 +9,7 @@ import java.net.URI
  */
 class CannedClaudeClient : ClaudeClient {
     private val zero = ClaudeUsage(0, 0)
+    private val severityOrder = mapOf("high" to 0, "medium" to 1, "low" to 2)
 
     override suspend fun analyze(digest: CrawlDigest): ClaudeResponse<AnalysisResult> {
         val findings = mutableListOf<Finding>()
@@ -45,7 +46,7 @@ class CannedClaudeClient : ClaudeClient {
             "webflow" -> "Log in to Webflow and open your project."
             else -> "Open the folder or tool you use to edit your website."
         }
-        val tasks = analysis.findings.take(20).map { f ->
+        val tasks = analysis.findings.sortedBy { severityOrder[it.severity] ?: 3 }.take(20).map { f ->
             PlanTaskGen(
                 title = "Fix: ${f.id.substringBefore(':').replace('-', ' ')}",
                 category = f.category,
