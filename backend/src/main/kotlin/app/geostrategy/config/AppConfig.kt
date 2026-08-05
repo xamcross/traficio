@@ -25,6 +25,9 @@ data class AppConfig(
     val anthropicApiKey: String?,
     val claudeModel: String,
     val tierLimits: TierLimits,
+    val freemiusSecretKey: String?,
+    val freemiusProPlanId: String?,
+    val freemiusSignatureHeader: String,
 ) {
     companion object {
         fun fromEnv(env: Map<String, String> = System.getenv()): AppConfig {
@@ -49,6 +52,9 @@ data class AppConfig(
                     proMaxSites = env["PRO_MAX_SITES"]?.toInt() ?: 5,
                     proAssessmentsPerMonth = env["PRO_ASSESSMENTS_PER_MONTH"]?.toInt() ?: 10,
                 ),
+                freemiusSecretKey = env["FREEMIUS_SECRET_KEY"],
+                freemiusProPlanId = env["FREEMIUS_PRO_PLAN_ID"],
+                freemiusSignatureHeader = env["FREEMIUS_SIGNATURE_HEADER"] ?: "X-Signature",
             )
         }
     }
