@@ -8,9 +8,18 @@ import com.mongodb.client.model.Updates.set
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.toList
 import org.bson.codecs.pojo.annotations.BsonId
 import org.bson.types.ObjectId
 import java.time.Instant
+
+data class FreemiusInfo(
+    val userId: String? = null,
+    val licenseId: String? = null,
+    val planId: String? = null,
+    val subscriptionStatus: String? = null,
+    val expiresAt: Instant? = null,
+)
 
 data class User(
     @BsonId val id: ObjectId = ObjectId(),
@@ -19,6 +28,7 @@ data class User(
     val googleId: String? = null,
     val emailVerified: Boolean = false,
     val tier: String = "free",
+    val freemius: FreemiusInfo? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
 )
@@ -53,4 +63,13 @@ class UserRepository(db: MongoDatabase) {
     suspend fun linkGoogle(id: ObjectId, googleId: String) {
         col.updateOne(eq("_id", id), combine(set("googleId", googleId), set("updatedAt", Instant.now())))
     }
+
+    suspend fun setBilling(id: ObjectId, tier: String, info: FreemiusInfo?) {
+        col.updateOne(
+            eq("_id", id),
+            combine(set("tier", tier), set("freemius", info), set("updatedAt", Instant.now())),
+        )
+    }
+
+    suspend fun listByTier(tier: String): List<User> = col.find(eq("tier", tier)).toList()
 }
