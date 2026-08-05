@@ -1,5 +1,6 @@
 package app.geostrategy.jobs
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -24,6 +25,8 @@ class JobWorker(
                 val handler = handlers[job.type] ?: error("no handler registered for job type '${job.type}'")
                 handler(job)
                 queue.complete(job.id)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 log.warn("job {} ({}) attempt {} failed: {}", job.id, job.type, job.attempts, e.message)
                 queue.fail(job.id, e.message ?: "unknown error")

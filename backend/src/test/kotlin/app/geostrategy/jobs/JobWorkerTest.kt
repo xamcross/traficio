@@ -10,6 +10,7 @@ import kotlinx.coroutines.withTimeout
 import org.bson.Document
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class JobWorkerTest {
     private suspend fun awaitStatus(q: JobQueue, id: org.bson.types.ObjectId, status: String) =
@@ -50,5 +51,18 @@ class JobWorkerTest {
         val handle = worker.start(CoroutineScope(Dispatchers.Default))
         awaitStatus(q, j.id, "failed")
         handle.cancelAndJoin()
+    }
+
+    @Test
+    fun `cancellation does not mark job as failed`() = runBlocking {
+        val q = JobQueue(TestMongo.freshDb())
+        val worker = JobWorker(q, mapOf("slow" to { _ -> delay(60_000) }), pollMillis = 50)
+        val j = q.enqueue("slow", Document())
+        val handle = worker.start(CoroutineScope(Dispatchers.Default))
+        awaitStatus(q, j.id, "running")
+        handle.cancelAndJoin()
+        val job = q.findById(j.id)!!
+        assertEquals("running", job.status)
+        assertNull(job.error)
     }
 }
