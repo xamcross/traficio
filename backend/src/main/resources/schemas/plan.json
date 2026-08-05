@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["tasks"],
+  "properties": {
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "category", "impact", "effortMinutes", "whyItMatters", "steps", "doneCheck", "findingId"],
+        "properties": {
+          "title": { "type": "string" },
+          "category": { "type": "string", "enum": ["seo", "aeo", "geo"] },
+          "impact": { "type": "string", "enum": ["high", "medium", "low"] },
+          "effortMinutes": { "type": "integer" },
+          "whyItMatters": { "type": "string" },
+          "steps": { "type": "array", "items": { "type": "string" } },
+          "doneCheck": { "type": "string" },
+          "findingId": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

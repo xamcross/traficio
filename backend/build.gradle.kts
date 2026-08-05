@@ -25,6 +25,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     implementation("ch.qos.logback:logback-classic:1.5.18")
     implementation("org.jsoup:jsoup:1.18.3")
+    implementation("com.anthropic:anthropic-java:2.34.0")
 
     testImplementation(kotlin("test"))
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")

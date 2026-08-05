@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["scores", "findings"],
+  "properties": {
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seo", "aeo", "geo"],
+      "properties": {
+        "seo": { "type": "integer" },
+        "aeo": { "type": "integer" },
+        "geo": { "type": "integer" }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "category", "severity", "evidence", "affectedPages"],
+        "properties": {
+          "id": { "type": "string" },
+          "category": { "type": "string", "enum": ["seo", "aeo", "geo"] },
+          "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+          "evidence": { "type": "string" },
+          "affectedPages": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}
