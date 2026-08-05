@@ -4,6 +4,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.application.log
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
 import kotlinx.serialization.Serializable
@@ -21,6 +22,12 @@ fun Application.installErrorHandling() {
     install(StatusPages) {
         exception<AppException> { call, e ->
             call.respond(e.status, ApiError(e.code, e.message))
+        }
+        exception<BadRequestException> { call, _ ->
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ApiError("invalid_request", "We couldn't read that request. Please check the data and try again."),
+            )
         }
         exception<Throwable> { call, e ->
             call.application.log.error("Unhandled exception", e)

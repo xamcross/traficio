@@ -103,6 +103,26 @@ class GoogleAuthTest {
     }
 
     @Test
+    fun `callback rejects an unverified google email with no existing account and creates nothing`() = testApplication {
+        val db = TestMongo.freshDb()
+        application {
+            appModule(testDeps(db, google = FakeGoogleIdentityClient(verified = false)))
+        }
+        val http = createClient { followRedirects = false; install(HttpCookies) }
+        val state = Url(http.get("/v1/auth/google/start").headers[HttpHeaders.Location]!!).parameters["state"]!!
+        val cb = http.get("/v1/auth/google/callback?code=good-code&state=$state")
+
+        assertEquals(HttpStatusCode.Forbidden, cb.status)
+        assertTrue(cb.bodyAsText().contains("google_email_unverified"))
+
+        val user = runBlocking { UserRepository(db).findByEmail("ada@example.com") }
+        assertEquals(null, user)
+
+        // no session was created on the client's cookie jar
+        assertEquals(HttpStatusCode.Unauthorized, http.get("/v1/me").status)
+    }
+
+    @Test
     fun `callback with mismatched state is rejected`() = testApplication {
         application { appModule(testDeps(TestMongo.freshDb(), google = FakeGoogleIdentityClient())) }
         val http = createClient { followRedirects = false; install(HttpCookies) }

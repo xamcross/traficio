@@ -5,8 +5,12 @@ import app.geostrategy.TestMongo
 import app.geostrategy.appModule
 import app.geostrategy.testDeps
 import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.server.application.Application
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
@@ -40,5 +44,16 @@ class ErrorsTest {
         assertEquals(HttpStatusCode.InternalServerError, res.status)
         assertTrue(res.bodyAsText().contains("internal_error"))
         assertTrue(!res.bodyAsText().contains("secret detail"))
+    }
+
+    @Test
+    fun `malformed json body maps to 400 invalid_request`() = testApplication {
+        application { appModule(testDeps(TestMongo.freshDb())) }
+        val res = client.post("/v1/auth/login") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"not":"valid"}""")
+        }
+        assertEquals(HttpStatusCode.BadRequest, res.status)
+        assertTrue(res.bodyAsText().contains("invalid_request"))
     }
 }
