@@ -1,5 +1,8 @@
 package app.geostrategy
 
+import app.geostrategy.assessment.AssessmentRepository
+import app.geostrategy.assessment.SsrfGuard
+import app.geostrategy.assessment.assessmentRoutes
 import app.geostrategy.auth.OneTimeTokenService
 import app.geostrategy.auth.PasswordHasher
 import app.geostrategy.auth.RealGoogleIdentityClient
@@ -54,6 +57,8 @@ fun main() {
         } else null,
         sites = SiteRepository(db),
         jobs = JobQueue(db),
+        assessments = AssessmentRepository(db),
+        ssrf = SsrfGuard(),
     )
     embeddedServer(Netty, port = config.port) { appModule(deps) }.start(wait = true)
 }
@@ -68,5 +73,6 @@ fun Application.appModule(deps: AppDeps) {
         authRoutes(deps)
         googleAuthRoutes(deps)
         siteRoutes(deps)
+        assessmentRoutes(deps)
     }
 }

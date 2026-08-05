@@ -1,5 +1,7 @@
 package app.geostrategy
 
+import app.geostrategy.assessment.AssessmentRepository
+import app.geostrategy.assessment.SsrfGuard
 import app.geostrategy.auth.GoogleIdentityClient
 import app.geostrategy.auth.OneTimeTokenService
 import app.geostrategy.auth.PasswordHasher
@@ -20,4 +22,6 @@ class AppDeps(
     val googleIdentity: GoogleIdentityClient?,
     val sites: SiteRepository,
     val jobs: JobQueue,
+    val assessments: AssessmentRepository,
+    val ssrf: SsrfGuard,
 )

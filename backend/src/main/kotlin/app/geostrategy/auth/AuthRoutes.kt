@@ -75,6 +75,15 @@ fun Route.authRoutes(deps: AppDeps) {
         call.respond(HttpStatusCode.NoContent)
     }
 
+    post("/v1/auth/resend-verification") {
+        val user = call.requireUser(deps)
+        if (!user.emailVerified) {
+            val token = deps.tokens.issue(user.id, TokenPurpose.VERIFY_EMAIL, Duration.ofHours(24))
+            deps.emailSender.send(user.email, "Confirm your GeoStrategy email", verifyEmailHtml(deps.config.appUrl, token))
+        }
+        call.respond(HttpStatusCode.Accepted, OkResponse())
+    }
+
     post("/v1/auth/password-reset/request") {
         val body = call.receive<ResetRequest>()
         val user = deps.users.findByEmail(body.email.trim().lowercase())

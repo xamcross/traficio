@@ -1,5 +1,7 @@
 package app.geostrategy
 
+import app.geostrategy.assessment.AssessmentRepository
+import app.geostrategy.assessment.SsrfGuard
 import app.geostrategy.auth.GoogleIdentityClient
 import app.geostrategy.auth.OneTimeTokenService
 import app.geostrategy.auth.PasswordHasher
@@ -60,6 +62,8 @@ fun testDeps(
     googleIdentity = google,
     sites = SiteRepository(db),
     jobs = JobQueue(db),
+    assessments = AssessmentRepository(db),
+    ssrf = SsrfGuard { listOf(java.net.InetAddress.getByName("93.184.216.34")) },
 )
 
 suspend fun registerAndLogin(
@@ -74,6 +78,20 @@ suspend fun registerAndLogin(
     http.post("/v1/auth/login") {
         contentType(ContentType.Application.Json)
         setBody("""{"email":"$email","password":"$password"}""")
+    }
+}
+
+suspend fun registerVerifyLogin(
+    http: HttpClient,
+    emails: RecordingEmailSender,
+    email: String,
+    password: String = "correct-horse",
+) {
+    registerAndLogin(http, email, password)
+    val token = extractToken(emails.sent.last().html)
+    http.post("/v1/auth/verify-email") {
+        contentType(ContentType.Application.Json)
+        setBody("""{"token":"$token"}""")
     }
 }
 
