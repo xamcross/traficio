@@ -1,6 +1,8 @@
 package app.geostrategy.assessment
 
+import app.geostrategy.claude.AnalysisResult
 import app.geostrategy.claude.ClaudeClient
+import app.geostrategy.claude.ClaudeUsage
 import app.geostrategy.crawl.Crawler
 import app.geostrategy.http.AppException
 import app.geostrategy.jobs.Job
@@ -37,16 +39,28 @@ class AssessmentPipeline(
                 assessments.markFailed(id, "js_only_site", "Your site needs JavaScript to show its content, so we can't read it yet. If you use a website builder, make sure your pages contain real text.")
                 return
             }
-            assessments.setStatus(id, "analyzing")
-            val analysis = claude.analyze(digest)
-            assessments.saveAnalysis(id, analysis.value)
+            val saved = assessments.findById(id) ?: return
+            val analysis: AnalysisResult
+            var usage = ClaudeUsage(0, 0)
+            if (saved.scores != null) {
+                analysis = AnalysisResult(saved.scores, saved.findings)
+            } else {
+                assessments.setStatus(id, "analyzing")
+                val result = claude.analyze(digest)
+                analysis = result.value
+                usage += result.usage
+                assessments.saveAnalysis(id, analysis)
+            }
 
             assessments.setStatus(id, "planning")
-            val planResult = claude.plan(analysis.value, digest.platform)
-            plans.insert(buildPlanDoc(assessment, planResult.value))
+            if (plans.findByAssessment(id) == null) {
+                val planResult = claude.plan(analysis, digest.platform)
+                plans.insert(buildPlanDoc(saved, planResult.value))
+                usage += planResult.usage
+            }
 
-            sites.updateAfterAssessment(site.id, digest.platform, analysis.value.scores)
-            assessments.markReady(id, analysis.usage + planResult.usage)
+            sites.updateAfterAssessment(site.id, digest.platform, analysis.scores)
+            assessments.markReady(id, usage)
         } catch (e: CancellationException) {
             throw e
         } catch (e: AppException) {

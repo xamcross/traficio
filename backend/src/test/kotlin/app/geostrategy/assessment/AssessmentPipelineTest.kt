@@ -10,9 +10,12 @@ import app.geostrategy.claude.PlanResult
 import app.geostrategy.crawl.Crawler
 import app.geostrategy.crawl.CrawlDigest
 import app.geostrategy.jobs.JobQueue
+import app.geostrategy.plans.PlanDoc
 import app.geostrategy.plans.PlanRepository
+import app.geostrategy.plans.buildPlanDoc
 import app.geostrategy.sites.Site
 import app.geostrategy.sites.SiteRepository
+import com.mongodb.client.model.Filters
 import kotlinx.coroutines.runBlocking
 import org.bson.Document
 import org.bson.types.ObjectId
@@ -110,5 +113,32 @@ class AssessmentPipelineTest {
         val failed = f.assessments.findById(f.assessment.id)!!
         assertEquals("failed", failed.status)
         assertEquals("js_only_site", failed.errorCode)
+    }
+
+    @Test
+    fun `retry after saved analysis and inserted plan calls claude zero times`() = runBlocking {
+        val db = TestMongo.freshDb()
+        val f = fixtures(db)
+        // seed all checkpoints as a prior attempt would have left them
+        val canned = CannedClaudeClient()
+        val crawler = Crawler(MapFetcher(mapOf("https://example.com" to homeHtml)))
+        val digest = crawler.crawl("https://example.com")
+        f.assessments.saveCrawl(f.assessment.id, digest)
+        val analysis = canned.analyze(digest).value
+        f.assessments.saveAnalysis(f.assessment.id, analysis)
+        f.plans.insert(buildPlanDoc(f.assessment, canned.plan(analysis, digest.platform).value))
+
+        val throwingClaude = object : ClaudeClient {
+            override suspend fun analyze(digest: CrawlDigest) = error("analyze must not be called")
+            override suspend fun plan(analysis: AnalysisResult, platform: String) = error("plan must not be called")
+        }
+        val pipeline = AssessmentPipeline(f.assessments, f.sites, f.plans, crawler, throwingClaude)
+        f.jobs.enqueue("assessment", Document("assessmentId", f.assessment.id))
+        pipeline.handle(f.jobs.claim()!!)
+
+        assertEquals("ready", f.assessments.findById(f.assessment.id)!!.status)
+        val planCount = db.getCollection<PlanDoc>("plans")
+            .countDocuments(Filters.eq("assessmentId", f.assessment.id))
+        assertEquals(1L, planCount)
     }
 }
