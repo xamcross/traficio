@@ -6,6 +6,7 @@ import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.HttpHeaders
 import io.ktor.utils.io.readRemaining
+import kotlinx.coroutines.CancellationException
 import kotlinx.io.readString
 
 data class FetchResult(val url: String, val status: Int, val contentType: String?, val body: String)
@@ -21,6 +22,8 @@ class HttpFetcher(private val http: HttpClient, private val maxBytes: Int = 2_00
         }
         val body = res.bodyAsChannel().readRemaining(maxBytes.toLong()).readString()
         FetchResult(url, res.status.value, res.headers[HttpHeaders.ContentType], body)
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         null
     }
