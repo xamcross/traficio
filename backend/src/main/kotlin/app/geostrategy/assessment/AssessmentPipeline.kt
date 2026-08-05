@@ -57,7 +57,7 @@ class AssessmentPipeline(
             }
 
             val previousPlan = plans.latestFor(site.id)
-            if (previousPlan != null) {
+            if (previousPlan != null && previousPlan.assessmentId != id) {
                 val openFindingIds = analysis.findings.map { it.id }.toSet()
                 val fixed = previousPlan.tasks
                     .filter { it.findingId != null && it.findingId !in openFindingIds && it.status != "verified" }
@@ -75,12 +75,18 @@ class AssessmentPipeline(
             sites.updateAfterAssessment(site.id, digest.platform, analysis.scores)
             assessments.markReady(id, usage)
             if (emailSender != null && users != null) {
-                users.findById(assessment.userId)?.let { owner ->
-                    emailSender.send(
-                        owner.email,
-                        "Your GeoStrategy plan is ready",
-                        "<p>Good news! We finished checking your site.</p><p>Log in to see your scores and your step-by-step plan.</p>",
-                    )
+                try {
+                    users.findById(assessment.userId)?.let { owner ->
+                        emailSender.send(
+                            owner.email,
+                            "Your GeoStrategy plan is ready",
+                            "<p>Good news! We finished checking your site.</p><p>Log in to see your scores and your step-by-step plan.</p>",
+                        )
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    log.warn("ready email for assessment {} failed: {}", id, e.message)
                 }
             }
         } catch (e: CancellationException) {
