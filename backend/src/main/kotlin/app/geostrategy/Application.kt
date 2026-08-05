@@ -9,6 +9,7 @@ import app.geostrategy.auth.googleAuthRoutes
 import app.geostrategy.config.AppConfig
 import app.geostrategy.email.LoggingEmailSender
 import app.geostrategy.email.ResendEmailSender
+import app.geostrategy.http.installCors
 import app.geostrategy.http.installErrorHandling
 import app.geostrategy.persistence.ensureIndexes
 import app.geostrategy.users.UserRepository
@@ -56,6 +57,7 @@ fun Application.appModule(deps: AppDeps) {
     install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; encodeDefaults = true }) }
     install(CallLogging)
     installErrorHandling()
+    installCors(deps.config)
     routing {
         get("/healthz") { call.respondText("ok") }
         authRoutes(deps)
