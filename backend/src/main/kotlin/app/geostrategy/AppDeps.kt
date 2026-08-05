@@ -6,6 +6,7 @@ import app.geostrategy.auth.PasswordHasher
 import app.geostrategy.auth.SessionService
 import app.geostrategy.config.AppConfig
 import app.geostrategy.email.EmailSender
+import app.geostrategy.jobs.JobQueue
 import app.geostrategy.sites.SiteRepository
 import app.geostrategy.users.UserRepository
 
@@ -18,4 +19,5 @@ class AppDeps(
     val emailSender: EmailSender,
     val googleIdentity: GoogleIdentityClient?,
     val sites: SiteRepository,
+    val jobs: JobQueue,
 )

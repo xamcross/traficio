@@ -11,6 +11,7 @@ import app.geostrategy.email.LoggingEmailSender
 import app.geostrategy.email.ResendEmailSender
 import app.geostrategy.http.installCors
 import app.geostrategy.http.installErrorHandling
+import app.geostrategy.jobs.JobQueue
 import app.geostrategy.persistence.ensureIndexes
 import app.geostrategy.sites.SiteRepository
 import app.geostrategy.sites.siteRoutes
@@ -52,6 +53,7 @@ fun main() {
             RealGoogleIdentityClient(config.googleClientId, config.googleClientSecret, httpClient)
         } else null,
         sites = SiteRepository(db),
+        jobs = JobQueue(db),
     )
     embeddedServer(Netty, port = config.port) { appModule(deps) }.start(wait = true)
 }

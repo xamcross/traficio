@@ -6,6 +6,7 @@ import app.geostrategy.auth.PasswordHasher
 import app.geostrategy.auth.SessionService
 import app.geostrategy.config.AppConfig
 import app.geostrategy.email.EmailSender
+import app.geostrategy.jobs.JobQueue
 import app.geostrategy.persistence.ensureIndexes
 import app.geostrategy.sites.SiteRepository
 import app.geostrategy.users.UserRepository
@@ -58,6 +59,7 @@ fun testDeps(
     emailSender = email,
     googleIdentity = google,
     sites = SiteRepository(db),
+    jobs = JobQueue(db),
 )
 
 suspend fun registerAndLogin(
