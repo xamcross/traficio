@@ -26,7 +26,7 @@ data class PageDigest(
 
 fun extractPageSignals(url: String, html: String): PageDigest {
     val doc = Jsoup.parse(html, url)
-    val host = URI(url).host?.lowercase()
+    val host = try { URI(url).host?.lowercase() } catch (e: Exception) { null }
     val text = doc.body()?.text() ?: ""
     val wordCount = text.split(Regex("\\s+")).count { it.isNotBlank() }
     val links = doc.select("a[href]").mapNotNull {

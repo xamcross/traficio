@@ -13,6 +13,7 @@ class PageSignalsTest {
           <meta name="description" content="Fresh bread daily in Warsaw.">
           <link rel="canonical" href="https://example.com/">
           <meta property="og:title" content="Ada's Bakery">
+          <meta name="robots" content="noindex, follow">
           <script type="application/ld+json">{"@type":"LocalBusiness","name":"Ada's"}</script>
         </head><body>
           <h1>Welcome</h1><h2>Our bread</h2><h2>Visit us</h2>
@@ -25,6 +26,7 @@ class PageSignalsTest {
     @Test
     fun `extracts the full signal set`() {
         val d = extractPageSignals("https://example.com", richHtml)
+        assertEquals("https://example.com", d.url)
         assertEquals("Ada's Bakery", d.title)
         assertEquals("Fresh bread daily in Warsaw.", d.metaDescription)
         assertEquals(1, d.h1Count)
@@ -32,6 +34,7 @@ class PageSignalsTest {
         assertEquals("https://example.com/", d.canonical)
         assertTrue(d.hasOgTags)
         assertEquals(listOf("LocalBusiness"), d.jsonLdTypes)
+        assertEquals("noindex, follow", d.robotsMeta)
         assertEquals(2, d.imgCount)
         assertEquals(1, d.imgWithAltCount)
         assertTrue(d.wordCount > 50)
@@ -45,6 +48,7 @@ class PageSignalsTest {
         val d = extractPageSignals("https://example.com", """<html><head></head><body><div id="root"></div><script src="app.js"></script></body></html>""")
         assertNull(d.title)
         assertNull(d.metaDescription)
+        assertNull(d.robotsMeta)
         assertTrue(d.looksJsOnly)
     }
 
@@ -57,5 +61,11 @@ class PageSignalsTest {
         assertEquals("shopify", detectPlatform("""<link href="https://cdn.shopify.com/x.css">"""))
         assertEquals("webflow", detectPlatform("""<html data-wf-domain="x" class="w-mod-js">"""))
         assertEquals("custom", detectPlatform("<html><body>plain</body></html>"))
+    }
+
+    @Test
+    fun `malformed URL with spaces does not throw`() {
+        val d = extractPageSignals("https://exa mple.com/bad url", richHtml)
+        assertEquals("Ada's Bakery", d.title)
     }
 }
