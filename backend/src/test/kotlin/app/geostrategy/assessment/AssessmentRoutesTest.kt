@@ -47,7 +47,7 @@ class AssessmentRoutesTest {
     }
 
     @Test
-    fun `verified user submits, gets 202, job is queued, second submit hits quota`() = testApplication {
+    fun `verified user submits, gets 202, job is queued, second submit needs pro`() = testApplication {
         val db = TestMongo.freshDb()
         val emails = RecordingEmailSender()
         val deps = testDeps(db, email = emails)
@@ -63,7 +63,7 @@ class AssessmentRoutesTest {
 
         val second = http.post("/v1/sites/$siteId/assessments")
         assertEquals(HttpStatusCode.Forbidden, second.status)
-        assertTrue(second.bodyAsText().contains("quota_exceeded"))
+        assertTrue(second.bodyAsText().contains("upgrade_required"))
     }
 
     @Test

@@ -53,8 +53,9 @@ fun testDeps(
     db: MongoDatabase,
     email: EmailSender = RecordingEmailSender(),
     google: GoogleIdentityClient? = null,
+    env: Map<String, String> = emptyMap(),
 ): AppDeps = AppDeps(
-    config = AppConfig.fromEnv(emptyMap()),
+    config = AppConfig.fromEnv(env),
     users = UserRepository(db),
     tokens = OneTimeTokenService(db),
     sessions = SessionService(db),

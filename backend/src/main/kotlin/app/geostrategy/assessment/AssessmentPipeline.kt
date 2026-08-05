@@ -4,11 +4,13 @@ import app.geostrategy.claude.AnalysisResult
 import app.geostrategy.claude.ClaudeClient
 import app.geostrategy.claude.ClaudeUsage
 import app.geostrategy.crawl.Crawler
+import app.geostrategy.email.EmailSender
 import app.geostrategy.http.AppException
 import app.geostrategy.jobs.Job
 import app.geostrategy.plans.PlanRepository
 import app.geostrategy.plans.buildPlanDoc
 import app.geostrategy.sites.SiteRepository
+import app.geostrategy.users.UserRepository
 import kotlinx.coroutines.CancellationException
 import org.slf4j.LoggerFactory
 
@@ -19,6 +21,8 @@ class AssessmentPipeline(
     private val crawler: Crawler,
     private val claude: ClaudeClient,
     private val maxJobAttempts: Int = 2,
+    private val emailSender: EmailSender? = null,
+    private val users: UserRepository? = null,
 ) {
     private val log = LoggerFactory.getLogger(AssessmentPipeline::class.java)
 
@@ -52,6 +56,15 @@ class AssessmentPipeline(
                 assessments.saveAnalysis(id, analysis)
             }
 
+            val previousPlan = plans.latestFor(site.id)
+            if (previousPlan != null) {
+                val openFindingIds = analysis.findings.map { it.id }.toSet()
+                val fixed = previousPlan.tasks
+                    .filter { it.findingId != null && it.findingId !in openFindingIds && it.status != "verified" }
+                    .map { it.taskId }
+                plans.markTasksVerified(previousPlan.id, fixed)
+            }
+
             assessments.setStatus(id, "planning")
             if (plans.findByAssessment(id) == null) {
                 val planResult = claude.plan(analysis, digest.platform)
@@ -61,6 +74,15 @@ class AssessmentPipeline(
 
             sites.updateAfterAssessment(site.id, digest.platform, analysis.scores)
             assessments.markReady(id, usage)
+            if (emailSender != null && users != null) {
+                users.findById(assessment.userId)?.let { owner ->
+                    emailSender.send(
+                        owner.email,
+                        "Your GeoStrategy plan is ready",
+                        "<p>Good news! We finished checking your site.</p><p>Log in to see your scores and your step-by-step plan.</p>",
+                    )
+                }
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: AppException) {

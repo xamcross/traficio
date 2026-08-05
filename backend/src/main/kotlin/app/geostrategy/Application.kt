@@ -82,7 +82,10 @@ fun main() {
             claudeLog.warn("ANTHROPIC_API_KEY is not set. Assessments use the canned Claude client.")
         }
     val crawler = Crawler(HttpFetcher(httpClient))
-    val pipeline = AssessmentPipeline(deps.assessments, deps.sites, deps.plans, crawler, claude)
+    val pipeline = AssessmentPipeline(
+        deps.assessments, deps.sites, deps.plans, crawler, claude,
+        emailSender = deps.emailSender, users = deps.users,
+    )
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     JobWorker(deps.jobs, mapOf("assessment" to pipeline::handle)).start(appScope)
 

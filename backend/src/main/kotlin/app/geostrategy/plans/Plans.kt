@@ -77,4 +77,15 @@ class PlanRepository(db: MongoDatabase) {
         ))
         return doc.copy(tasks = updated, updatedAt = now)
     }
+
+    suspend fun markTasksVerified(planId: ObjectId, taskIds: List<String>) {
+        if (taskIds.isEmpty()) return
+        val doc = findById(planId) ?: return
+        val now = Instant.now()
+        val updated = doc.tasks.map { if (it.taskId in taskIds) it.copy(status = "verified") else it }
+        col.updateOne(eq("_id", planId), Updates.combine(
+            Updates.set("tasks", updated),
+            Updates.set("updatedAt", now),
+        ))
+    }
 }

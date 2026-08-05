@@ -29,3 +29,23 @@ copy the `token=` value from the log line to complete flows manually.
    as an authorized redirect URI on the OAuth client.
 6. MongoDB Atlas: allow the Fly.io egress IPs (or 0.0.0.0/0 + strong credentials
    to start), database user with readWrite on `geostrategy`.
+
+## Assessment engine
+
+The engine crawls a site, then asks Claude for an analysis and a plan.
+Set these environment variables:
+
+- `ANTHROPIC_API_KEY` — the Anthropic API key. If you do not set it, the app
+  uses a canned client. The canned client gives deterministic results and
+  makes no network calls. Use it for local development.
+- `CLAUDE_MODEL` — the model id. The default is `claude-opus-5`.
+- `FREE_MAX_SITES` (default 1), `FREE_ASSESSMENTS_PER_MONTH` (default 1),
+  `PRO_MAX_SITES` (default 5), `PRO_ASSESSMENTS_PER_MONTH` (default 10) —
+  the tier limits.
+
+How an assessment runs:
+1. The user sends `POST /v1/sites/{id}/assessments`.
+2. The API checks the email verification, the tier, and the quota.
+3. A job goes on the queue. The worker picks it up.
+4. The worker crawls the site, calls Claude two times, and stores the plan.
+5. The client follows the progress on `GET /v1/assessments/{id}/events` (SSE).

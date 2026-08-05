@@ -22,6 +22,9 @@ import java.time.Duration
 import java.time.Instant
 
 @Serializable
+data class AssessmentListResponse(val assessments: List<AssessmentDto>)
+
+@Serializable
 data class AssessmentDto(
     val id: String,
     val siteId: String,
@@ -50,6 +53,10 @@ fun Route.assessmentRoutes(deps: AppDeps) {
             ?.takeIf { it.userId == user.id }
             ?: throw AppException(HttpStatusCode.NotFound, "not_found", "We couldn't find that site.")
 
+        if (deps.assessments.anyNonFailedFor(site.id) && user.tier != "pro") {
+            throw AppException(HttpStatusCode.Forbidden, "upgrade_required", "Re-checking your site is a Pro feature. Upgrade to track your progress over time.")
+        }
+
         val limit = deps.config.tierLimits.assessmentsPerMonthFor(user.tier)
         val used = deps.assessments.countNonFailedForUserSince(user.id, Instant.now().minus(Duration.ofDays(30)))
         if (used >= limit) {
@@ -63,6 +70,17 @@ fun Route.assessmentRoutes(deps: AppDeps) {
         val assessment = deps.assessments.insert(Assessment(siteId = site.id, userId = user.id, createdAt = now, updatedAt = now))
         deps.jobs.enqueue("assessment", Document("assessmentId", assessment.id))
         call.respond(HttpStatusCode.Accepted, assessment.toDto())
+    }
+
+    get("/v1/sites/{siteId}/assessments") {
+        val user = call.requireUser(deps)
+        val site = deps.sites.findById(call.parameters["siteId"]!!.toObjectIdOr404())
+            ?.takeIf { it.userId == user.id }
+            ?: throw AppException(HttpStatusCode.NotFound, "not_found", "We couldn't find that site.")
+        if (user.tier != "pro") {
+            throw AppException(HttpStatusCode.Forbidden, "upgrade_required", "Score history is a Pro feature. Upgrade to see your progress over time.")
+        }
+        call.respond(AssessmentListResponse(deps.assessments.listFor(site.id).map { it.toDto() }))
     }
 
     get("/v1/assessments/{id}") {
