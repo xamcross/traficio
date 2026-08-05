@@ -7,9 +7,15 @@ import app.geostrategy.auth.SessionService
 import app.geostrategy.config.AppConfig
 import app.geostrategy.email.EmailSender
 import app.geostrategy.persistence.ensureIndexes
+import app.geostrategy.sites.SiteRepository
 import app.geostrategy.users.UserRepository
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
+import io.ktor.client.HttpClient
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import kotlinx.coroutines.runBlocking
 import org.testcontainers.containers.MongoDBContainer
 import java.util.UUID
@@ -51,4 +57,20 @@ fun testDeps(
     passwordHasher = PasswordHasher(),
     emailSender = email,
     googleIdentity = google,
+    sites = SiteRepository(db),
 )
+
+suspend fun registerAndLogin(
+    http: HttpClient,
+    email: String,
+    password: String = "correct-horse",
+) {
+    http.post("/v1/auth/register") {
+        contentType(ContentType.Application.Json)
+        setBody("""{"email":"$email","password":"$password"}""")
+    }
+    http.post("/v1/auth/login") {
+        contentType(ContentType.Application.Json)
+        setBody("""{"email":"$email","password":"$password"}""")
+    }
+}

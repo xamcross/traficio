@@ -1,5 +1,15 @@
 package app.geostrategy.config
 
+data class TierLimits(
+    val freeMaxSites: Int,
+    val freeAssessmentsPerMonth: Int,
+    val proMaxSites: Int,
+    val proAssessmentsPerMonth: Int,
+) {
+    fun maxSitesFor(tier: String) = if (tier == "pro") proMaxSites else freeMaxSites
+    fun assessmentsPerMonthFor(tier: String) = if (tier == "pro") proAssessmentsPerMonth else freeAssessmentsPerMonth
+}
+
 data class AppConfig(
     val port: Int,
     val mongoUri: String,
@@ -12,6 +22,9 @@ data class AppConfig(
     val emailFrom: String,
     val googleClientId: String?,
     val googleClientSecret: String?,
+    val anthropicApiKey: String?,
+    val claudeModel: String,
+    val tierLimits: TierLimits,
 ) {
     companion object {
         fun fromEnv(env: Map<String, String> = System.getenv()): AppConfig {
@@ -28,6 +41,14 @@ data class AppConfig(
                 emailFrom = env["EMAIL_FROM"] ?: "GeoStrategy <noreply@geostrategy.app>",
                 googleClientId = env["GOOGLE_CLIENT_ID"],
                 googleClientSecret = env["GOOGLE_CLIENT_SECRET"],
+                anthropicApiKey = env["ANTHROPIC_API_KEY"],
+                claudeModel = env["CLAUDE_MODEL"] ?: "claude-opus-5",
+                tierLimits = TierLimits(
+                    freeMaxSites = env["FREE_MAX_SITES"]?.toInt() ?: 1,
+                    freeAssessmentsPerMonth = env["FREE_ASSESSMENTS_PER_MONTH"]?.toInt() ?: 1,
+                    proMaxSites = env["PRO_MAX_SITES"]?.toInt() ?: 5,
+                    proAssessmentsPerMonth = env["PRO_ASSESSMENTS_PER_MONTH"]?.toInt() ?: 10,
+                ),
             )
         }
     }

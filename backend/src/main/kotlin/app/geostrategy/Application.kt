@@ -12,6 +12,8 @@ import app.geostrategy.email.ResendEmailSender
 import app.geostrategy.http.installCors
 import app.geostrategy.http.installErrorHandling
 import app.geostrategy.persistence.ensureIndexes
+import app.geostrategy.sites.SiteRepository
+import app.geostrategy.sites.siteRoutes
 import app.geostrategy.users.UserRepository
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.ktor.client.HttpClient
@@ -49,6 +51,7 @@ fun main() {
         googleIdentity = if (config.googleClientId != null && config.googleClientSecret != null) {
             RealGoogleIdentityClient(config.googleClientId, config.googleClientSecret, httpClient)
         } else null,
+        sites = SiteRepository(db),
     )
     embeddedServer(Netty, port = config.port) { appModule(deps) }.start(wait = true)
 }
@@ -62,5 +65,6 @@ fun Application.appModule(deps: AppDeps) {
         get("/healthz") { call.respondText("ok") }
         authRoutes(deps)
         googleAuthRoutes(deps)
+        siteRoutes(deps)
     }
 }
