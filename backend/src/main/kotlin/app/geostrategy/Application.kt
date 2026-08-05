@@ -10,6 +10,8 @@ import app.geostrategy.auth.RealGoogleIdentityClient
 import app.geostrategy.auth.SessionService
 import app.geostrategy.auth.authRoutes
 import app.geostrategy.auth.googleAuthRoutes
+import app.geostrategy.billing.BillingService
+import app.geostrategy.billing.billingRoutes
 import app.geostrategy.claude.CannedClaudeClient
 import app.geostrategy.claude.ClaudeClient
 import app.geostrategy.claude.RealClaudeClient
@@ -59,9 +61,10 @@ fun main() {
         install(ClientContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
     }
     val crawlClient = HttpClient(CIO) { followRedirects = false }
+    val users = UserRepository(db)
     val deps = AppDeps(
         config = config,
-        users = UserRepository(db),
+        users = users,
         tokens = OneTimeTokenService(db),
         sessions = SessionService(db),
         passwordHasher = PasswordHasher(),
@@ -74,6 +77,7 @@ fun main() {
         assessments = AssessmentRepository(db),
         plans = PlanRepository(db),
         ssrf = SsrfGuard(),
+        billing = config.freemiusSecretKey?.let { BillingService(users, config.freemiusProPlanId) },
     )
 
     val claudeLog = LoggerFactory.getLogger("app.geostrategy.claude")
@@ -105,5 +109,6 @@ fun Application.appModule(deps: AppDeps) {
         siteRoutes(deps)
         assessmentRoutes(deps)
         planRoutes(deps)
+        billingRoutes(deps)
     }
 }

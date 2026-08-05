@@ -6,6 +6,7 @@ import app.geostrategy.auth.GoogleIdentityClient
 import app.geostrategy.auth.OneTimeTokenService
 import app.geostrategy.auth.PasswordHasher
 import app.geostrategy.auth.SessionService
+import app.geostrategy.billing.BillingService
 import app.geostrategy.config.AppConfig
 import app.geostrategy.email.EmailSender
 import app.geostrategy.jobs.JobQueue
@@ -26,4 +27,5 @@ class AppDeps(
     val assessments: AssessmentRepository,
     val plans: PlanRepository,
     val ssrf: SsrfGuard,
+    val billing: BillingService?,
 )

@@ -6,6 +6,7 @@ import app.geostrategy.auth.GoogleIdentityClient
 import app.geostrategy.auth.OneTimeTokenService
 import app.geostrategy.auth.PasswordHasher
 import app.geostrategy.auth.SessionService
+import app.geostrategy.billing.BillingService
 import app.geostrategy.config.AppConfig
 import app.geostrategy.email.EmailSender
 import app.geostrategy.jobs.JobQueue
@@ -54,20 +55,25 @@ fun testDeps(
     email: EmailSender = RecordingEmailSender(),
     google: GoogleIdentityClient? = null,
     env: Map<String, String> = emptyMap(),
-): AppDeps = AppDeps(
-    config = AppConfig.fromEnv(env),
-    users = UserRepository(db),
-    tokens = OneTimeTokenService(db),
-    sessions = SessionService(db),
-    passwordHasher = PasswordHasher(),
-    emailSender = email,
-    googleIdentity = google,
-    sites = SiteRepository(db),
-    jobs = JobQueue(db),
-    assessments = AssessmentRepository(db),
-    plans = PlanRepository(db),
-    ssrf = SsrfGuard { listOf(java.net.InetAddress.getByName("93.184.216.34")) },
-)
+): AppDeps {
+    val config = AppConfig.fromEnv(env)
+    val users = UserRepository(db)
+    return AppDeps(
+        config = config,
+        users = users,
+        tokens = OneTimeTokenService(db),
+        sessions = SessionService(db),
+        passwordHasher = PasswordHasher(),
+        emailSender = email,
+        googleIdentity = google,
+        sites = SiteRepository(db),
+        jobs = JobQueue(db),
+        assessments = AssessmentRepository(db),
+        plans = PlanRepository(db),
+        ssrf = SsrfGuard { listOf(java.net.InetAddress.getByName("93.184.216.34")) },
+        billing = config.freemiusSecretKey?.let { BillingService(users, config.freemiusProPlanId) },
+    )
+}
 
 suspend fun registerAndLogin(
     http: HttpClient,
