@@ -11,6 +11,8 @@ import app.geostrategy.auth.SessionService
 import app.geostrategy.auth.authRoutes
 import app.geostrategy.auth.googleAuthRoutes
 import app.geostrategy.billing.BillingService
+import app.geostrategy.billing.BillingRevalidator
+import app.geostrategy.billing.CannedFreemiusClient
 import app.geostrategy.billing.billingRoutes
 import app.geostrategy.claude.CannedClaudeClient
 import app.geostrategy.claude.ClaudeClient
@@ -43,9 +45,13 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
@@ -93,6 +99,20 @@ fun main() {
     )
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     JobWorker(deps.jobs, mapOf("assessment" to pipeline::handle)).start(appScope)
+
+    val revalidator = BillingRevalidator(deps.users, CannedFreemiusClient())
+    appScope.launch {
+        while (isActive) {
+            try {
+                revalidator.run()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                claudeLog.warn("billing revalidation failed: {}", e.message)
+            }
+            delay(24 * 60 * 60 * 1000L)
+        }
+    }
 
     embeddedServer(Netty, port = config.port) { appModule(deps) }.start(wait = true)
 }

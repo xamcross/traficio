@@ -38,3 +38,34 @@ class BillingService(
         }
     }
 }
+
+interface FreemiusClient {
+    suspend fun isLicenseActive(licenseId: String): Boolean?
+}
+
+/** Placeholder client: answers "unknown" so only expiry-based downgrades run. */
+class CannedFreemiusClient : FreemiusClient {
+    override suspend fun isLicenseActive(licenseId: String): Boolean? = null
+}
+
+class BillingRevalidator(
+    private val users: UserRepository,
+    private val client: FreemiusClient,
+) {
+    private val log = LoggerFactory.getLogger(BillingRevalidator::class.java)
+
+    suspend fun run(now: java.time.Instant = java.time.Instant.now()): Int {
+        var downgraded = 0
+        for (user in users.listByTier("pro")) {
+            val info = user.freemius ?: continue
+            val expired = info.expiresAt?.isBefore(now) == true
+            val revoked = info.licenseId?.let { client.isLicenseActive(it) } == false
+            if (expired || revoked) {
+                users.setBilling(user.id, "free", info.copy(subscriptionStatus = "expired"))
+                downgraded++
+                log.info("downgraded {} (expired={}, revoked={})", user.email, expired, revoked)
+            }
+        }
+        return downgraded
+    }
+}
