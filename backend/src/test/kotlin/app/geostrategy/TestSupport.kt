@@ -10,6 +10,7 @@ import app.geostrategy.config.AppConfig
 import app.geostrategy.email.EmailSender
 import app.geostrategy.jobs.JobQueue
 import app.geostrategy.persistence.ensureIndexes
+import app.geostrategy.plans.PlanRepository
 import app.geostrategy.sites.SiteRepository
 import app.geostrategy.users.UserRepository
 import com.mongodb.kotlin.client.coroutine.MongoClient
@@ -63,6 +64,7 @@ fun testDeps(
     sites = SiteRepository(db),
     jobs = JobQueue(db),
     assessments = AssessmentRepository(db),
+    plans = PlanRepository(db),
     ssrf = SsrfGuard { listOf(java.net.InetAddress.getByName("93.184.216.34")) },
 )
 

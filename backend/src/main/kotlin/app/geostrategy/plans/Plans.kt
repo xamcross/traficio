@@ -1,0 +1,65 @@
+package app.geostrategy.plans
+
+import app.geostrategy.assessment.Assessment
+import app.geostrategy.claude.PlanResult
+import com.mongodb.client.model.Filters.eq
+import com.mongodb.client.model.Sorts
+import com.mongodb.kotlin.client.coroutine.MongoDatabase
+import kotlinx.coroutines.flow.firstOrNull
+import org.bson.codecs.pojo.annotations.BsonId
+import org.bson.types.ObjectId
+import java.time.Instant
+
+data class PlanTask(
+    val taskId: String,
+    val title: String,
+    val category: String,
+    val impact: String,
+    val effortMinutes: Int,
+    val whyItMatters: String,
+    val steps: List<String>,
+    val doneCheck: String,
+    val findingId: String?,
+    val status: String = "todo",
+    val completedAt: Instant? = null,
+)
+
+data class PlanDoc(
+    @BsonId val id: ObjectId = ObjectId(),
+    val assessmentId: ObjectId,
+    val siteId: ObjectId,
+    val userId: ObjectId,
+    val tasks: List<PlanTask>,
+    val createdAt: Instant,
+    val updatedAt: Instant,
+)
+
+private val IMPACT_ORDER = mapOf("high" to 0, "medium" to 1, "low" to 2)
+
+fun buildPlanDoc(assessment: Assessment, result: PlanResult): PlanDoc {
+    val now = Instant.now()
+    val tasks = result.tasks
+        .sortedBy { IMPACT_ORDER[it.impact] ?: 3 }
+        .map {
+            PlanTask(
+                taskId = ObjectId().toHexString(),
+                title = it.title, category = it.category, impact = it.impact,
+                effortMinutes = it.effortMinutes, whyItMatters = it.whyItMatters,
+                steps = it.steps, doneCheck = it.doneCheck, findingId = it.findingId,
+            )
+        }
+    return PlanDoc(
+        assessmentId = assessment.id, siteId = assessment.siteId, userId = assessment.userId,
+        tasks = tasks, createdAt = now, updatedAt = now,
+    )
+}
+
+class PlanRepository(db: MongoDatabase) {
+    private val col = db.getCollection<PlanDoc>("plans")
+
+    suspend fun insert(doc: PlanDoc): PlanDoc { col.insertOne(doc); return doc }
+    suspend fun findById(id: ObjectId): PlanDoc? = col.find(eq("_id", id)).firstOrNull()
+    suspend fun findByAssessment(assessmentId: ObjectId): PlanDoc? = col.find(eq("assessmentId", assessmentId)).firstOrNull()
+    suspend fun latestFor(siteId: ObjectId): PlanDoc? =
+        col.find(eq("siteId", siteId)).sort(Sorts.descending("createdAt")).firstOrNull()
+}

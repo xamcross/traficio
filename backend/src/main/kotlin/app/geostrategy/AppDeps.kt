@@ -9,6 +9,7 @@ import app.geostrategy.auth.SessionService
 import app.geostrategy.config.AppConfig
 import app.geostrategy.email.EmailSender
 import app.geostrategy.jobs.JobQueue
+import app.geostrategy.plans.PlanRepository
 import app.geostrategy.sites.SiteRepository
 import app.geostrategy.users.UserRepository
 
@@ -23,5 +24,6 @@ class AppDeps(
     val sites: SiteRepository,
     val jobs: JobQueue,
     val assessments: AssessmentRepository,
+    val plans: PlanRepository,
     val ssrf: SsrfGuard,
 )
