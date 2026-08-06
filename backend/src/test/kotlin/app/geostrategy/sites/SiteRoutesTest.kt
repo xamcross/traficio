@@ -13,11 +13,34 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import kotlinx.coroutines.runBlocking
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+
+/**
+ * Deterministically simulates a concurrent racer: on the FIRST call to [insert] (the route's
+ * own insert, issued right after its pre-insert cap check has already passed), a second site
+ * for the same user is inserted directly, bypassing the route entirely. This reproduces the
+ * exact window the route's post-insert recheck is meant to close, without relying on real
+ * request concurrency (which can't deterministically force both requests past the pre-check
+ * before either insert lands).
+ */
+private class RacingSiteRepository(db: MongoDatabase) : SiteRepository(db) {
+    private val raw = db.getCollection<Site>("sites")
+    private var racerInserted = false
+
+    override suspend fun insert(site: Site): Site {
+        if (!racerInserted) {
+            racerInserted = true
+            val now = Instant.now()
+            raw.insertOne(Site(userId = site.userId, domain = "raced.example.com", url = "https://raced.example.com", createdAt = now, updatedAt = now))
+        }
+        return super.insert(site)
+    }
+}
 
 class SiteRoutesTest {
     @Test
@@ -67,30 +90,24 @@ class SiteRoutesTest {
     @Test
     fun `cap recheck removes a raced insert`() = testApplication {
         val db = TestMongo.freshDb()
-        val deps = testDeps(db)
+        val deps = testDeps(db, sites = RacingSiteRepository(db))
         application { appModule(deps) }
         val http = createClient { install(HttpCookies) }
         registerAndLogin(http, "ada@example.com")
 
-        val first = http.post("/v1/sites") {
+        // The route's pre-insert cap check passes (the account has zero sites at that point).
+        // The instant it calls insert(), the racer sneaks in and commits its own site first,
+        // so the post-insert recheck finds the account over its cap of 1 and rolls this
+        // request's own insert back.
+        val res = http.post("/v1/sites") {
             contentType(ContentType.Application.Json)
             setBody("""{"url":"one.example.com"}""")
         }
-        assertEquals(HttpStatusCode.Created, first.status)
+        assertEquals(HttpStatusCode.Forbidden, res.status)
+        assertTrue(res.bodyAsText().contains("site_limit_reached"))
 
         val user = runBlocking { deps.users.findByEmail("ada@example.com")!! }
-        runBlocking {
-            val now = Instant.now()
-            deps.sites.insert(Site(userId = user.id, domain = "raced.example.com", url = "https://raced.example.com", createdAt = now, updatedAt = now))
-        }
-
-        val third = http.post("/v1/sites") {
-            contentType(ContentType.Application.Json)
-            setBody("""{"url":"third.example.com"}""")
-        }
-        assertEquals(HttpStatusCode.Forbidden, third.status)
-        assertTrue(third.bodyAsText().contains("site_limit_reached"))
-
-        assertEquals(2L, runBlocking { deps.sites.countFor(user.id) })
+        // only the racer's site survives
+        assertEquals(1L, runBlocking { deps.sites.countFor(user.id) })
     }
 }

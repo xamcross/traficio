@@ -55,6 +55,8 @@ fun testDeps(
     email: EmailSender = RecordingEmailSender(),
     google: GoogleIdentityClient? = null,
     env: Map<String, String> = emptyMap(),
+    sites: SiteRepository = SiteRepository(db),
+    assessments: AssessmentRepository = AssessmentRepository(db),
 ): AppDeps {
     val config = AppConfig.fromEnv(env)
     val users = UserRepository(db)
@@ -66,9 +68,9 @@ fun testDeps(
         passwordHasher = PasswordHasher(),
         emailSender = email,
         googleIdentity = google,
-        sites = SiteRepository(db),
+        sites = sites,
         jobs = JobQueue(db),
-        assessments = AssessmentRepository(db),
+        assessments = assessments,
         plans = PlanRepository(db),
         ssrf = SsrfGuard { listOf(java.net.InetAddress.getByName("93.184.216.34")) },
         billing = config.freemiusSecretKey?.let { BillingService(users, config.freemiusProPlanId) },

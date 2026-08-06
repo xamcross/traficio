@@ -26,10 +26,10 @@ data class Site(
     val updatedAt: Instant,
 )
 
-class SiteRepository(db: MongoDatabase) {
+open class SiteRepository(db: MongoDatabase) {
     private val col = db.getCollection<Site>("sites")
 
-    suspend fun insert(site: Site): Site {
+    open suspend fun insert(site: Site): Site {
         try {
             col.insertOne(site)
         } catch (e: MongoWriteException) {

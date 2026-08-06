@@ -15,16 +15,39 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.bson.types.ObjectId
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+/**
+ * Deterministically simulates a concurrent racer: on the FIRST call to [insert] (the route's
+ * own insert, issued right after its pre-insert quota check has already passed), a second
+ * assessment for the same user/site is inserted directly, bypassing the route entirely. This
+ * reproduces the exact window the route's post-insert recheck is meant to close, without
+ * relying on real request concurrency (which can't deterministically force both requests past
+ * the pre-check before either insert lands).
+ */
+private class RacingAssessmentRepository(db: MongoDatabase) : AssessmentRepository(db) {
+    private val raw = db.getCollection<Assessment>("assessments")
+    private var racerInserted = false
+
+    override suspend fun insert(a: Assessment): Assessment {
+        if (!racerInserted) {
+            racerInserted = true
+            val now = Instant.now()
+            raw.insertOne(Assessment(siteId = a.siteId, userId = a.userId, createdAt = now, updatedAt = now))
+        }
+        return super.insert(a)
+    }
+}
 
 class AssessmentRoutesTest {
     private suspend fun createSite(http: io.ktor.client.HttpClient): String {
@@ -122,35 +145,25 @@ class AssessmentRoutesTest {
     fun `quota recheck removes a raced insert`() = testApplication {
         val db = TestMongo.freshDb()
         val emails = RecordingEmailSender()
-        val deps = testDeps(db, email = emails, env = mapOf("FREE_MAX_SITES" to "2"))
+        val deps = testDeps(db, email = emails, assessments = RacingAssessmentRepository(db))
         application { appModule(deps) }
         val http = createClient { install(HttpCookies) }
         registerVerifyLogin(http, emails, "ada@example.com")
+        val siteId = createSite(http)
 
-        suspend fun addSite(url: String): String {
-            val res = http.post("/v1/sites") {
-                contentType(ContentType.Application.Json)
-                setBody("""{"url":"$url"}""")
-            }
-            return Json.parseToJsonElement(res.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
-        }
-        val siteAId = addSite("one.example.com")
-        val siteBId = addSite("two.example.com")
-
-        // one route-created assessment uses up the free monthly limit of 1
-        assertEquals(HttpStatusCode.Accepted, http.post("/v1/sites/$siteAId/assessments").status)
+        // The route's pre-insert quota check passes (the account has zero assessments this
+        // month at that point). The instant it calls insert(), the racer sneaks in and commits
+        // its own assessment first, so the post-insert recheck finds the account over its
+        // monthly limit of 1 and rolls this request's own insert back, before it's ever
+        // enqueued.
+        val res = http.post("/v1/sites/$siteId/assessments")
+        assertEquals(HttpStatusCode.Forbidden, res.status)
+        assertTrue(res.bodyAsText().contains("quota_exceeded"))
 
         val user = runBlocking { deps.users.findByEmail("ada@example.com")!! }
-        // the racer: a second assessment inserted directly, bypassing the route entirely
-        runBlocking {
-            val now = Instant.now()
-            deps.assessments.insert(Assessment(siteId = ObjectId(siteAId), userId = user.id, createdAt = now, updatedAt = now))
-        }
-
-        val third = http.post("/v1/sites/$siteBId/assessments")
-        assertEquals(HttpStatusCode.Forbidden, third.status)
-        assertTrue(third.bodyAsText().contains("quota_exceeded"))
-
-        assertEquals(2L, runBlocking { deps.assessments.countNonFailedForUserSince(user.id, Instant.EPOCH) })
+        // only the racer's assessment survives
+        assertEquals(1L, runBlocking { deps.assessments.countNonFailedForUserSince(user.id, Instant.EPOCH) })
+        // the rolled-back assessment was never enqueued
+        assertNull(runBlocking { deps.jobs.claim() })
     }
 }

@@ -40,10 +40,10 @@ data class Assessment(
 
 val TERMINAL_STATUSES = setOf("ready", "failed")
 
-class AssessmentRepository(db: MongoDatabase) {
+open class AssessmentRepository(db: MongoDatabase) {
     private val col = db.getCollection<Assessment>("assessments")
 
-    suspend fun insert(a: Assessment): Assessment { col.insertOne(a); return a }
+    open suspend fun insert(a: Assessment): Assessment { col.insertOne(a); return a }
 
     suspend fun delete(id: ObjectId) {
         col.deleteOne(eq("_id", id))
