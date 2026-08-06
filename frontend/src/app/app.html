@@ -1,0 +1,17 @@
+<header class="site-header">
+  <nav class="site-nav">
+    <a routerLink="/" class="brand">GeoStrategy</a>
+    <a routerLink="/pricing">Pricing</a>
+    <span class="spacer"></span>
+    @if (userStore.user(); as user) {
+      <a routerLink="/dashboard">Dashboard</a>
+      <a routerLink="/account">Account</a>
+      <button type="button" (click)="logout()">Log out</button>
+    } @else {
+      <a routerLink="/login">Log in</a>
+      <a routerLink="/signup">Sign up</a>
+    }
+  </nav>
+</header>
+
+<router-outlet />
