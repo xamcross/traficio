@@ -1,0 +1,86 @@
+<section class="add-site">
+  <h2>Add a site</h2>
+  <form [formGroup]="addForm" (ngSubmit)="submitAdd()">
+    <label>
+      Website
+      <input type="text" formControlName="url" placeholder="example.com" autocomplete="url" />
+    </label>
+    <button type="submit" [disabled]="addBusy() || addForm.invalid">Add site</button>
+  </form>
+
+  @if (addError(); as e) {
+    @if (e.code === 'invalid_url') {
+      <p class="error-note" role="alert">That address does not look right. Enter it like example.com.</p>
+    } @else if (e.code === 'site_exists') {
+      <p class="error-note" role="alert">You already added this site.</p>
+    } @else if (e.code === 'site_limit_reached') {
+      <p class="error-note" role="alert">{{ e.message }} <a routerLink="/pricing">Upgrade</a></p>
+    } @else {
+      <app-error-note [error]="e" />
+    }
+  }
+</section>
+
+@if (checkError(); as e) {
+  @if (e.code === 'email_not_verified') {
+    <div class="error-note" role="alert">
+      <p>Confirm your email first. Click the link in the email we sent you.</p>
+      <button type="button" (click)="resend()">Send the email again</button>
+      @if (resent()) {
+        <p>Sent. Check your inbox.</p>
+      }
+    </div>
+  } @else if (e.code === 'quota_exceeded') {
+    <p class="error-note" role="alert">{{ e.message }} <a routerLink="/pricing">Upgrade</a></p>
+  } @else if (e.code === 'upgrade_required') {
+    <p class="error-note" role="alert">Re-checks need the Pro plan. <a routerLink="/pricing">Upgrade</a></p>
+  } @else if (e.code === 'site_read_only') {
+    <p class="error-note" role="alert">This site is over your plan limit. <a routerLink="/pricing">Upgrade to check it again.</a></p>
+  } @else {
+    <app-error-note [error]="e" />
+  }
+}
+
+@if (loading()) {
+  <p>Loading your sites…</p>
+} @else if (error(); as e) {
+  <app-error-note [error]="e" />
+} @else {
+  <section class="sites">
+    @for (site of sites(); track site.id) {
+      <article class="site-card">
+        <h3>{{ site.domain }}</h3>
+        @if (site.platform) {
+          <span class="chip">{{ site.platform }}</span>
+        }
+
+        @if (site.latestScores; as s) {
+          <div class="scores">
+            <span class="chip">SEO {{ s.seo }}</span>
+            <span class="chip">AEO {{ s.aeo }}</span>
+            <span class="chip">GEO {{ s.geo }}</span>
+          </div>
+        } @else {
+          <p>No check yet</p>
+        }
+
+        @if (site.readOnly) {
+          <p class="badge">Read only</p>
+          <p class="readonly-note">This site is over your plan limit. <a routerLink="/pricing">Upgrade to check it again.</a></p>
+        }
+
+        <div class="actions">
+          <button type="button" (click)="checkSite(site)" [disabled]="site.readOnly || busySiteId() === site.id">Check my site</button>
+
+          @if (site.latestScores) {
+            <button type="button" (click)="seePlan(site)" [disabled]="busySiteId() === site.id">See my plan</button>
+          }
+
+          @if (store.user()?.tier === 'pro') {
+            <a [routerLink]="['/sites', site.id, 'history']">History</a>
+          }
+        </div>
+      </article>
+    }
+  </section>
+}
