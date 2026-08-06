@@ -20,8 +20,16 @@ export class App {
   }
 
   protected async logout(): Promise<void> {
-    await this.api.logout();
-    this.userStore.clear();
-    await this.router.navigateByUrl('/');
+    try {
+      await this.api.logout();
+    } catch {
+      // The server call failed (network error, 5xx, etc.) — the server session
+      // either got revoked already or will expire on its own; swallow the
+      // failure so it doesn't surface as an unhandled rejection.
+    } finally {
+      // The client must always drop its local state, even if the call failed.
+      this.userStore.clear();
+      await this.router.navigateByUrl('/');
+    }
   }
 }
