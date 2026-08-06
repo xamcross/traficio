@@ -36,7 +36,7 @@ class SseCapTest {
         val id = Json.parseToJsonElement(http.post("/v1/sites/$siteId/assessments").bodyAsText())
             .jsonObject["id"]!!.jsonPrimitive.content
 
-        val res = http.get("/v1/assessments/$id/events")  // assessment stays "queued"; must return after ~300ms
+        val res = http.get("/v1/assessments/$id/events")  // assessment stays "queued"; the cap check runs once per 1s poll tick, so this returns after ~1s, not exactly 300ms
         assertEquals(HttpStatusCode.OK, res.status)
         assertTrue(res.bodyAsText().contains("queued"))
     }

@@ -62,7 +62,7 @@ class CrawlerTest {
             "https://example.com/menu" to menu,
         ))
         val fetcher = SlowFetcher(inner, slowUrls = setOf("https://example.com/menu"), delayMs = 60_000)
-        val digest = Crawler(fetcher, budgetMillis = 400).crawl("https://example.com")
+        val digest = Crawler(fetcher, budgetMillis = 400, pacingMillis = 0).crawl("https://example.com")
         assertEquals(listOf("https://example.com"), digest.pages.map { it.url })
     }
 
@@ -78,6 +78,27 @@ class CrawlerTest {
         val fetcher = MapFetcher(mapOf(
             "https://example.com" to home,
             "https://example.com/robots.txt" to "User-agent: *\nDisallow: /",
+        ))
+        val e = assertFailsWith<AppException> { Crawler(fetcher).crawl("https://example.com") }
+        assertEquals("robots_blocked", e.code)
+    }
+
+    @Test
+    fun `a GeoStrategyBot allow overrides a star disallow and the crawl proceeds`() = runBlocking {
+        val fetcher = MapFetcher(mapOf(
+            "https://example.com" to home,
+            "https://example.com/menu" to menu,
+            "https://example.com/robots.txt" to "User-agent: *\nDisallow: /\nUser-agent: GeoStrategyBot\nAllow: /",
+        ))
+        val digest = Crawler(fetcher, pacingMillis = 0).crawl("https://example.com")
+        assertEquals(listOf("https://example.com", "https://example.com/menu"), digest.pages.map { it.url })
+    }
+
+    @Test
+    fun `a GeoStrategyBot disallow overrides a star allow and blocks the crawl`() = runBlocking {
+        val fetcher = MapFetcher(mapOf(
+            "https://example.com" to home,
+            "https://example.com/robots.txt" to "User-agent: GeoStrategyBot\nDisallow: /\nUser-agent: *\nAllow: /",
         ))
         val e = assertFailsWith<AppException> { Crawler(fetcher).crawl("https://example.com") }
         assertEquals("robots_blocked", e.code)

@@ -61,9 +61,14 @@ class BillingRevalidator(
             val expired = info.expiresAt?.isBefore(now) == true
             val revoked = info.licenseId?.let { client.isLicenseActive(it) } == false
             if (expired || revoked) {
-                users.setBilling(user.id, "free", info.copy(subscriptionStatus = "expired"))
-                downgraded++
-                log.info("downgraded {} (expired={}, revoked={})", user.email, expired, revoked)
+                // Conditional on the billing state we just observed, so a renewal webhook
+                // landing concurrently (between the read above and this write) is not clobbered.
+                if (users.downgradeProIfMatches(user.id, info.licenseId, info.expiresAt)) {
+                    downgraded++
+                    log.info("downgraded {} (expired={}, revoked={})", user.email, expired, revoked)
+                } else {
+                    log.info("skipped downgrade for {}: billing state changed concurrently", user.email)
+                }
             }
         }
         return downgraded

@@ -15,6 +15,7 @@ import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import kotlinx.coroutines.runBlocking
+import org.bson.types.ObjectId
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -109,5 +110,21 @@ class SiteRoutesTest {
         val user = runBlocking { deps.users.findByEmail("ada@example.com")!! }
         // only the racer's site survives
         assertEquals(1L, runBlocking { deps.sites.countFor(user.id) })
+    }
+
+    @Test
+    fun `allowedSiteIds breaks same-timestamp ties by id, independent of input order`() {
+        val userId = ObjectId()
+        val t = Instant.parse("2026-01-01T00:00:00Z")
+        fun site(id: ObjectId) = Site(id = id, userId = userId, domain = "$id.example.com", url = "https://$id.example.com", createdAt = t, updatedAt = t)
+        val a = site(ObjectId("000000000000000000000001"))
+        val b = site(ObjectId("000000000000000000000002"))
+        val c = site(ObjectId("000000000000000000000003"))
+
+        val forward = allowedSiteIds(listOf(a, b, c), max = 2)
+        val reversed = allowedSiteIds(listOf(c, b, a), max = 2)
+
+        assertEquals(setOf(a.id, b.id), forward)
+        assertEquals(forward, reversed)
     }
 }

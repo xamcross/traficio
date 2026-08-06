@@ -24,6 +24,29 @@ class DiscoveryTest {
     }
 
     @Test
+    fun `robots parse prefers a GeoStrategyBot group over star, case-insensitively`() {
+        val botAllowsOverridingStarDisallow = Robots.parse(
+            """
+            User-agent: *
+            Disallow: /
+            User-agent: GeoStrategyBot
+            Allow: /
+            """.trimIndent(),
+        )
+        assertTrue(botAllowsOverridingStarDisallow.allows("/"))
+
+        val botDisallowsOverridingStarAllow = Robots.parse(
+            """
+            User-agent: geostrategybot
+            Disallow: /
+            User-agent: *
+            Allow: /
+            """.trimIndent(),
+        )
+        assertFalse(botDisallowsOverridingStarAllow.allows("/"))
+    }
+
+    @Test
     fun `discovery merges nav links and sitemap, same host only, capped, homepage first`() {
         val html = """
             <html><body>

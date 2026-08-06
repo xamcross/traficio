@@ -2,6 +2,7 @@ package app.geostrategy.users
 
 import app.geostrategy.http.AppException
 import com.mongodb.MongoWriteException
+import com.mongodb.client.model.Filters.and
 import com.mongodb.client.model.Filters.eq
 import com.mongodb.client.model.Updates.combine
 import com.mongodb.client.model.Updates.set
@@ -72,4 +73,28 @@ class UserRepository(db: MongoDatabase) {
     }
 
     suspend fun listByTier(tier: String): List<User> = col.find(eq("tier", tier)).toList()
+
+    /**
+     * Downgrades a pro user to free, but only if the stored billing state still matches what
+     * the caller last observed (licenseId and expiresAt). This closes the race where a
+     * renewal webhook lands between the revalidator's read and its write: the conditional
+     * filter fails, the write is a no-op, and the renewal survives. Only tier and
+     * subscriptionStatus are set, so other freemius fields written concurrently (and matched
+     * by the filter) are left untouched. Returns whether a document was actually modified.
+     */
+    suspend fun downgradeProIfMatches(id: ObjectId, expectedLicenseId: String?, expectedExpiresAt: Instant?): Boolean {
+        val filter = and(
+            eq("_id", id),
+            eq("tier", "pro"),
+            eq("freemius.licenseId", expectedLicenseId),
+            eq("freemius.expiresAt", expectedExpiresAt),
+        )
+        val update = combine(
+            set("tier", "free"),
+            set("freemius.subscriptionStatus", "expired"),
+            set("updatedAt", Instant.now()),
+        )
+        val result = col.updateOne(filter, update)
+        return result.modifiedCount > 0
+    }
 }

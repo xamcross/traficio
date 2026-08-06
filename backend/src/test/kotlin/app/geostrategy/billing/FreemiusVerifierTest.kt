@@ -1,6 +1,7 @@
 package app.geostrategy.billing
 
 import app.geostrategy.auth.hmacSha256Hex
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -48,5 +49,12 @@ class FreemiusVerifierTest {
 
         assertNull(parseFreemiusEvent("""{"no_type":true}"""))
         assertNull(parseFreemiusEvent("not json"))
+    }
+
+    @Test
+    fun `parser accepts MySQL-style expiration timestamps as UTC`() {
+        val mysql = """{"type":"license.created","user":{"email":"a@x.co"},"license":{"id":"L1","expiration":"2027-01-01 10:00:00"}}"""
+        val e = parseFreemiusEvent(mysql)!!
+        assertEquals(Instant.parse("2027-01-01T10:00:00Z"), e.expiresAt)
     }
 }

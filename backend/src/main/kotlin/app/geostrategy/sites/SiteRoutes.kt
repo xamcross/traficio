@@ -22,7 +22,8 @@ import java.time.Instant
 
 fun Site.toDto(readOnly: Boolean) = SiteDto(id.toHexString(), domain, url, platform, latestScores, readOnly)
 
-fun allowedSiteIds(sites: List<Site>, max: Int): Set<ObjectId> = sites.sortedBy { it.createdAt }.take(max).map { it.id }.toSet()
+fun allowedSiteIds(sites: List<Site>, max: Int): Set<ObjectId> =
+    sites.sortedWith(compareBy({ it.createdAt }, { it.id })).take(max).map { it.id }.toSet()
 
 fun Route.siteRoutes(deps: AppDeps) {
     post("/v1/sites") {

@@ -7,6 +7,7 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -43,5 +44,28 @@ class UserRepositoryTest {
         assertTrue(loaded.emailVerified)
         assertEquals("newhash", loaded.passwordHash)
         assertEquals("google-sub-1", loaded.googleId)
+    }
+
+    @Test
+    fun `downgradeProIfMatches only writes when the observed billing state still matches`() = runBlocking {
+        val repo = UserRepository(TestMongo.freshDb())
+        val u = repo.insert(newUser("renew@example.com"))
+        val originalExpiresAt = Instant.now().plusSeconds(3600)
+        repo.setBilling(u.id, "pro", FreemiusInfo(licenseId = "L1", expiresAt = originalExpiresAt))
+
+        // A renewal webhook lands concurrently between the revalidator's read and its write.
+        val renewedExpiresAt = originalExpiresAt.plusSeconds(3600)
+        repo.setBilling(u.id, "pro", FreemiusInfo(licenseId = "L2", expiresAt = renewedExpiresAt))
+
+        // A downgrade based on the stale, pre-renewal snapshot must not apply.
+        val stale = repo.downgradeProIfMatches(u.id, expectedLicenseId = "L1", expectedExpiresAt = originalExpiresAt)
+        assertFalse(stale)
+        assertEquals("pro", repo.findById(u.id)!!.tier)
+        assertEquals("L2", repo.findById(u.id)!!.freemius!!.licenseId)
+
+        // A downgrade based on the current, matching snapshot must apply.
+        val matching = repo.downgradeProIfMatches(u.id, expectedLicenseId = "L2", expectedExpiresAt = renewedExpiresAt)
+        assertTrue(matching)
+        assertEquals("free", repo.findById(u.id)!!.tier)
     }
 }

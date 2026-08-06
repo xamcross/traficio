@@ -63,7 +63,9 @@ The server verifies each call with HMAC-SHA256 over the raw body.
 
 Warning: verify the signature header name and the payload shapes against real
 Freemius webhooks before production. The test fixtures define the parser's
-current contract.
+current contract. The webhook has no replay protection. The signature covers
+only the body, and verification uses the decoded text, not the raw bytes.
+Review both points before production.
 
 ## Before production with a real Anthropic key
 
