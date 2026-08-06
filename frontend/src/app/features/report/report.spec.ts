@@ -4,7 +4,7 @@ import { Location } from '@angular/common';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { Report } from './report';
 import { ScoreDial } from '../../shared/score-dial';
-import { ApiClient } from '../../core/api/api-client';
+import { ApiClient, ApiError } from '../../core/api/api-client';
 import { AssessmentDto } from '../../core/api/types';
 
 /** No-op routed targets so provideRouter() has something real to navigate to. */
@@ -113,6 +113,7 @@ describe('Report', () => {
     api.getAssessmentResult = Promise.resolve(makeAssessment());
     const fixture = TestBed.createComponent(Report);
     fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Loading');
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -146,5 +147,32 @@ describe('Report', () => {
     fixture.detectChanges();
 
     expect(location.path()).toBe('/assessments/A1/progress');
+  });
+
+  it('renders the error note and no dials when the initial fetch is rejected', async () => {
+    api.getAssessmentResult = Promise.reject(new ApiError('network_error', 'We could not reach the server.', 0));
+    const fixture = TestBed.createComponent(Report);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.error-note')?.textContent).toContain('We could not reach the server.');
+    expect(compiled.querySelectorAll('app-score-dial').length).toBe(0);
+    const backLink = compiled.querySelector('a[href="/dashboard"]');
+    expect(backLink).toBeTruthy();
+  });
+
+  it('renders a fallback message instead of throwing when a ready assessment has null scores and no findings', async () => {
+    api.getAssessmentResult = Promise.resolve(makeAssessment({ scores: null, findings: [] }));
+    const fixture = TestBed.createComponent(Report);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelectorAll('app-score-dial').length).toBe(0);
+    expect(compiled.textContent).toContain('We could not read the scores for this check. Run a new check.');
+    expect(compiled.textContent).toContain('We found no problems to report. Great job.');
   });
 });

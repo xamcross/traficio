@@ -1,8 +1,9 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { ApiClient } from '../../core/api/api-client';
+import { ApiClient, ApiError } from '../../core/api/api-client';
 import { AssessmentDto, Finding } from '../../core/api/types';
 import { ScoreDial } from '../../shared/score-dial';
+import { ErrorNote } from '../../shared/error-note';
 
 interface FindingGroup {
   category: string;
@@ -30,44 +31,61 @@ function groupFindings(findings: Finding[]): FindingGroup[] {
   return groups;
 }
 
+function toApiError(e: unknown): ApiError {
+  return e instanceof ApiError ? e : new ApiError('unknown', 'Something went wrong. Please try again.', 0);
+}
+
 @Component({
   selector: 'app-report',
-  imports: [RouterLink, ScoreDial],
+  imports: [RouterLink, ScoreDial, ErrorNote],
   template: `
-    @if (assessment(); as a) {
+    @if (error(); as e) {
+      <app-error-note [error]="e" />
+      <p><a routerLink="/dashboard">Back to my sites</a></p>
+    } @else if (assessment(); as a) {
       <h1>Your site report</h1>
-      <div class="dials">
-        <div class="dial-card">
-          <app-score-dial [label]="'SEO'" [value]="a.scores!.seo" />
-          <p class="meaning">{{ scoreMeaning(a.scores!.seo) }}</p>
+      @if (a.scores; as scores) {
+        <div class="dials">
+          <div class="dial-card">
+            <app-score-dial [label]="'SEO'" [value]="scores.seo" />
+            <p class="meaning">{{ scoreMeaning(scores.seo) }}</p>
+          </div>
+          <div class="dial-card">
+            <app-score-dial [label]="'AEO'" [value]="scores.aeo" />
+            <p class="meaning">{{ scoreMeaning(scores.aeo) }}</p>
+          </div>
+          <div class="dial-card">
+            <app-score-dial [label]="'GEO'" [value]="scores.geo" />
+            <p class="meaning">{{ scoreMeaning(scores.geo) }}</p>
+          </div>
         </div>
-        <div class="dial-card">
-          <app-score-dial [label]="'AEO'" [value]="a.scores!.aeo" />
-          <p class="meaning">{{ scoreMeaning(a.scores!.aeo) }}</p>
-        </div>
-        <div class="dial-card">
-          <app-score-dial [label]="'GEO'" [value]="a.scores!.geo" />
-          <p class="meaning">{{ scoreMeaning(a.scores!.geo) }}</p>
-        </div>
-      </div>
+      } @else {
+        <p>We could not read the scores for this check. Run a new check.</p>
+      }
 
       <section class="findings">
-        @for (group of groupedFindings(); track group.category) {
-          <div class="finding-group">
-            <h2>{{ group.category }}</h2>
-            @for (finding of group.findings; track finding.id) {
-              <article class="finding">
-                <span class="severity-badge">{{ finding.severity }}</span>
-                <p>{{ finding.evidence }}</p>
-              </article>
-            }
-          </div>
+        @if (groupedFindings().length === 0) {
+          <p>We found no problems to report. Great job.</p>
+        } @else {
+          @for (group of groupedFindings(); track group.category) {
+            <div class="finding-group">
+              <h2>{{ group.category }}</h2>
+              @for (finding of group.findings; track finding.id) {
+                <article class="finding">
+                  <span class="severity-badge">{{ finding.severity }}</span>
+                  <p>{{ finding.evidence }}</p>
+                </article>
+              }
+            </div>
+          }
         }
       </section>
 
       <p class="see-plan">
         <a [routerLink]="['/assessments', id, 'plan']">See my plan</a>
       </p>
+    } @else {
+      <p>Loading…</p>
     }
   `,
 })
@@ -78,6 +96,7 @@ export class Report implements OnInit {
 
   protected readonly id = this.route.snapshot.paramMap.get('id')!;
   protected readonly assessment = signal<AssessmentDto | null>(null);
+  protected readonly error = signal<ApiError | null>(null);
   protected readonly groupedFindings = computed(() => {
     const a = this.assessment();
     return a ? groupFindings(a.findings) : [];
@@ -88,7 +107,13 @@ export class Report implements OnInit {
   }
 
   private async init(): Promise<void> {
-    const assessment = await this.api.getAssessment(this.id);
+    let assessment: AssessmentDto;
+    try {
+      assessment = await this.api.getAssessment(this.id);
+    } catch (e) {
+      this.error.set(toApiError(e));
+      return;
+    }
     if (assessment.status !== 'ready') {
       void this.router.navigateByUrl(`/assessments/${this.id}/progress`);
       return;
