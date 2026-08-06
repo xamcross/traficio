@@ -19,6 +19,7 @@ private val EMAIL_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
 
 @Serializable data class OkResponse(val ok: Boolean = true)
 @Serializable data class UserDto(val id: String, val email: String, val emailVerified: Boolean, val tier: String)
+@Serializable data class UsageResponse(val assessmentsUsed: Int, val assessmentsLimit: Int, val sitesUsed: Int, val sitesLimit: Int)
 @Serializable data class RegisterRequest(val email: String, val password: String)
 @Serializable data class VerifyEmailRequest(val token: String)
 @Serializable data class LoginRequest(val email: String, val password: String)
@@ -67,6 +68,17 @@ fun Route.authRoutes(deps: AppDeps) {
 
     get("/v1/me") {
         call.respond(call.requireUser(deps).toDto())
+    }
+
+    get("/v1/me/usage") {
+        val user = call.requireUser(deps)
+        // Mirrors the gates exactly, so the meter always matches enforcement:
+        // assessment quota gate in AssessmentRoutes.kt, site cap gate in SiteRoutes.kt.
+        val assessmentsUsed = deps.assessments.countNonFailedForUserSince(user.id, Instant.now().minus(Duration.ofDays(30)))
+        val assessmentsLimit = deps.config.tierLimits.assessmentsPerMonthFor(user.tier)
+        val sitesUsed = deps.sites.countFor(user.id)
+        val sitesLimit = deps.config.tierLimits.maxSitesFor(user.tier)
+        call.respond(UsageResponse(assessmentsUsed.toInt(), assessmentsLimit, sitesUsed.toInt(), sitesLimit))
     }
 
     post("/v1/auth/logout") {

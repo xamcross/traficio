@@ -1,0 +1,40 @@
+@if (loading()) {
+  <p>Loading your account…</p>
+} @else if (error(); as e) {
+  <app-error-note [error]="e" />
+} @else {
+  <section class="account-summary">
+    <p class="email">{{ store.user()?.email }}</p>
+    <span class="chip">{{ store.user()?.tier === 'pro' ? 'Pro plan' : 'Free plan' }}</span>
+
+    @if (store.user()?.emailVerified === false) {
+      <div class="confirm-email-note" role="alert">
+        <p>Confirm your email to unlock all features.</p>
+        <button type="button" (click)="resend()" [disabled]="resendBusy()">Send the email again</button>
+        @if (resent()) {
+          <p>Sent. Check your inbox.</p>
+        }
+        @if (resendError(); as e) {
+          <app-error-note [error]="e" />
+        }
+      </div>
+    }
+
+    @if (usage(); as u) {
+      <section class="meters">
+        <p>Checks this month: {{ u.assessmentsUsed }} of {{ u.assessmentsLimit }}</p>
+        <progress [value]="u.assessmentsUsed" [max]="u.assessmentsLimit"></progress>
+        <p>Sites: {{ u.sitesUsed }} of {{ u.sitesLimit }}</p>
+        <progress [value]="u.sitesUsed" [max]="u.sitesLimit"></progress>
+      </section>
+    }
+
+    @if (store.user()?.tier === 'pro') {
+      <a [href]="portalUrl" target="_blank" rel="noopener">Manage subscription</a>
+    } @else {
+      <a routerLink="/pricing">Upgrade</a>
+    }
+
+    <button type="button" (click)="logout()">Log out</button>
+  </section>
+}
