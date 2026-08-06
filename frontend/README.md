@@ -1,59 +1,58 @@
-# Frontend
+# GeoStrategy frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.33.
+## What this is
 
-## Development server
+This is the GeoStrategy web app. It is an Angular application that lets a user add a site,
+run an assessment, and view the resulting plan and report.
 
-To start a local development server, run:
+## Run in development
 
-```bash
-ng serve
-```
+1. Run `npm install`.
+2. Start the backend first. See `../backend/README.md`.
+3. Run `npm start`. This starts the dev server. The dev server proxies `/v1` and `/healthz`
+   requests to `localhost:8080` (see `proxy.conf.json`).
+4. Open `http://localhost:4200`.
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Test
 
-## Code scaffolding
+- Run unit tests: `npm test -- --watch=false`.
+- Note: Karma needs a Chrome browser. On a machine without Chrome, set `CHROME_BIN` to another
+  Chromium-based browser (for example Edge) before you run the command.
+- Run end-to-end tests: `npm run e2e`. This runs the Playwright suite.
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Build
 
-```bash
-ng generate component component-name
-```
+Run `npx ng build`. The build output goes to `dist/frontend/browser`.
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Deploy to Cloudflare Pages
 
-```bash
-ng generate --help
-```
+1. Set the build command to `npx ng build`.
+2. Set the output directory to `dist/frontend/browser`.
+3. Set the root directory to `frontend`.
+4. The build copies `public/_redirects` into the output. This file sends all routes to
+   `index.html`, so client-side routing works on refresh and on direct links.
 
-## Building
+## Connect to the API in production
 
-To build the project run:
+Choose one of two options.
 
-```bash
-ng build
-```
+**Option A: same origin.** Add a Cloudflare Origin Rule or Worker that routes
+`app.<domain>/v1/*` to the API. Keep `API_BASE = ''` in `src/app/core/config.ts`. The app then
+calls the API on its own origin, the same way the dev proxy does.
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+**Option B: separate API subdomain.** Set `API_BASE` in `src/app/core/config.ts` to
+`https://api.<domain>`. On the backend, set `APP_URL` to the app origin. Set `COOKIE_DOMAIN` to
+`.<domain>` so the session cookie works across both subdomains.
 
-## Running unit tests
+## Before production
 
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+Complete this checklist before you launch.
 
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- Replace `REPLACE_ME_FREEMIUS_PRODUCT_ID` in `src/app/core/config.ts` with the real Freemius
+  product id.
+- Replace `REPLACE_ME_FREEMIUS_PUBLIC_KEY` in `src/app/core/config.ts` with the real Freemius
+  public key.
+- Replace `REPLACE_ME_CONTACT_EMAIL` (in the legal pages) with the real contact email address.
+- Set the Google OAuth redirect URI to the API callback URL. See the backend README for the
+  exact path.
+- Test checkout in Freemius sandbox mode before you accept real payments.

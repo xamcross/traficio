@@ -1,5 +1,7 @@
 # GeoStrategy backend
 
+Frontend: see `../frontend/README.md` for the web app.
+
 ## Local development
 1. Prereqs: JDK 21, Docker Desktop (for Testcontainers and a local Mongo).
 2. Run Mongo locally: `docker run -d -p 27017:27017 --name gs-mongo mongo:7.0`
