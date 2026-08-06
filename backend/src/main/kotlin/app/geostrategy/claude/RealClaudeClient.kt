@@ -67,9 +67,23 @@ class RealClaudeClient(apiKey: String, private val model: String) : ClaudeClient
                 )
                 .addUserMessage(user)
                 .build()
-            val res = client.messages().create(params)
-            val text = res.content().joinToString("") { block -> block.text().map { it.text() }.orElse("") }
-            text to ClaudeUsage(res.usage().inputTokens(), res.usage().outputTokens())
+            val text = StringBuilder()
+            var inputTokens = 0L
+            var outputTokens = 0L
+            client.messages().createStreaming(params).use { stream ->
+                stream.stream().forEach { event ->
+                    event.messageStart().ifPresent { start ->
+                        inputTokens = start.message().usage().inputTokens()
+                    }
+                    event.contentBlockDelta().ifPresent { delta ->
+                        delta.delta().text().ifPresent { text.append(it.text()) }
+                    }
+                    event.messageDelta().ifPresent { d ->
+                        outputTokens = d.usage().outputTokens()
+                    }
+                }
+            }
+            text.toString() to ClaudeUsage(inputTokens, outputTokens)
         }
 
     private fun loadResource(path: String): String = javaClass.getResource(path)!!.readText()

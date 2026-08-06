@@ -49,3 +49,26 @@ How an assessment runs:
 3. A job goes on the queue. The worker picks it up.
 4. The worker crawls the site, calls Claude two times, and stores the plan.
 5. The client follows the progress on `GET /v1/assessments/{id}/events` (SSE).
+
+## Billing (Freemius)
+
+Set these environment variables to enable billing:
+
+- `FREEMIUS_SECRET_KEY` — the store secret. Without it, the webhook answers 503.
+- `FREEMIUS_PRO_PLAN_ID` — the Pro plan id. Events for other plans are ignored.
+- `FREEMIUS_SIGNATURE_HEADER` — the signature header name. The default is `X-Signature`.
+
+Point the Freemius webhook to `POST /v1/billing/freemius/webhook`.
+The server verifies each call with HMAC-SHA256 over the raw body.
+
+Warning: verify the signature header name and the payload shapes against real
+Freemius webhooks before production. The test fixtures define the parser's
+current contract.
+
+## Before production with a real Anthropic key
+
+1. Set `ANTHROPIC_API_KEY`. The client streams responses to avoid timeouts.
+2. The assessment job lease is 900 seconds. Do not lower it for slow sites.
+3. Implement a real `FreemiusClient` for license revalidation. The canned
+   client only downgrades on expiry dates.
+4. Review `SSE_MAX_MILLIS` (default 900000). Clients reconnect after the cap.
