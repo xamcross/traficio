@@ -28,6 +28,19 @@ function addSiteInput(compiled: HTMLElement): HTMLInputElement {
   return compiled.querySelector<HTMLInputElement>('input[type=text]')!;
 }
 
+/** A promise whose resolution is controlled from the test, to simulate an in-flight request. */
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+function findButtonInByText(container: Element, text: string): HTMLButtonElement | null {
+  return Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes(text)) ?? null;
+}
+
 function makeSite(overrides: Partial<SiteDto> = {}): SiteDto {
   return {
     id: 's1',
@@ -238,6 +251,55 @@ describe('Dashboard', () => {
     fixture.detectChanges();
 
     expect(api.resendVerificationCalls).toBe(1);
+  });
+
+  it('disables other cards\' action buttons while one site\'s check is in flight', async () => {
+    api.listSitesResult = Promise.resolve([
+      makeSite({ id: 's1', domain: 'a.com' }),
+      makeSite({ id: 's2', domain: 'b.com', latestScores: { seo: 1, aeo: 2, geo: 3 } }),
+    ]);
+    const inFlight = deferred<AssessmentDto>();
+    api.submitAssessmentResult = inFlight.promise;
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const cards = compiled.querySelectorAll('.site-card');
+
+    findButtonInByText(cards[0], 'Check my site')!.click();
+    fixture.detectChanges();
+
+    expect(findButtonInByText(cards[1], 'Check my site')?.disabled).toBeTrue();
+    expect(findButtonInByText(cards[1], 'See my plan')?.disabled).toBeTrue();
+
+    inFlight.resolve(makeAssessment({ id: 'A1', siteId: 's1' }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(findButtonInByText(cards[1], 'Check my site')?.disabled).toBeFalse();
+  });
+
+  it('shows an error note with the server message when resendVerification is rejected', async () => {
+    api.listSitesResult = Promise.resolve([makeSite({ id: 's1', domain: 'a.com' })]);
+    api.submitAssessmentResult = Promise.reject(new ApiError('email_not_verified', 'Please verify your email.', 403));
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    findButtonByText(compiled, 'Check my site')!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    api.resendVerificationResult = Promise.reject(new ApiError('rate_limited', 'Too many requests. Try again later.', 429));
+    findButtonByText(compiled, 'Send the email again')!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).not.toContain('Sent. Check your inbox.');
+    expect(compiled.querySelector('.error-note')?.textContent).toContain('Too many requests. Try again later.');
   });
 
   it('pre-fills the add-site input from sessionStorage pendingUrl on init and clears the key', async () => {

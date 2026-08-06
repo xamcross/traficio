@@ -25,7 +25,7 @@
   @if (e.code === 'email_not_verified') {
     <div class="error-note" role="alert">
       <p>Confirm your email first. Click the link in the email we sent you.</p>
-      <button type="button" (click)="resend()">Send the email again</button>
+      <button type="button" (click)="resend()" [disabled]="resendBusy()">Send the email again</button>
       @if (resent()) {
         <p>Sent. Check your inbox.</p>
       }
@@ -70,10 +70,10 @@
         }
 
         <div class="actions">
-          <button type="button" (click)="checkSite(site)" [disabled]="site.readOnly || busySiteId() === site.id">Check my site</button>
+          <button type="button" (click)="checkSite(site)" [disabled]="site.readOnly || busySiteId() !== null">Check my site</button>
 
           @if (site.latestScores) {
-            <button type="button" (click)="seePlan(site)" [disabled]="busySiteId() === site.id">See my plan</button>
+            <button type="button" (click)="seePlan(site)" [disabled]="busySiteId() !== null">See my plan</button>
           }
 
           @if (store.user()?.tier === 'pro') {

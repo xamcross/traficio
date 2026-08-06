@@ -31,6 +31,7 @@ export class Dashboard implements OnInit {
   protected readonly checkError = signal<ApiError | null>(null);
   protected readonly busySiteId = signal<string | null>(null);
   protected readonly resent = signal(false);
+  protected readonly resendBusy = signal(false);
 
   protected readonly addForm = new FormGroup({
     url: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -100,6 +101,7 @@ export class Dashboard implements OnInit {
     if (this.busySiteId()) return;
     this.busySiteId.set(site.id);
     this.checkError.set(null);
+    this.resent.set(false);
     this.api
       .getPlanForSite(site.id)
       .then(
@@ -116,6 +118,14 @@ export class Dashboard implements OnInit {
   }
 
   protected resend(): void {
-    this.api.resendVerification().then(() => this.resent.set(true));
+    if (this.resendBusy()) return;
+    this.resendBusy.set(true);
+    this.api
+      .resendVerification()
+      .then(
+        () => this.resent.set(true),
+        (e: unknown) => this.checkError.set(toApiError(e)),
+      )
+      .finally(() => this.resendBusy.set(false));
   }
 }
