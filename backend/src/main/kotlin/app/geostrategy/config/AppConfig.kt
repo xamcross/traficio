@@ -28,6 +28,7 @@ data class AppConfig(
     val freemiusSecretKey: String?,
     val freemiusProPlanId: String?,
     val freemiusSignatureHeader: String,
+    val sseMaxMillis: Long,
 ) {
     companion object {
         fun fromEnv(env: Map<String, String> = System.getenv()): AppConfig {
@@ -55,6 +56,7 @@ data class AppConfig(
                 freemiusSecretKey = env["FREEMIUS_SECRET_KEY"],
                 freemiusProPlanId = env["FREEMIUS_PRO_PLAN_ID"],
                 freemiusSignatureHeader = env["FREEMIUS_SIGNATURE_HEADER"] ?: "X-Signature",
+                sseMaxMillis = env["SSE_MAX_MILLIS"]?.toLong() ?: 900_000L,
             )
         }
     }

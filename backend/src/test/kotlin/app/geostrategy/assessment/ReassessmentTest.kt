@@ -28,6 +28,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.bson.types.ObjectId
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class ReassessmentTest {
@@ -104,6 +105,7 @@ class ReassessmentTest {
         val verifiedPlan = runBlocking { PlanRepository(db).findById(firstPlan.id)!! }
         val fixedTask = verifiedPlan.tasks.first { it.findingId == "missing-meta-description:/" }
         assertEquals("verified", fixedTask.status)
+        assertNotNull(fixedTask.completedAt)
         // a task whose finding still exists stays todo
         val stillOpen = verifiedPlan.tasks.first { it.findingId == "missing-llms-txt" }
         assertEquals("todo", stillOpen.status)

@@ -72,4 +72,14 @@ class CrawlerTest {
         val e = assertFailsWith<AppException> { Crawler(fetcher, budgetMillis = 200).crawl("https://example.com") }
         assertEquals("site_unreachable", e.code)
     }
+
+    @Test
+    fun `robots disallowing the homepage fails honestly`() = runBlocking {
+        val fetcher = MapFetcher(mapOf(
+            "https://example.com" to home,
+            "https://example.com/robots.txt" to "User-agent: *\nDisallow: /",
+        ))
+        val e = assertFailsWith<AppException> { Crawler(fetcher).crawl("https://example.com") }
+        assertEquals("robots_blocked", e.code)
+    }
 }

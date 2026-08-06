@@ -2,6 +2,7 @@ package app.geostrategy.crawl
 
 import app.geostrategy.http.AppException
 import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URI
 
@@ -24,6 +25,7 @@ class Crawler(
     private val fetcher: Fetcher,
     private val budgetMillis: Long = 90_000,
     private val pageCap: Int = 15,
+    private val pacingMillis: Long = 200,
 ) {
     suspend fun crawl(startUrl: String): CrawlDigest {
         val uri = URI(startUrl)
@@ -46,10 +48,18 @@ class Crawler(
             sitemapXml = fetcher.fetch("$origin/sitemap.xml")?.takeIf { it.status == 200 }?.body
             llmsPresent = fetcher.fetch("$origin/llms.txt")?.status == 200
             val robots = Robots.parse(robotsTxt)
+            if (!robots.allows("/")) {
+                throw AppException(HttpStatusCode.UnprocessableEntity, "robots_blocked", "Your site's robots.txt asks us not to read it. Allow GeoStrategyBot in robots.txt, then try again.")
+            }
             val urls = discoverUrls(startUrl, fetched.body, sitemapXml, pageCap)
                 .filter { robots.allows(URI(it).rawPath?.takeIf(String::isNotEmpty) ?: "/") }
             for (url in urls) {
-                val res = if (url == startUrl) fetched else fetcher.fetch(url) ?: continue
+                val res = if (url == startUrl) {
+                    fetched
+                } else {
+                    delay(pacingMillis)
+                    fetcher.fetch(url) ?: continue
+                }
                 if (res.status != 200) continue
                 pages.add(extractPageSignals(url, res.body))
             }

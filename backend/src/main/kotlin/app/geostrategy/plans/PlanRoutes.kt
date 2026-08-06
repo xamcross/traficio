@@ -54,7 +54,8 @@ fun Route.planRoutes(deps: AppDeps) {
         }
         val planId = call.parameters["planId"]!!.toObjectIdOr404()
         deps.plans.findById(planId)?.takeIf { it.userId == user.id } ?: throw NOT_FOUND()
-        val updated = deps.plans.updateTaskStatus(planId, call.parameters["taskId"]!!, body.status) ?: throw NOT_FOUND()
+        val updated = deps.plans.updateTaskStatus(planId, call.parameters["taskId"]!!, body.status)
+            ?: throw AppException(HttpStatusCode.NotFound, "not_found", "We couldn't find that task.")
         call.respond(updated.toDto())
     }
 }

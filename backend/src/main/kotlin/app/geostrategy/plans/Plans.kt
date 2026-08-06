@@ -82,7 +82,7 @@ class PlanRepository(db: MongoDatabase) {
         if (taskIds.isEmpty()) return
         val doc = findById(planId) ?: return
         val now = Instant.now()
-        val updated = doc.tasks.map { if (it.taskId in taskIds) it.copy(status = "verified") else it }
+        val updated = doc.tasks.map { if (it.taskId in taskIds) it.copy(status = "verified", completedAt = now) else it }
         col.updateOne(eq("_id", planId), Updates.combine(
             Updates.set("tasks", updated),
             Updates.set("updatedAt", now),

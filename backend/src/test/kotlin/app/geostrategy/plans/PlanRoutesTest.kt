@@ -104,4 +104,34 @@ class PlanRoutesTest {
         assertEquals(HttpStatusCode.BadRequest, res.status)
         assertTrue(res.bodyAsText().contains("invalid_status"))
     }
+
+    @Test
+    fun `unknown task id names the task in the 404`() = testApplication {
+        val db = TestMongo.freshDb()
+        val emails = RecordingEmailSender()
+        val deps = testDeps(db, email = emails)
+        application { appModule(deps) }
+        val http = createClient { install(HttpCookies) }
+        registerVerifyLogin(http, emails, "ada@example.com")
+        val siteId = Json.parseToJsonElement(
+            http.post("/v1/sites") {
+                contentType(ContentType.Application.Json)
+                setBody("""{"url":"example.com"}""")
+            }.bodyAsText(),
+        ).jsonObject["id"]!!.jsonPrimitive.content
+        http.post("/v1/sites/$siteId/assessments")
+        val pipeline = AssessmentPipeline(
+            deps.assessments, deps.sites, deps.plans,
+            Crawler(MapFetcher(mapOf("https://example.com" to html))), CannedClaudeClient(),
+        )
+        runBlocking { pipeline.handle(deps.jobs.claim()!!) }
+        val plan = runBlocking { deps.plans.latestFor(org.bson.types.ObjectId(siteId))!! }
+
+        val res = http.patch("/v1/plans/${plan.id.toHexString()}/tasks/nope") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"status":"done"}""")
+        }
+        assertEquals(HttpStatusCode.NotFound, res.status)
+        assertTrue(res.bodyAsText().contains("task"))
+    }
 }

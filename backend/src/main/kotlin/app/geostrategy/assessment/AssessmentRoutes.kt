@@ -114,6 +114,7 @@ fun Route.assessmentRoutes(deps: AppDeps) {
         call.response.cacheControl(CacheControl.NoCache(null))
         call.respondTextWriter(contentType = ContentType.Text.EventStream) {
             var last: String? = null
+            val startedAt = System.currentTimeMillis()
             while (true) {
                 val current = deps.assessments.findById(id) ?: break
                 if (current.status != last) {
@@ -122,6 +123,7 @@ fun Route.assessmentRoutes(deps: AppDeps) {
                     last = current.status
                 }
                 if (current.status in TERMINAL_STATUSES) break
+                if (System.currentTimeMillis() - startedAt >= deps.config.sseMaxMillis) break
                 delay(1000)
             }
         }
