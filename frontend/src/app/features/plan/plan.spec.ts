@@ -238,6 +238,44 @@ describe('Plan', () => {
     expect(checkbox.disabled).toBeFalse();
   });
 
+  it("disables task B's checkbox while task A's PATCH is in flight", async () => {
+    api.getPlanForAssessmentResult = Promise.resolve(
+      makePlan({
+        tasks: [makeTask({ taskId: 'a', status: 'todo' }), makeTask({ taskId: 'b', status: 'todo' })],
+        progress: { done: 0, verified: 0, total: 2 },
+      }),
+    );
+    const inFlight = deferred<PlanDto>();
+    api.setTaskStatusResult = inFlight.promise;
+    const fixture = TestBed.createComponent(Plan);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    const checkboxes = compiled.querySelectorAll<HTMLInputElement>('input[type=checkbox]');
+    const [checkboxA, checkboxB] = [checkboxes[0], checkboxes[1]];
+
+    checkboxA.checked = true;
+    checkboxA.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(checkboxA.disabled).toBeTrue();
+    expect(checkboxB.disabled).toBeTrue();
+
+    inFlight.resolve(
+      makePlan({
+        tasks: [makeTask({ taskId: 'a', status: 'done' }), makeTask({ taskId: 'b', status: 'todo' })],
+        progress: { done: 1, verified: 0, total: 2 },
+      }),
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(checkboxA.disabled).toBeFalse();
+    expect(checkboxB.disabled).toBeFalse();
+  });
+
   it('shows a loading message before the plan loads', () => {
     const fixture = TestBed.createComponent(Plan);
     fixture.detectChanges();

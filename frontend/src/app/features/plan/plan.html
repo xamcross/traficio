@@ -27,7 +27,7 @@
           <input
             type="checkbox"
             [checked]="isChecked(task)"
-            [disabled]="task.status === 'verified' || busyTaskId() === task.taskId"
+            [disabled]="task.status === 'verified' || busyTaskId() !== null"
             (change)="toggleStatus(task, $event)"
           />
           {{ task.status === 'verified' ? 'Checked by us' : 'Done' }}

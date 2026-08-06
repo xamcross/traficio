@@ -66,10 +66,16 @@ export class Plan implements OnInit {
   }
 
   protected toggleStatus(task: PlanTaskDto, event: Event): void {
-    if (task.status === 'verified' || this.busyTaskId() !== null) return;
+    const checkboxEl = event.target as HTMLInputElement;
+    if (task.status === 'verified' || this.busyTaskId() !== null) {
+      // The browser already flipped the checkbox from the click/tap before this handler ran
+      // (e.g. a race where a click on task B lands right as task A's PATCH is still resolving,
+      // slipping past the [disabled] binding). We are not acting on it, so reset it immediately.
+      checkboxEl.checked = this.isChecked(task);
+      return;
+    }
     const plan = this.plan();
     if (!plan) return;
-    const checkboxEl = event.target as HTMLInputElement;
     const nextStatus: 'todo' | 'done' = task.status === 'done' ? 'todo' : 'done';
     this.busyTaskId.set(task.taskId);
     this.patchError.set(null);
