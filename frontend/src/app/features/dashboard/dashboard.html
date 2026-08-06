@@ -24,18 +24,16 @@
 @if (checkError(); as e) {
   @if (e.code === 'email_not_verified') {
     <div class="error-note" role="alert">
-      <p>Confirm your email first. Click the link in the email we sent you.</p>
+      <p>{{ assessmentErrorCopy(e) }}</p>
       <button type="button" (click)="resend()" [disabled]="resendBusy()">Send the email again</button>
       @if (resent()) {
         <p>Sent. Check your inbox.</p>
       }
     </div>
-  } @else if (e.code === 'quota_exceeded') {
-    <p class="error-note" role="alert">{{ e.message }} <a routerLink="/pricing">Upgrade</a></p>
-  } @else if (e.code === 'upgrade_required') {
-    <p class="error-note" role="alert">Re-checks need the Pro plan. <a routerLink="/pricing">Upgrade</a></p>
+  } @else if (e.code === 'quota_exceeded' || e.code === 'upgrade_required') {
+    <p class="error-note" role="alert">{{ assessmentErrorCopy(e) }} <a routerLink="/pricing">Upgrade</a></p>
   } @else if (e.code === 'site_read_only') {
-    <p class="error-note" role="alert">This site is over your plan limit. <a routerLink="/pricing">Upgrade to check it again.</a></p>
+    <p class="error-note" role="alert">{{ assessmentErrorCopy(e) }} <a routerLink="/pricing">Upgrade to check it again.</a></p>
   } @else {
     <app-error-note [error]="e" />
   }

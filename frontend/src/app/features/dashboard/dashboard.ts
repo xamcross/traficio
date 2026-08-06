@@ -6,6 +6,7 @@ import { UserStore } from '../../core/auth/user-store';
 import { SiteDto } from '../../core/api/types';
 import { PENDING_URL_KEY } from '../../core/config';
 import { ErrorNote } from '../../shared/error-note';
+import { assessmentErrorCopy } from '../../shared/assessment-error-copy';
 
 function toApiError(e: unknown): ApiError {
   return e instanceof ApiError ? e : new ApiError('unknown', 'Something went wrong. Please try again.', 0);
@@ -32,6 +33,8 @@ export class Dashboard implements OnInit {
   protected readonly busySiteId = signal<string | null>(null);
   protected readonly resent = signal(false);
   protected readonly resendBusy = signal(false);
+
+  protected readonly assessmentErrorCopy = assessmentErrorCopy;
 
   protected readonly addForm = new FormGroup({
     url: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
