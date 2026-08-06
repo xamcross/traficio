@@ -1,5 +1,7 @@
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
+import { Location } from '@angular/common';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { Register } from './register';
 import { Login } from './login';
 import { VerifyEmail } from './verify-email';
@@ -7,6 +9,10 @@ import { AuthComplete } from './auth-complete';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
 import { UserDto } from '../../core/api/types';
+
+/** A no-op routed target so provideRouter() has something real to navigate to in the Login tests. */
+@Component({ selector: 'auth-spec-blank', template: '' })
+class BlankPage {}
 
 function setValue(el: HTMLInputElement, value: string): void {
   el.value = value;
@@ -20,6 +26,10 @@ function submitForm(compiled: HTMLElement): void {
 function fillLoginForm(compiled: HTMLElement, email: string, password: string): void {
   setValue(compiled.querySelector<HTMLInputElement>('input[type=email]')!, email);
   setValue(compiled.querySelector<HTMLInputElement>('input[type=password]')!, password);
+}
+
+function findLinkByText(compiled: HTMLElement, text: string): HTMLAnchorElement | null {
+  return Array.from(compiled.querySelectorAll('a')).find((a) => a.textContent?.includes(text)) ?? null;
 }
 
 /** A default-rejected promise, pre-handled so it does not log as an unhandled rejection until used. */
@@ -57,6 +67,11 @@ class FakeApiClient {
   }
 }
 
+/**
+ * Used only where the component's template has no RouterLink (AuthComplete): a bare fake is fine there
+ * because nothing needs Router.createUrlTree()/serializeUrl(). Where RouterLink is rendered (Login), we
+ * use a real router via provideRouter() instead, since RouterLink needs a fully working Router.
+ */
 class FakeRouter {
   navigations: string[] = [];
   navigateByUrl(url: string): Promise<boolean> {
@@ -78,7 +93,7 @@ describe('Register', () => {
     api = new FakeApiClient();
     await TestBed.configureTestingModule({
       imports: [Register],
-      providers: [{ provide: ApiClient, useValue: api }],
+      providers: [{ provide: ApiClient, useValue: api }, provideRouter([])],
     }).compileComponents();
   });
 
@@ -110,20 +125,30 @@ describe('Register', () => {
 
     expect(compiled.textContent).toContain('already have an account');
   });
+
+  it('renders a Google continue link pointing at the backend', () => {
+    const fixture = TestBed.createComponent(Register);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    const googleLink = findLinkByText(compiled, 'Continue with Google');
+    expect(googleLink?.getAttribute('href')).toBe('/v1/auth/google/start');
+  });
 });
 
 describe('Login', () => {
   let api: FakeApiClient;
-  let router: FakeRouter;
 
   beforeEach(async () => {
     api = new FakeApiClient();
-    router = new FakeRouter();
     await TestBed.configureTestingModule({
       imports: [Login],
       providers: [
         { provide: ApiClient, useValue: api },
-        { provide: Router, useValue: router },
+        provideRouter([
+          { path: 'dashboard', component: BlankPage },
+          { path: 'login', component: BlankPage },
+        ]),
       ],
     }).compileComponents();
   });
@@ -135,6 +160,7 @@ describe('Login', () => {
 
     const fixture = TestBed.createComponent(Login);
     const store = TestBed.inject(UserStore);
+    const location = TestBed.inject(Location);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
 
@@ -144,13 +170,14 @@ describe('Login', () => {
     fixture.detectChanges();
 
     expect(store.user()).toEqual(user);
-    expect(router.navigations).toEqual(['/dashboard']);
+    expect(location.path()).toBe('/dashboard');
   });
 
-  it('renders the error note for invalid_credentials', async () => {
+  it('renders the error note for invalid_credentials and does not navigate', async () => {
     api.loginResult = Promise.reject(new ApiError('invalid_credentials', 'Wrong email or password.', 401));
 
     const fixture = TestBed.createComponent(Login);
+    const location = TestBed.inject(Location);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
 
@@ -160,7 +187,16 @@ describe('Login', () => {
     fixture.detectChanges();
 
     expect(compiled.querySelector('.error-note')?.textContent).toContain('Wrong email or password.');
-    expect(router.navigations).toEqual([]);
+    expect(location.path()).toBe('');
+  });
+
+  it('renders a Google continue link pointing at the backend', () => {
+    const fixture = TestBed.createComponent(Login);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    const googleLink = findLinkByText(compiled, 'Continue with Google');
+    expect(googleLink?.getAttribute('href')).toBe('/v1/auth/google/start');
   });
 });
 
@@ -176,6 +212,7 @@ describe('VerifyEmail', () => {
     await TestBed.configureTestingModule({
       imports: [VerifyEmail],
       providers: [
+        provideRouter([]),
         { provide: ApiClient, useValue: api },
         { provide: ActivatedRoute, useValue: activatedRouteWithToken('abc') },
       ],
@@ -195,6 +232,7 @@ describe('VerifyEmail', () => {
     await TestBed.configureTestingModule({
       imports: [VerifyEmail],
       providers: [
+        provideRouter([]),
         { provide: ApiClient, useValue: api },
         { provide: ActivatedRoute, useValue: activatedRouteWithToken('abc') },
       ],
@@ -207,13 +245,14 @@ describe('VerifyEmail', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('link does not work');
-    expect(compiled.querySelector('a[href="/login"]')).toBeTruthy();
+    expect(findLinkByText(compiled, 'Log in')).toBeTruthy();
   });
 
   it('shows an error state without calling the API when the token is missing', async () => {
     await TestBed.configureTestingModule({
       imports: [VerifyEmail],
       providers: [
+        provideRouter([]),
         { provide: ApiClient, useValue: api },
         { provide: ActivatedRoute, useValue: activatedRouteWithToken(null) },
       ],

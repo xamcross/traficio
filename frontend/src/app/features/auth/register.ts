@@ -1,16 +1,17 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { API_BASE } from '../../core/config';
 import { ErrorNote } from '../../shared/error-note';
 
 @Component({
   selector: 'app-register',
-  imports: [ReactiveFormsModule, ErrorNote],
+  imports: [ReactiveFormsModule, RouterLink, ErrorNote],
   template: `
     @if (sent()) {
       <p>Check your email. We sent you a link. Click the link to confirm your address.</p>
-      <p><a href="/login">Log in</a></p>
+      <p><a routerLink="/login">Log in</a></p>
     } @else {
       <form [formGroup]="form" (ngSubmit)="submit()">
         <label>
@@ -27,7 +28,7 @@ import { ErrorNote } from '../../shared/error-note';
       @if (error(); as e) {
         @if (e.code === 'email_taken') {
           <p class="error-note" role="alert">
-            You already have an account. <a href="/login">Log in instead.</a>
+            You already have an account. <a routerLink="/login">Log in instead.</a>
           </p>
         } @else {
           <app-error-note [error]="e" />
@@ -35,7 +36,7 @@ import { ErrorNote } from '../../shared/error-note';
       }
 
       <p><a [href]="googleUrl">Continue with Google</a></p>
-      <p>Already have an account? <a href="/login">Log in</a></p>
+      <p>Already have an account? <a routerLink="/login">Log in</a></p>
     }
   `,
 })

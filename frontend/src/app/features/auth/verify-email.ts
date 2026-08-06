@@ -1,24 +1,24 @@
 import { Component, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { ErrorNote } from '../../shared/error-note';
 
 @Component({
   selector: 'app-verify-email',
-  imports: [ErrorNote],
+  imports: [RouterLink, ErrorNote],
   template: `
     @if (busy()) {
       <p>Checking your link…</p>
     } @else if (verified()) {
       <p>Your email is confirmed. You can log in now.</p>
-      <p><a href="/login">Log in</a></p>
+      <p><a routerLink="/login">Log in</a></p>
     } @else if (error(); as e) {
       @if (e.code === 'invalid_token') {
         <p class="error-note" role="alert">This link does not work. It may be old. Log in and send a new link.</p>
-        <p><a href="/login">Log in</a></p>
+        <p><a routerLink="/login">Log in</a></p>
       } @else {
         <app-error-note [error]="e" />
-        <p><a href="/login">Log in</a></p>
+        <p><a routerLink="/login">Log in</a></p>
       }
     }
   `,

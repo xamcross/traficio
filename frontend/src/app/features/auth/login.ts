@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { API_BASE } from '../../core/config';
 import { UserStore } from '../../core/auth/user-store';
@@ -8,7 +8,7 @@ import { ErrorNote } from '../../shared/error-note';
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, ErrorNote],
+  imports: [ReactiveFormsModule, RouterLink, ErrorNote],
   template: `
     <form [formGroup]="form" (ngSubmit)="submit()">
       <label>
@@ -25,8 +25,8 @@ import { ErrorNote } from '../../shared/error-note';
     <app-error-note [error]="error()" />
 
     <p><a [href]="googleUrl">Continue with Google</a></p>
-    <p>New here? <a href="/signup">Create an account</a></p>
-    <p><a href="/reset-password">Forgot your password?</a></p>
+    <p>New here? <a routerLink="/signup">Create an account</a></p>
+    <p><a routerLink="/reset-password">Forgot your password?</a></p>
   `,
 })
 export class Login {
@@ -53,7 +53,11 @@ export class Login {
       .then(
         async () => {
           await this.store.refresh();
-          await this.router.navigateByUrl('/dashboard');
+          try {
+            await this.router.navigateByUrl('/dashboard');
+          } catch {
+            this.error.set(new ApiError('navigation_failed', 'You are logged in, but we could not open the dashboard. Please try again.', 0));
+          }
         },
         (e: unknown) => this.error.set(e instanceof ApiError ? e : new ApiError('unknown', 'Something went wrong. Please try again.', 0)),
       )
