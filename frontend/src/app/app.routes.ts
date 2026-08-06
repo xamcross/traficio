@@ -10,7 +10,7 @@ export const routes: Routes = [
   { path: 'signup', canActivate: [guestGuard], loadComponent: () => import('./features/auth/register').then(m => m.Register) },
   { path: 'verify-email', loadComponent: () => import('./features/auth/verify-email').then(m => m.VerifyEmail) },
   { path: 'auth/complete', loadComponent: () => import('./features/auth/auth-complete').then(m => m.AuthComplete) },
-  { path: 'reset-password', canActivate: [guestGuard], loadComponent: () => import('./features/auth/reset-request').then(m => m.ResetRequest) },
+  { path: 'reset-password', loadComponent: () => import('./features/auth/reset-dispatch').then(m => m.ResetDispatch) },
   { path: 'reset-password/confirm', loadComponent: () => import('./features/auth/reset-confirm').then(m => m.ResetConfirm) },
   { path: 'dashboard', canActivate: [authGuard], loadComponent: () => import('./features/dashboard/dashboard').then(m => m.Dashboard) },
   { path: 'assessments/:id/progress', canActivate: [authGuard], loadComponent: () => import('./features/progress/progress').then(m => m.Progress) },

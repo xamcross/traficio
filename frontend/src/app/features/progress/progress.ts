@@ -1,8 +1,10 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { ApiClient } from '../../core/api/api-client';
+import { ApiClient, ApiError } from '../../core/api/api-client';
 import { AssessmentDto, AssessmentStatus } from '../../core/api/types';
 import { openAssessmentStream } from '../../core/sse/assessment-stream';
+import { UserStore } from '../../core/auth/user-store';
+import { ErrorNote } from '../../shared/error-note';
 
 const NARRATION: Record<AssessmentStatus, string> = {
   queued: 'You are in line. We start in a moment…',
@@ -21,6 +23,8 @@ const QUOTA_CONSUMING_ERROR_CODES = new Set(['js_only_site', 'robots_blocked', '
 
 const RETRY_DELAY_MS = 2000;
 const DONE_BEAT_MS = 1500;
+/** After this many consecutive failed refetches, stop retrying and show a terminal error. */
+const MAX_REFETCH_FAILURES = 5;
 
 function isTerminal(status: AssessmentStatus): boolean {
   return status === 'ready' || status === 'failed';
@@ -28,7 +32,7 @@ function isTerminal(status: AssessmentStatus): boolean {
 
 @Component({
   selector: 'app-progress',
-  imports: [RouterLink],
+  imports: [RouterLink, ErrorNote],
   template: `
     @if (failed(); as f) {
       <div class="failure-panel">
@@ -36,6 +40,11 @@ function isTerminal(status: AssessmentStatus): boolean {
         @if (quotaConsumed(f)) {
           <p>Your monthly check was not used.</p>
         }
+        <p><a routerLink="/dashboard">Back to my sites</a></p>
+      </div>
+    } @else if (retriesExhausted()) {
+      <div class="failure-panel">
+        <app-error-note [error]="retryError()" />
         <p><a routerLink="/dashboard">Back to my sites</a></p>
       </div>
     } @else {
@@ -53,12 +62,15 @@ export class Progress implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private destroyRef = inject(DestroyRef);
+  private userStore = inject(UserStore);
 
   private readonly id = this.route.snapshot.paramMap.get('id')!;
 
   protected readonly steps = STEPS;
   protected readonly status = signal<AssessmentStatus | null>(null);
   protected readonly failed = signal<AssessmentDto | null>(null);
+  protected readonly retriesExhausted = signal(false);
+  protected readonly retryError = signal<ApiError | null>(null);
   protected readonly narration = computed(() => {
     const s = this.status();
     return s ? NARRATION[s] : 'Loading…';
@@ -67,6 +79,12 @@ export class Progress implements OnInit {
   private closeStream: (() => void) | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private doneTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Consecutive refetch failures since the last success; reset on any successful fetch. */
+  private refetchFailures = 0;
+  /** Set once, in cleanup(), when the component is torn down. Guards every async continuation
+   *  below so a promise or timer that outlives the component can never navigate, retry, or open
+   *  a stream after the fact. */
+  private destroyed = false;
 
   ngOnInit(): void {
     this.destroyRef.onDestroy(() => this.cleanup());
@@ -78,11 +96,13 @@ export class Progress implements OnInit {
     try {
       assessment = await this.api.getAssessment(this.id);
     } catch {
+      if (this.destroyed) return;
       // Could not load the assessment up front; open the stream anyway. If the id is bad the
       // stream's own error/re-fetch cycle will surface it via the retry loop.
       this.openStream();
       return;
     }
+    if (this.destroyed) return;
     this.applyAssessment(assessment);
     if (!isTerminal(assessment.status)) {
       this.openStream();
@@ -90,6 +110,7 @@ export class Progress implements OnInit {
   }
 
   private openStream(): void {
+    if (this.destroyed) return;
     this.closeStream = openAssessmentStream(
       this.id,
       (status) => this.status.set(status),
@@ -98,6 +119,7 @@ export class Progress implements OnInit {
   }
 
   private handleClose(): void {
+    if (this.destroyed) return;
     this.closeStream = null;
     void this.refetchAfterClose();
   }
@@ -106,10 +128,30 @@ export class Progress implements OnInit {
     let assessment: AssessmentDto;
     try {
       assessment = await this.api.getAssessment(this.id);
-    } catch {
+    } catch (e: unknown) {
+      if (this.destroyed) return;
+
+      if (e instanceof ApiError && e.code === 'unauthenticated') {
+        this.userStore.clear();
+        void this.router.navigateByUrl('/login');
+        return;
+      }
+
+      this.refetchFailures++;
+      if (this.refetchFailures >= MAX_REFETCH_FAILURES) {
+        this.retryError.set(
+          e instanceof ApiError
+            ? e
+            : new ApiError('unknown', 'We could not load your progress. Please try again.', 0),
+        );
+        this.retriesExhausted.set(true);
+        return;
+      }
       this.scheduleRetry();
       return;
     }
+    if (this.destroyed) return;
+    this.refetchFailures = 0;
     this.applyAssessment(assessment);
     if (!isTerminal(assessment.status)) {
       this.scheduleRetry();
@@ -117,9 +159,11 @@ export class Progress implements OnInit {
   }
 
   private applyAssessment(assessment: AssessmentDto): void {
+    if (this.destroyed) return;
     this.status.set(assessment.status);
     if (assessment.status === 'ready') {
       this.doneTimer = setTimeout(() => {
+        if (this.destroyed) return;
         void this.router.navigateByUrl(`/assessments/${this.id}/report`);
       }, DONE_BEAT_MS);
     } else if (assessment.status === 'failed') {
@@ -128,6 +172,7 @@ export class Progress implements OnInit {
   }
 
   private scheduleRetry(): void {
+    if (this.destroyed) return;
     this.retryTimer = setTimeout(() => this.openStream(), RETRY_DELAY_MS);
   }
 
@@ -151,6 +196,7 @@ export class Progress implements OnInit {
   }
 
   private cleanup(): void {
+    this.destroyed = true;
     this.closeStream?.();
     this.closeStream = null;
     if (this.retryTimer) clearTimeout(this.retryTimer);
