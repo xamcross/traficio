@@ -2,9 +2,7 @@ import { Component, inject } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { UserStore } from '../../core/auth/user-store';
-
-/** Task 5's dashboard reads this back out of sessionStorage to pick up the site the visitor typed in before signing up. */
-export const PENDING_URL_KEY = 'geostrategy.pendingUrl';
+import { PENDING_URL_KEY } from '../../core/config';
 
 @Component({
   selector: 'app-landing',

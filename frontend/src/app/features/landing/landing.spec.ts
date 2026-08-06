@@ -2,10 +2,11 @@ import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Location } from '@angular/common';
 import { provideRouter } from '@angular/router';
-import { Landing, PENDING_URL_KEY } from './landing';
+import { Landing } from './landing';
 import { ApiClient } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
 import { UserDto } from '../../core/api/types';
+import { PENDING_URL_KEY } from '../../core/config';
 
 /** No-op routed targets so provideRouter() has something real to navigate to. */
 @Component({ selector: 'landing-spec-blank', template: '' })

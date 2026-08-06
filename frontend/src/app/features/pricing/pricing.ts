@@ -6,17 +6,31 @@ import { UserStore } from '../../core/auth/user-store';
 type FreemiusCheckout = { open: (o: object) => void };
 type FreemiusGlobal = { FS?: { Checkout: new (o: object) => FreemiusCheckout } };
 
+const FREEMIUS_SCRIPT_TIMEOUT_MS = 10_000;
+
 /** Module-level cache so the checkout script is only ever appended to the page once, however many times "Go Pro" is clicked. */
 let freemiusScriptPromise: Promise<void> | null = null;
 
 function loadFreemiusScript(): Promise<void> {
   if (!freemiusScriptPromise) {
-    freemiusScriptPromise = new Promise<void>((resolve, reject) => {
+    const scriptLoad = new Promise<void>((resolve, reject) => {
       const script = document.createElement('script');
       script.src = 'https://checkout.freemius.com/js/v1/';
       script.onload = () => resolve();
       script.onerror = () => reject(new Error('Failed to load the checkout script.'));
       document.head.appendChild(script);
+    });
+
+    const timeout = new Promise<never>((_resolve, reject) => {
+      setTimeout(() => reject(new Error('Timed out loading the checkout script.')), FREEMIUS_SCRIPT_TIMEOUT_MS);
+    });
+
+    // If neither onload nor onerror ever fires, the timeout still settles the race so `busy`
+    // always gets reset. Either way, a rejection must not poison the cache: null it out so the
+    // next click can retry the load instead of forever awaiting a promise that already lost.
+    freemiusScriptPromise = Promise.race([scriptLoad, timeout]).catch((e: unknown) => {
+      freemiusScriptPromise = null;
+      throw e;
     });
   }
   return freemiusScriptPromise;
@@ -63,11 +77,16 @@ function loadFreemiusScript(): Promise<void> {
 export class Pricing {
   private store = inject(UserStore);
 
+  // Test seams: constructor-visible fields, overridable from a spec, instead of mutating the
+  // module consts or the module-level script loader directly.
+  protected productId = FREEMIUS_PRODUCT_ID;
+  protected loadScript: () => Promise<void> = loadFreemiusScript;
+
   protected readonly busy = signal(false);
   protected readonly note = signal<string | null>(null);
 
   protected async goPro(): Promise<void> {
-    if (FREEMIUS_PRODUCT_ID.startsWith('REPLACE_ME')) {
+    if (this.productId.startsWith('REPLACE_ME')) {
       this.note.set('Checkout is not connected yet.');
       return;
     }
@@ -75,9 +94,9 @@ export class Pricing {
     this.busy.set(true);
     this.note.set(null);
     try {
-      await loadFreemiusScript();
+      await this.loadScript();
       const fs = (window as unknown as FreemiusGlobal).FS;
-      const handler = new fs!.Checkout({ product_id: FREEMIUS_PRODUCT_ID, public_key: FREEMIUS_PUBLIC_KEY });
+      const handler = new fs!.Checkout({ product_id: this.productId, public_key: FREEMIUS_PUBLIC_KEY });
       handler.open({ email: this.store.user()?.email ?? '', success: () => location.assign('/account') });
     } catch {
       this.note.set('Checkout did not open. Please try again.');
