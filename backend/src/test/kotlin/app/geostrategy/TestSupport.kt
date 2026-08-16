@@ -110,3 +110,9 @@ class MapFetcher(private val pages: Map<String, String>) : app.geostrategy.crawl
     override suspend fun fetch(url: String): app.geostrategy.crawl.FetchResult? =
         pages[url]?.let { app.geostrategy.crawl.FetchResult(url, 200, "text/html", it) }
 }
+
+/** Sets the user's tier to pro directly in the database. Billing is out of scope for these tests. */
+suspend fun makePro(db: MongoDatabase, email: String) {
+    db.getCollection<app.geostrategy.users.User>("users")
+        .updateOne(com.mongodb.client.model.Filters.eq("email", email), com.mongodb.client.model.Updates.set("tier", "pro"))
+}
