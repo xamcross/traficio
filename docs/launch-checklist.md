@@ -48,7 +48,8 @@ Do these first. Later steps need their credentials.
       `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` (scope: the account, `Pages:Edit` only).
 - [ ] 3.3 The workflow `.github/workflows/ci.yml` runs on each push to `master`. It
       deploys the backend and the frontend after the tests pass. Do steps 4 and 8
-      once by hand first, so the Fly app and the Pages project exist.
+      by hand first. That creates the Fly app and the Pages project that CI
+      needs.
 
 ## 4. Deploy the backend to Fly.io
 
@@ -82,7 +83,8 @@ Work from the `backend/` directory.
 - [ ] 4.3 Run `fly deploy`.
 - [ ] 4.4 Run `fly certs add api.<your-domain>`.
 - [ ] 4.5 Check `https://<fly-app-name>.fly.dev/healthz`. It must return `ok`. The
-      first boot can take up to two minutes; the health check grace period covers it.
+      first boot can take more than a minute. A failed health check does not stop
+      the machine. It only delays the healthy state.
 
 ## 5. Configure Cloudflare DNS and protection
 
@@ -124,8 +126,8 @@ Work from the `backend/` directory.
 - [ ] 8.3 Review the legal pages. The current texts are short v1 stubs. Confirm they
       are acceptable for your jurisdiction, or replace them.
 - [ ] 8.4 Commit the edits from 8.1–8.3.
-- [ ] 8.5 Create the Pages project as a direct-upload project and deploy once by hand,
-      from `frontend/`:
+- [ ] 8.5 Create the Pages project as a direct-upload project. Then deploy once by
+      hand from `frontend/`:
       `npx wrangler pages project create geostrategy --production-branch=master`
       `npm run build`
       `npx wrangler pages deploy dist/frontend/browser --project-name=geostrategy --branch=master`
