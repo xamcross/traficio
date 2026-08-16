@@ -1615,3 +1615,1027 @@ git commit -m "feat(frontend): plain-word progress rail and failure state"
 ```
 
 ---
+### Task 6: The result view (screen 01) and the report route
+
+**Files:**
+- Create: `src/app/features/result/locked-plan-list.ts`
+- Create: `src/app/features/result/result-view.ts`, `src/app/features/result/result-view.spec.ts`
+- Modify: `src/app/features/report/report.ts`, `src/app/features/report/report.spec.ts`
+- Delete: `src/app/shared/score-dial.ts`
+
+**Interfaces (produces):**
+- `<app-locked-plan-list [plan]="PlanDto">` — the "YOUR PLAN · N TASKS / LOCKED" box: first task with BIGGEST WIN and "{stepCount} steps · {min} min", tasks 2–3 with minutes, then "{N−3} more" when N > 3.
+- `<app-result-view [assessment]="AssessmentDto" [plan]="PlanDto | null" [tier]="'free'|'pro'" [siteId]="string">` — screen 01. Free with a plan: shows the NEXT teaser. Pro: shows the "Do this next →" and "See all N tasks" links.
+- Exported pure helpers in `result-view.ts`: `sortedFindings(findings)`, `openMinutes(plan)` (sum of `effortMinutes` over `todo` tasks), `distinctAreas(findings)`.
+
+- [ ] **Step 1: Write the failing result-view tests**
+
+`src/app/features/result/result-view.spec.ts`:
+
+```ts
+import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { ResultView } from './result-view';
+import { AssessmentDto, PlanDto } from '../../core/api/types';
+
+function assessment(): AssessmentDto {
+  return {
+    id: 'A1', siteId: 'S1', status: 'ready',
+    scores: { seo: 62, aeo: 34, geo: 28, overall: 41 },
+    summary: 'People searching Google for a bakery in Riverton can find you. People asking ChatGPT or Perplexity cannot.',
+    scoreNotes: { seo: 'Indexed and titled well enough to rank.', aeo: 'Rarely pulled into the box at the top of results.', geo: 'Assistants have to guess your address and hours.' },
+    pageCount: 18,
+    findings: [
+      { id: 'f-good', category: 'geo', severity: 'good', evidence: 'AI crawlers are allowed to read your site. Nothing to do here.', affectedPages: [] },
+      { id: 'f-med', category: 'aeo', severity: 'medium', evidence: '14 of your 18 product pages give no price.', affectedPages: Array.from({ length: 14 }, (_, i) => `https://x/p${i}`) },
+      { id: 'f-high', category: 'geo', severity: 'high', evidence: 'No page states your address.', affectedPages: [] },
+      { id: 'f-one', category: 'seo', severity: 'low', evidence: 'One page has no title.', affectedPages: ['https://x/a'] },
+    ],
+    errorCode: null, errorMessage: null, createdAt: '2026-07-28T09:00:00Z', completedAt: '2026-07-28T10:00:00Z', changes: [],
+  };
+}
+function plan(locked: boolean): PlanDto {
+  const t = (i: number, title: string, impact: 'high' | 'medium' | 'low', minutes: number, steps: number, status: 'todo' | 'done' = 'todo') => ({
+    taskId: `T${i}`, title, category: 'geo', impact, effortMinutes: minutes, stepCount: steps,
+    whyItMatters: locked ? null : 'why', steps: locked ? null : Array(steps).fill('step'), doneCheck: locked ? null : 'check', status,
+  });
+  return { id: 'P1', assessmentId: 'A1', siteId: 'S1', locked, progress: { done: 0, verified: 0, total: 8 }, tasks: [
+    t(1, 'Put your address and hours where machines can read them', 'high', 20, 4), t(2, 'Write the one page that answers what people ask', 'high', 45, 6),
+    t(3, 'Add prices to your shop pages', 'medium', 30, 3), t(4, 'A', 'low', 15, 1), t(5, 'B', 'low', 15, 1), t(6, 'C', 'low', 15, 1), t(7, 'D', 'low', 15, 1), t(8, 'E', 'low', 20, 1),
+  ] };
+}
+
+async function render(tier: 'free' | 'pro', p: PlanDto | null) {
+  await TestBed.configureTestingModule({ imports: [ResultView], providers: [provideRouter([])] }).compileComponents();
+  const fixture = TestBed.createComponent(ResultView);
+  fixture.componentRef.setInput('assessment', assessment());
+  fixture.componentRef.setInput('plan', p);
+  fixture.componentRef.setInput('tier', tier);
+  fixture.componentRef.setInput('siteId', 'S1');
+  fixture.detectChanges();
+  return (fixture.nativeElement as HTMLElement).textContent ?? '';
+}
+
+describe('ResultView', () => {
+  it('shows the checked date, overall, band, summary, sub-scores and notes', async () => {
+    const text = await render('free', plan(true));
+    expect(text).toContain('CHECKED 28 JULY 2026');
+    expect(text).toContain('41');
+    expect(text).toContain('Needs work');
+    expect(text).toContain('Visibility out of 100');
+    expect(text).toContain('People asking ChatGPT or Perplexity cannot.');
+    expect(text).toContain('Google search');
+    expect(text).toContain('Indexed and titled well enough to rank.');
+    expect(text).toContain('AI assistants');
+  });
+
+  it('sorts findings high, medium, low, good and captions the pages', async () => {
+    const text = await render('free', plan(true));
+    expect(text).toContain('4 things, across 3 areas');
+    const hi = text.indexOf('No page states your address.');
+    const med = text.indexOf('14 of your 18 product pages');
+    const low = text.indexOf('One page has no title.');
+    const good = text.indexOf('AI crawlers are allowed');
+    expect(hi).toBeLessThan(med); expect(med).toBeLessThan(low); expect(low).toBeLessThan(good);
+    expect(text).toContain('AI ASSISTANTS · AFFECTS EVERY PAGE');
+    expect(text).toContain('ANSWER BOXES · 14 PAGES');
+    expect(text).toContain('GOOGLE SEARCH · 1 PAGE');
+    expect(text).toContain('FINE');
+  });
+
+  it('shows the NEXT teaser with the locked list for a free user', async () => {
+    const text = await render('free', plan(true));
+    expect(text).toContain('We wrote you eight things to fix, in order.');
+    expect(text).toContain('About about 3 hours of work in total.'.replace('About about', 'About'));
+    expect(text).toContain('Read my plan');
+    expect(text).toContain('Included with Pro, from $9 a month');
+    expect(text).toContain('YOUR PLAN · 8 TASKS');
+    expect(text).toContain('BIGGEST WIN');
+    expect(text).toContain('4 steps · 20 min');
+    expect(text).toContain('5 more');
+  });
+
+  it('shows the pro links instead of the teaser for a pro user', async () => {
+    const text = await render('pro', plan(false));
+    expect(text).not.toContain('Read my plan');
+    expect(text).toContain('Do this next →');
+    expect(text).toContain('See all 8 tasks');
+  });
+});
+```
+
+Effort check: minutes of the eight `todo` tasks = 20+45+30+15+15+15+15+20 = 175 → "about 3 hours". The teaser sentence is "About 3 hours of work in total." — the component capitalises the first letter of `effortText`.
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `npm test -- --watch=false --browsers=ChromeHeadless`
+Expected: compilation error, `./result-view` not found.
+
+- [ ] **Step 3: Write `LockedPlanList`**
+
+`src/app/features/result/locked-plan-list.ts`:
+
+```ts
+import { Component, input } from '@angular/core';
+import { PlanDto } from '../../core/api/types';
+
+@Component({
+  selector: 'app-locked-plan-list',
+  template: `
+    <div class="locked card-soft">
+      <div class="row head"><span class="mono faint tiny">YOUR PLAN · {{ plan().tasks.length }} TASKS</span><span class="spacer"></span><span class="mono faint tiny">LOCKED</span></div>
+      @for (task of plan().tasks.slice(0, 3); track task.taskId; let i = $index) {
+        <div class="row item">
+          <span class="box" aria-hidden="true"></span>
+          <span class="title">{{ task.title }}</span>
+          @if (i > 0) {<span class="faint tiny">{{ task.effortMinutes }} min</span>}
+        </div>
+        @if (i === 0) {
+          <div class="row sub"><span class="badge badge-high">BIGGEST WIN</span><span class="faint tiny">{{ task.stepCount }} steps · {{ task.effortMinutes }} min</span></div>
+        }
+      }
+      @if (plan().tasks.length > 3) {
+        <div class="row item more"><span class="box" aria-hidden="true"></span><span class="title">{{ plan().tasks.length - 3 }} more</span></div>
+      }
+    </div>
+  `,
+  styles: `
+    .locked { width: 400px; max-width: 100%; overflow: hidden; }
+    .head { padding: 11px 16px; background: #faf3e9; border-bottom: 1px solid var(--line); }
+    .item { padding: 13px 16px; border-bottom: 1px solid #f5ece0; gap: 11px; }
+    .item:last-child { border-bottom: none; }
+    .sub { padding: 0 16px 13px 43px; border-bottom: 1px solid #f5ece0; gap: 10px; }
+    .box { width: 16px; height: 16px; border: 1.5px solid var(--line-input); border-radius: 4px; flex-shrink: 0; }
+    .title { font-size: 14px; color: var(--ink); flex: 1; }
+    .more { opacity: 0.45; }
+    .tiny { font-size: 10px; letter-spacing: 0.1em; }
+  `,
+})
+export class LockedPlanList {
+  plan = input.required<PlanDto>();
+}
+```
+
+- [ ] **Step 4: Write `ResultView`**
+
+`src/app/features/result/result-view.ts`:
+
+```ts
+import { Component, computed, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { AssessmentDto, Finding, PlanDto, Tier } from '../../core/api/types';
+import { PRO_PRICE_LABEL } from '../../core/config';
+import { areaCode, areaName, bandFor, effortText, formatDate, numberWord, pagesCaption, severityOrder } from '../../shared/copy';
+import { pricingUrlFor } from '../../shared/upgrade-redirect';
+import { ScoreBar } from '../../shared/score-bar';
+import { SeverityBadge } from '../../shared/severity-badge';
+import { LockedPlanList } from './locked-plan-list';
+
+export function sortedFindings(findings: Finding[]): Finding[] {
+  return [...findings].sort((a, b) => severityOrder(a.severity) - severityOrder(b.severity));
+}
+export function distinctAreas(findings: Finding[]): number {
+  return new Set(findings.map((f) => f.category)).size;
+}
+export function openMinutes(plan: PlanDto): number {
+  return plan.tasks.filter((t) => t.status === 'todo').reduce((sum, t) => sum + t.effortMinutes, 0);
+}
+
+const AREAS: Array<{ key: 'seo' | 'aeo' | 'geo' }> = [{ key: 'seo' }, { key: 'aeo' }, { key: 'geo' }];
+
+@Component({
+  selector: 'app-result-view',
+  imports: [RouterLink, ScoreBar, SeverityBadge, LockedPlanList],
+  template: `
+    <section class="two-col top">
+      <div class="stack overall">
+        <span class="mono faint small">CHECKED {{ checked() }}</span>
+        <div class="row big">
+          <span class="number">{{ scores().overall }}</span>
+          <div class="stack tight">
+            <span class="band" [class]="'band tone-' + band().tone">{{ band().label }}</span>
+            <span class="muted">Visibility out of 100</span>
+          </div>
+        </div>
+        <app-score-bar [value]="scores().overall" />
+        @if (assessment().summary; as s) {<p class="summary">{{ s }}</p>}
+      </div>
+      <div class="areas">
+        @for (a of areas; track a.key) {
+          <div class="row area">
+            <div class="stack tight name"><span class="area-name">{{ areaName(a.key) }}</span><span class="mono faint small">{{ areaCode(a.key) }}</span></div>
+            <app-score-bar [value]="scores()[a.key]" [width]="130" />
+            <span class="area-score">{{ scores()[a.key] }}</span>
+            @if (assessment().scoreNotes; as n) {<p class="muted note">{{ n[a.key] }}</p>}
+          </div>
+        }
+      </div>
+    </section>
+
+    <section class="stack findings">
+      <div class="row baseline"><h2>What we found</h2><span class="faint">{{ findings().length }} things, across {{ areaCount() }} areas</span></div>
+      @if (findings().length === 0) {
+        <p class="muted">{{ tier() === 'pro' ? 'We found nothing to fix. Check again after your next change.' : 'We found nothing to fix.' }}</p>
+      } @else {
+        <div class="divider">
+          @for (f of findings(); track f.id) {
+            <div class="row finding" [class.good]="f.severity === 'good'">
+              <app-severity-badge [severity]="f.severity" />
+              <div class="stack tight">
+                <p class="evidence">{{ f.evidence }}</p>
+                <span class="mono faint small">{{ areaCode(f.category) === areaCode(f.category) ? areaName(f.category).toUpperCase() : '' }} · {{ pages(f) }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </section>
+
+    @if (plan(); as p) {
+      @if (tier() !== 'pro') {
+        <section class="card teaser two-col">
+          <div class="stack">
+            <span class="eyebrow">NEXT</span>
+            <h2 class="teaser-h">We wrote you {{ word(p.tasks.length) }} things to fix, in order.</h2>
+            <p class="lead">Each one is a short set of steps you can follow yourself, with a way to check it worked. {{ effortSentence(p) }} The first one alone should move your score the most.</p>
+            <div class="row"><a class="btn btn-primary" [routerLink]="pricingLink()" [queryParams]="{ site: siteId() }">Read my plan</a><span class="faint">Included with Pro, from {{ price }} a month</span></div>
+          </div>
+          <app-locked-plan-list [plan]="p" />
+        </section>
+      } @else {
+        <div class="row pro-links">
+          <a [routerLink]="['/sites', siteId()]">Do this next →</a>
+          <a [routerLink]="['/assessments', assessment().id, 'plan']">See all {{ p.tasks.length }} tasks</a>
+        </div>
+      }
+    }
+  `,
+  styles: `
+    :host { display: flex; flex-direction: column; gap: 46px; }
+    .overall { width: 400px; flex-shrink: 0; gap: 16px; }
+    .big { align-items: flex-end; gap: 16px; }
+    .number { font-size: 92px; font-weight: 700; color: var(--ink); letter-spacing: -0.045em; line-height: 0.85; }
+    .band { font-size: 20px; font-weight: 600; }
+    .summary { font-size: 17px; line-height: 1.6; color: var(--body); }
+    .areas { flex: 1; border-top: 1px solid var(--line); }
+    .area { gap: 22px; padding: 19px 0; border-bottom: 1px solid var(--line); }
+    .name { width: 150px; } .area-name { font-size: 16px; font-weight: 600; color: var(--ink); }
+    .area-score { font-size: 24px; font-weight: 700; color: var(--ink); width: 40px; }
+    .note { flex: 1; font-size: 14px; }
+    .baseline { align-items: baseline; }
+    h2 { font-size: 22px; }
+    .finding { gap: 22px; padding: 20px 0; border-bottom: 1px solid var(--line); align-items: flex-start; }
+    .evidence { font-size: 17px; line-height: 1.55; color: var(--ink); }
+    .good .evidence { color: var(--muted); }
+    .teaser { padding: 36px 40px; align-items: center; }
+    .teaser-h { font-size: 27px; max-width: 26ch; }
+    .lead { font-size: 16px; line-height: 1.6; color: var(--body-long); max-width: 46ch; }
+    .tight { gap: 4px; } .small { font-size: 12px; }
+    .pro-links { gap: 24px; }
+    @media (max-width: 760px) { .overall { width: 100%; } .number { font-size: 64px; } .area { flex-wrap: wrap; } }
+  `,
+})
+export class ResultView {
+  assessment = input.required<AssessmentDto>();
+  plan = input<PlanDto | null>(null);
+  tier = input<Tier>('free');
+  siteId = input.required<string>();
+
+  protected readonly areas = AREAS;
+  protected readonly price = PRO_PRICE_LABEL;
+  protected readonly areaName = areaName;
+  protected readonly areaCode = areaCode;
+  protected readonly word = numberWord;
+  protected readonly scores = computed(() => this.assessment().scores ?? { seo: 0, aeo: 0, geo: 0, overall: 0 });
+  protected readonly band = computed(() => bandFor(this.scores().overall));
+  protected readonly checked = computed(() => formatDate(this.assessment().completedAt ?? this.assessment().createdAt).toUpperCase());
+  protected readonly findings = computed(() => sortedFindings(this.assessment().findings));
+  protected readonly areaCount = computed(() => distinctAreas(this.assessment().findings));
+
+  protected pages(f: Finding): string { return pagesCaption(f.affectedPages.length, this.assessment().pageCount); }
+  protected pricingLink(): string { return pricingUrlFor(null); }
+  protected effortSentence(p: PlanDto): string {
+    const e = effortText(openMinutes(p));
+    return `${e.charAt(0).toUpperCase()}${e.slice(1)} of work in total.`;
+  }
+}
+```
+
+Simplify the finding caption line to `{{ areaName(f.category).toUpperCase() }} · {{ pages(f) }}` — the ternary above is a leftover; write the simple form.
+
+- [ ] **Step 5: Rewrite the report route**
+
+Replace `src/app/features/report/report.ts`:
+
+```ts
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ApiClient, ApiError } from '../../core/api/api-client';
+import { AssessmentDto, PlanDto } from '../../core/api/types';
+import { UserStore } from '../../core/auth/user-store';
+import { SiteContext } from '../../core/site-context';
+import { ErrorNote } from '../../shared/error-note';
+import { toApiError } from '../../shared/to-api-error';
+import { ResultView } from '../result/result-view';
+
+@Component({
+  selector: 'app-report',
+  imports: [RouterLink, ErrorNote, ResultView],
+  template: `
+    <div class="page surface">
+      @if (error(); as e) {
+        <app-error-note [error]="e" />
+        <p><a routerLink="/dashboard">Back to my sites</a></p>
+      } @else if (assessment(); as a) {
+        <app-result-view [assessment]="a" [plan]="plan()" [tier]="store.user()?.tier ?? 'free'" [siteId]="a.siteId" />
+      } @else {
+        <p class="muted">Loading…</p>
+      }
+    </div>
+  `,
+})
+export class Report implements OnInit, OnDestroy {
+  private api = inject(ApiClient);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
+  private siteContext = inject(SiteContext);
+  protected readonly store = inject(UserStore);
+
+  protected readonly id = this.route.snapshot.paramMap.get('id')!;
+  protected readonly assessment = signal<AssessmentDto | null>(null);
+  protected readonly plan = signal<PlanDto | null>(null);
+  protected readonly error = signal<ApiError | null>(null);
+
+  ngOnInit(): void { void this.init(); }
+  ngOnDestroy(): void { this.siteContext.clear(); }
+
+  private async init(): Promise<void> {
+    let assessment: AssessmentDto;
+    try {
+      assessment = await this.api.getAssessment(this.id);
+    } catch (e) {
+      this.error.set(toApiError(e));
+      return;
+    }
+    if (assessment.status !== 'ready') {
+      void this.router.navigateByUrl(`/assessments/${this.id}/progress`);
+      return;
+    }
+    this.assessment.set(assessment);
+    try {
+      const sites = await this.api.listSites();
+      this.siteContext.set(sites.find((s) => s.id === assessment.siteId)?.domain ?? null);
+    } catch { /* the header just shows no domain */ }
+    try {
+      this.plan.set(await this.api.getPlanForAssessment(this.id));
+    } catch { /* a missing plan hides the teaser; the result still shows */ }
+  }
+}
+```
+
+Update `report.spec.ts`: the `FakeApiClient` gains `listSites()` (returns `[]`) and `getPlanForAssessment()` (returns a locked plan or rejects); keep the tests "redirects to progress when not ready", "shows the error note on failure", and replace the dial assertions with `expect(text).toContain('Visibility out of 100')` and `expect(text).toContain('What we found')`. Delete `src/app/shared/score-dial.ts` and its references.
+
+- [ ] **Step 6: Run tests and build; commit**
+
+Run: `npm test -- --watch=false --browsers=ChromeHeadless` then `npx ng build`
+Expected: PASS, build green.
+
+```bash
+git add src/app/features/result src/app/features/report src/app/shared
+git commit -m "feat(frontend): result view with findings and the locked plan teaser"
+```
+
+---
+
+### Task 7: Site home and the next-task view (screen 03), new route
+
+**Files:**
+- Create: `src/app/features/site-home/next-task-view.ts`, `src/app/features/site-home/next-task-view.spec.ts`
+- Create: `src/app/features/site-home/site-home.ts`, `src/app/features/site-home/site-home.spec.ts`
+- Create: `src/app/features/site-home/skips.ts` (session skip store)
+- Modify: `src/app/app.routes.ts`
+
+**Interfaces (produces):**
+- `skips.ts`: `readSkips(planId): Set<string>`, `addSkip(planId, taskId)`, `clearSkips(planId)` — `sessionStorage` key `geostrategy.skipped.<planId>`.
+- `nextTaskFor(plan: PlanDto, skipped: Set<string>): PlanTaskDto | null` — first `todo` task not in `skipped`; when every `todo` task is skipped, returns the first `todo` task (the caller clears the set).
+- `<app-next-task-view [site] [assessment] [plan] [previousOverall] (done)="taskId" (checkAgain)>` — screen 03 without the header.
+- `SiteHome` route component at `/sites/:siteId` with the states of spec §4.2.
+- Routes: add `{ path: 'sites/:siteId', canActivate: [authGuard], loadComponent: … SiteHome }` before the history route.
+
+- [ ] **Step 1: Write the failing next-task tests**
+
+`src/app/features/site-home/next-task-view.spec.ts`:
+
+```ts
+import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { NextTaskView, nextTaskFor } from './next-task-view';
+import { AssessmentDto, PlanDto, SiteDto } from '../../core/api/types';
+import { clearSkips } from './skips';
+
+const site: SiteDto = { id: 'S1', domain: 'rivertonbakery.com', url: 'https://rivertonbakery.com', platform: 'wordpress', latestScores: { seo: 62, aeo: 34, geo: 28, overall: 41 }, readOnly: false, latestAssessment: null, latestReadyAssessmentId: 'A1' };
+const assessment: AssessmentDto = { id: 'A1', siteId: 'S1', status: 'ready', scores: { seo: 62, aeo: 34, geo: 28, overall: 41 }, summary: null, scoreNotes: null, findings: [], pageCount: 18, errorCode: null, errorMessage: null, createdAt: '2026-07-28T09:00:00Z', completedAt: '2026-07-28T10:00:00Z', changes: [] };
+function plan(): PlanDto {
+  const t = (i: number, title: string, minutes: number, status: 'todo' | 'done' | 'verified' = 'todo') => ({
+    taskId: `T${i}`, title, category: 'geo', impact: (i === 1 ? 'high' : 'medium') as 'high' | 'medium', effortMinutes: minutes, stepCount: 4,
+    whyItMatters: `why ${i}`, steps: ['Open your SEO plugin settings in WordPress.', 'Find the section called Local Business or Organization.', 'Fill in your business name, street address, phone number and opening hours.', 'Save, then clear your site cache.'], doneCheck: `check ${i}`, status,
+  });
+  return { id: 'P1', assessmentId: 'A1', siteId: 'S1', locked: false, progress: { done: 2, verified: 0, total: 8 }, tasks: [
+    t(1, 'Put your address and hours where machines can read them', 20), t(2, 'Write the one page that answers what people ask', 45), t(3, 'Add prices to your shop pages', 30),
+    t(4, 'Link your opening hours from every page footer', 15), t(5, 'E', 15), t(6, 'F', 15), t(7, 'G', 20, 'done'), t(8, 'H', 20, 'done'),
+  ] };
+}
+
+describe('nextTaskFor', () => {
+  it('returns the first todo task, skips skipped ones, and wraps when all are skipped', () => {
+    const p = plan();
+    expect(nextTaskFor(p, new Set())?.taskId).toBe('T1');
+    expect(nextTaskFor(p, new Set(['T1']))?.taskId).toBe('T2');
+    expect(nextTaskFor(p, new Set(['T1', 'T2', 'T3', 'T4', 'T5', 'T6']))?.taskId).toBe('T1');
+    const allDone = { ...p, tasks: p.tasks.map((t) => ({ ...t, status: 'done' as const })) };
+    expect(nextTaskFor(allDone, new Set())).toBeNull();
+  });
+});
+
+describe('NextTaskView', () => {
+  beforeEach(() => clearSkips('P1'));
+  async function render(p: PlanDto, previousOverall: number | null = 37) {
+    await TestBed.configureTestingModule({ imports: [NextTaskView], providers: [provideRouter([])] }).compileComponents();
+    const fixture = TestBed.createComponent(NextTaskView);
+    fixture.componentRef.setInput('site', site);
+    fixture.componentRef.setInput('assessment', assessment);
+    fixture.componentRef.setInput('plan', p);
+    fixture.componentRef.setInput('previousOverall', previousOverall);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  it('shows the strip, the next task with steps, and the THEN list', async () => {
+    const fixture = await render(plan());
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('41');
+    expect(text).toContain('of 100');
+    expect(text).toContain('Up 4 points since your last check');
+    expect(text).toContain('DO THIS NEXT');
+    expect(text).toContain('2 of 8 done · about 2 hours left');   // 20+45+30+15+15+15 = 140 -> 2 hours
+    expect(text).toContain('See all 8');
+    expect(text).toContain('BIGGEST WIN');
+    expect(text).toContain('About 20 minutes');
+    expect(text).toContain('Put your address and hours where machines can read them');
+    expect(text).toContain('Open your SEO plugin settings in WordPress.');
+    expect(text).toContain('HOW YOU KNOW IT WORKED');
+    expect(text).toContain('I did this');
+    expect(text).toContain('Skip for now');
+    expect(text).toContain('THEN');
+    expect(text).toContain('Write the one page that answers what people ask');
+    expect(text).toContain('3 more');
+  });
+
+  it('skip shows the following task and emits done with the task id', async () => {
+    const fixture = await render(plan());
+    const el = fixture.nativeElement as HTMLElement;
+    const buttons = () => Array.from(el.querySelectorAll('button'));
+    buttons().find((b) => b.textContent?.includes('Skip for now'))!.click();
+    fixture.detectChanges();
+    expect(el.textContent).toContain('Write the one page that answers what people ask');
+    expect(el.textContent).not.toContain('BIGGEST WIN');
+    let emitted: string | null = null;
+    fixture.componentInstance.done.subscribe((id) => (emitted = id));
+    buttons().find((b) => b.textContent?.includes('I did this'))!.click();
+    expect(emitted).toBe('T2');
+  });
+
+  it('shows the all-done card when no todo task is left', async () => {
+    const p = plan();
+    const fixture = await render({ ...p, tasks: p.tasks.map((t) => ({ ...t, status: 'done' as const })) }, null);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('You have done everything on your plan.');
+    expect(text).toContain('Check again');
+    expect(text).not.toContain('since your last check');
+  });
+});
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `npm test -- --watch=false --browsers=ChromeHeadless`
+Expected: compilation error, `./next-task-view` not found.
+
+- [ ] **Step 3: Write `skips.ts` and `NextTaskView`**
+
+`src/app/features/site-home/skips.ts`:
+
+```ts
+/** Session-only "skip for now" set per plan. Spec §4.4. Never sent to the server. */
+const KEY = (planId: string) => `geostrategy.skipped.${planId}`;
+
+export function readSkips(planId: string): Set<string> {
+  try { return new Set(JSON.parse(sessionStorage.getItem(KEY(planId)) ?? '[]') as string[]); } catch { return new Set(); }
+}
+export function addSkip(planId: string, taskId: string): Set<string> {
+  const s = readSkips(planId); s.add(taskId);
+  sessionStorage.setItem(KEY(planId), JSON.stringify([...s]));
+  return s;
+}
+export function clearSkips(planId: string): void { sessionStorage.removeItem(KEY(planId)); }
+```
+
+`src/app/features/site-home/next-task-view.ts`:
+
+```ts
+import { Component, computed, effect, input, output, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { AssessmentDto, PlanDto, PlanTaskDto, SiteDto } from '../../core/api/types';
+import { areaName, bandFor, effortText, numberWord } from '../../shared/copy';
+import { openMinutes } from '../result/result-view';
+import { addSkip, clearSkips, readSkips } from './skips';
+
+export function nextTaskFor(plan: PlanDto, skipped: Set<string>): PlanTaskDto | null {
+  const open = plan.tasks.filter((t) => t.status === 'todo');
+  if (open.length === 0) return null;
+  return open.find((t) => !skipped.has(t.taskId)) ?? open[0];
+}
+
+@Component({
+  selector: 'app-next-task-view',
+  imports: [RouterLink],
+  template: `
+    <div class="strip row">
+      <div class="row big"><span class="overall">{{ overall() }}</span><span class="muted">of 100</span></div>
+      <span class="vline" aria-hidden="true"></span>
+      <div class="stack tight">
+        <span class="semi" [class]="'semi tone-' + band().tone">{{ band().label }}</span>
+        @if (delta(); as d) {<span class="muted small">{{ d }}</span>}
+      </div>
+      <span class="spacer"></span>
+      <div class="row subs">
+        <div class="stack tight right"><span class="faint small">Google search</span><strong>{{ scores().seo }}</strong></div>
+        <div class="stack tight right"><span class="faint small">Answer boxes</span><strong>{{ scores().aeo }}</strong></div>
+        <div class="stack tight right"><span class="faint small">AI assistants</span><strong>{{ scores().geo }}</strong></div>
+      </div>
+      <a class="small" [routerLink]="['/assessments', assessment().id, 'report']">Full report →</a>
+      <button type="button" class="btn btn-text small" (click)="checkAgain.emit()" [disabled]="checkBusy()">Check again</button>
+    </div>
+
+    <div class="body stack">
+      <div class="row baseline">
+        <h1 class="eyebrow-h">DO THIS NEXT</h1>
+        <span class="faint small">{{ doneCount() }} of {{ plan().tasks.length }} done · {{ effortLeft() }} left</span>
+        <span class="spacer"></span>
+        <a class="small" [routerLink]="['/assessments', assessment().id, 'plan']">See all {{ plan().tasks.length }}</a>
+      </div>
+
+      @if (task(); as t) {
+        <article class="card task stack">
+          <div class="row">
+            @if (isBiggest(t)) {<span class="badge badge-high">BIGGEST WIN</span>}
+            <span class="faint small">About {{ t.effortMinutes }} minutes</span><span class="faint small">·</span><span class="faint small">{{ areaName(t.category) }}</span>
+          </div>
+          <h2>{{ t.title }}</h2>
+          @if (t.whyItMatters) {<p class="lead">{{ t.whyItMatters }}</p>}
+          <ol class="steps">
+            @for (s of t.steps ?? []; track $index) {<li><span class="num" aria-hidden="true">{{ $index + 1 }}</span><span>{{ s }}</span></li>}
+          </ol>
+          @if (t.doneCheck) {
+            <div class="note-box stack tight"><span class="eyebrow">HOW YOU KNOW IT WORKED</span><span class="check">{{ t.doneCheck }}</span></div>
+          }
+          <div class="row">
+            <button type="button" class="btn btn-primary" (click)="done.emit(t.taskId)" [disabled]="doneBusy()">I did this</button>
+            <button type="button" class="btn btn-text" (click)="skip(t)">Skip for now</button>
+          </div>
+        </article>
+
+        @if (then().length > 0) {
+          <div class="then stack">
+            <span class="eyebrow faint-3">THEN</span>
+            @for (n of then(); track n.taskId) {<div class="row item"><span class="muted">{{ n.title }}</span><span class="spacer"></span><span class="faint small">{{ n.effortMinutes }} min</span></div>}
+            @if (rest() > 0) {<div class="row item"><span class="faint">{{ rest() }} more</span></div>}
+          </div>
+        }
+      } @else {
+        <article class="card stack">
+          <h2>You have done everything on your plan.</h2>
+          <p class="lead">Check again to see your new score and to confirm your fixes.</p>
+          <div class="row"><button type="button" class="btn btn-primary" (click)="checkAgain.emit()" [disabled]="checkBusy()">Check again</button></div>
+        </article>
+      }
+    </div>
+  `,
+  styles: `
+    :host { display: block; }
+    .strip { padding: 22px 44px; background: var(--strip); border-bottom: 1px solid var(--line); gap: 20px; flex-wrap: wrap; }
+    .big { align-items: baseline; gap: 10px; } .overall { font-size: 30px; font-weight: 700; color: var(--ink); letter-spacing: -0.025em; }
+    .vline { width: 1px; height: 30px; background: var(--line-strong); }
+    .subs { gap: 24px; } .right { align-items: flex-end; } .subs strong { color: var(--ink); font-size: 16px; }
+    .body { padding: 44px 44px 56px; gap: 26px; }
+    .eyebrow-h { font-size: 14px; letter-spacing: 0.12em; color: var(--faint); font-weight: 700; }
+    .baseline { align-items: baseline; }
+    .task { padding: 38px 44px; gap: 26px; }
+    h2 { font-size: 31px; letter-spacing: -0.025em; max-width: 30ch; }
+    .lead { font-size: 17px; line-height: 1.65; color: var(--body-long); max-width: 58ch; }
+    .steps { list-style: none; margin: 0; padding: 6px 0 0; display: flex; flex-direction: column; gap: 16px; }
+    .steps li { display: flex; gap: 18px; align-items: flex-start; font-size: 17px; line-height: 1.5; color: var(--ink); }
+    .num { width: 28px; height: 28px; border-radius: 999px; background: #f3e6d5; color: #8a6a48; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .check { font-size: 16px; color: var(--ink); }
+    .then { padding-top: 10px; gap: 0; } .then .eyebrow { padding-bottom: 10px; color: #c0ad94; }
+    .item { padding: 13px 0; border-bottom: 1px solid var(--line); } .item:last-child { border-bottom: none; }
+    .semi { font-weight: 600; } .tight { gap: 3px; } .small { font-size: 13px; }
+    @media (max-width: 760px) { .strip, .body { padding-left: 20px; padding-right: 20px; } .task { padding: 24px 20px; } }
+  `,
+})
+export class NextTaskView {
+  site = input.required<SiteDto>();
+  assessment = input.required<AssessmentDto>();
+  plan = input.required<PlanDto>();
+  previousOverall = input<number | null>(null);
+  doneBusy = input(false);
+  checkBusy = input(false);
+  done = output<string>();
+  checkAgain = output<void>();
+
+  protected readonly areaName = areaName;
+  private readonly skipped = signal<Set<string>>(new Set());
+  constructor() {
+    effect(() => { this.skipped.set(readSkips(this.plan().id)); });
+  }
+
+  protected readonly scores = computed(() => this.assessment().scores ?? { seo: 0, aeo: 0, geo: 0, overall: 0 });
+  protected readonly overall = computed(() => this.scores().overall);
+  protected readonly band = computed(() => bandFor(this.overall()));
+  protected readonly delta = computed(() => {
+    const prev = this.previousOverall();
+    if (prev == null) return '';
+    const d = this.overall() - prev;
+    if (d > 0) return `Up ${d} points since your last check`;
+    if (d < 0) return `Down ${-d} points since your last check`;
+    return 'Same as your last check';
+  });
+  protected readonly doneCount = computed(() => this.plan().tasks.filter((t) => t.status !== 'todo').length);
+  protected readonly effortLeft = computed(() => effortText(openMinutes(this.plan())));
+  protected readonly task = computed(() => nextTaskFor(this.plan(), this.skipped()));
+  protected readonly then = computed(() => {
+    const t = this.task();
+    const open = this.plan().tasks.filter((x) => x.status === 'todo' && x.taskId !== t?.taskId);
+    return open.slice(0, 3);
+  });
+  protected readonly rest = computed(() => {
+    const t = this.task();
+    return Math.max(0, this.plan().tasks.filter((x) => x.status === 'todo' && x.taskId !== t?.taskId).length - 3);
+  });
+
+  protected isBiggest(t: PlanTaskDto): boolean { return this.plan().tasks[0]?.taskId === t.taskId; }
+
+  protected skip(t: PlanTaskDto): void {
+    const next = addSkip(this.plan().id, t.taskId);
+    const open = this.plan().tasks.filter((x) => x.status === 'todo');
+    if (open.every((x) => next.has(x.taskId))) { clearSkips(this.plan().id); this.skipped.set(new Set()); return; }
+    this.skipped.set(next);
+  }
+}
+```
+
+`numberWord` is imported for parity with the spec's word rule in the "N more" line: the mockup shows "3 more, smaller" as digits; keep digits here (`{{ rest() }} more`) and remove the unused import.
+
+- [ ] **Step 4: Run the next-task tests to verify they pass**
+
+Run: `npm test -- --watch=false --browsers=ChromeHeadless`
+Expected: `nextTaskFor` and `NextTaskView` tests PASS.
+
+- [ ] **Step 5: Write the failing site-home tests**
+
+`src/app/features/site-home/site-home.spec.ts`:
+
+```ts
+import { Component } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { Location } from '@angular/common';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { SiteHome } from './site-home';
+import { ApiClient, ApiError } from '../../core/api/api-client';
+import { UserStore } from '../../core/auth/user-store';
+import { AssessmentDto, PlanDto, SiteDto, UserDto } from '../../core/api/types';
+
+@Component({ selector: 'site-home-spec-blank', template: '' })
+class BlankPage {}
+
+function site(overrides: Partial<SiteDto> = {}): SiteDto {
+  return { id: 'S1', domain: 'rivertonbakery.com', url: 'https://rivertonbakery.com', platform: 'wordpress', latestScores: null, readOnly: false, latestAssessment: null, latestReadyAssessmentId: null, ...overrides };
+}
+function assessment(overrides: Partial<AssessmentDto> = {}): AssessmentDto {
+  return { id: 'A1', siteId: 'S1', status: 'ready', scores: { seo: 62, aeo: 34, geo: 28, overall: 41 }, summary: 'Summary.', scoreNotes: { seo: 'a', aeo: 'b', geo: 'c' }, findings: [], pageCount: 3, errorCode: null, errorMessage: null, createdAt: '2026-07-28T09:00:00Z', completedAt: '2026-07-28T10:00:00Z', changes: [], ...overrides };
+}
+function plan(locked: boolean): PlanDto {
+  return { id: 'P1', assessmentId: 'A1', siteId: 'S1', locked, progress: { done: 0, verified: 0, total: 1 }, tasks: [
+    { taskId: 'T1', title: 'Put your address and hours where machines can read them', category: 'geo', impact: 'high', effortMinutes: 20, stepCount: 2, whyItMatters: locked ? null : 'why', steps: locked ? null : ['a', 'b'], doneCheck: locked ? null : 'c', status: 'todo' },
+  ] };
+}
+
+class FakeApiClient {
+  sites: SiteDto[] = [site()];
+  assessment: AssessmentDto = assessment();
+  planResult: Promise<PlanDto> = Promise.resolve(plan(true));
+  history: AssessmentDto[] = [];
+  submitted: string[] = [];
+  patched: Array<[string, string, string]> = [];
+  listSites() { return Promise.resolve(this.sites); }
+  getAssessment(_id: string) { return Promise.resolve(this.assessment); }
+  getPlanForAssessment(_id: string) { return this.planResult; }
+  listAssessments(_id: string) { return Promise.resolve(this.history); }
+  submitAssessment(id: string) { this.submitted.push(id); return Promise.resolve(assessment({ id: 'A9', status: 'queued' })); }
+  setTaskStatus(planId: string, taskId: string, status: 'todo' | 'done') { this.patched.push([planId, taskId, status]); return Promise.resolve({ ...plan(false), tasks: [{ ...plan(false).tasks[0], status: 'done' as const }] }); }
+  resendVerification() { return Promise.resolve(undefined); }
+  me(): Promise<UserDto> { return Promise.reject(new Error('not used')); }
+}
+
+async function setup(api: FakeApiClient, tier: 'free' | 'pro' = 'free', emailVerified = true) {
+  await TestBed.configureTestingModule({
+    imports: [SiteHome],
+    providers: [
+      { provide: ApiClient, useValue: api },
+      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ siteId: 'S1' }) } } },
+      provideRouter([{ path: 'assessments/:id/progress', component: BlankPage }, { path: 'assessments/:id/plan', component: BlankPage }, { path: 'assessments/:id/report', component: BlankPage }, { path: 'pricing', component: BlankPage }, { path: 'dashboard', component: BlankPage }]),
+    ],
+  }).compileComponents();
+  const store = TestBed.inject(UserStore);
+  store.loaded.set(true);
+  store.user.set({ id: 'u1', email: 'dana@rivertonbakery.com', emailVerified, tier });
+  const fixture = TestBed.createComponent(SiteHome);
+  fixture.detectChanges();
+  await fixture.whenStable();
+  fixture.detectChanges();
+  await fixture.whenStable();
+  fixture.detectChanges();
+  return { fixture, el: fixture.nativeElement as HTMLElement };
+}
+const btn = (el: HTMLElement, t: string) => Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.includes(t))!;
+
+describe('SiteHome', () => {
+  it('offers the first check when the site has no assessment', async () => {
+    const api = new FakeApiClient();
+    const { el } = await setup(api);
+    expect(el.textContent).toContain('Run your first check');
+    btn(el, 'Check my site').click();
+    await Promise.resolve();
+    expect(api.submitted).toEqual(['S1']);
+  });
+
+  it('redirects to progress while the latest assessment runs', async () => {
+    const api = new FakeApiClient();
+    api.sites = [site({ latestAssessment: { id: 'A1', status: 'crawling', createdAt: '', completedAt: null } })];
+    await setup(api);
+    expect(TestBed.inject(Location).path()).toBe('/assessments/A1/progress');
+  });
+
+  it('shows the failure panel when the latest failed and nothing was ready before', async () => {
+    const api = new FakeApiClient();
+    api.sites = [site({ latestAssessment: { id: 'A1', status: 'failed', createdAt: '', completedAt: '' } })];
+    api.assessment = assessment({ status: 'failed', errorCode: 'robots_blocked', errorMessage: 'Robots says no.' });
+    const { el } = await setup(api);
+    expect(el.textContent).toContain('Your site would not let us read it.');
+    expect(el.textContent).toContain('Robots says no.');
+    expect(el.textContent).toContain('Try again');
+  });
+
+  it('shows the free result with the teaser when ready and free', async () => {
+    const api = new FakeApiClient();
+    api.sites = [site({ latestAssessment: { id: 'A1', status: 'ready', createdAt: '', completedAt: '' }, latestReadyAssessmentId: 'A1' })];
+    const { el } = await setup(api, 'free');
+    expect(el.textContent).toContain('Visibility out of 100');
+    expect(el.textContent).toContain('Read my plan');
+    expect(el.textContent).not.toContain('DO THIS NEXT');
+  });
+
+  it('shows the next-task view for pro, patches done and reloads the plan', async () => {
+    const api = new FakeApiClient();
+    api.sites = [site({ latestAssessment: { id: 'A1', status: 'ready', createdAt: '', completedAt: '' }, latestReadyAssessmentId: 'A1' })];
+    api.planResult = Promise.resolve(plan(false));
+    api.history = [assessment(), assessment({ id: 'A0', scores: { seo: 60, aeo: 30, geo: 21, overall: 37 }, completedAt: '2026-07-14T10:00:00Z' })];
+    const { el, fixture } = await setup(api, 'pro');
+    expect(el.textContent).toContain('DO THIS NEXT');
+    expect(el.textContent).toContain('Up 4 points since your last check');
+    btn(el, 'I did this').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(api.patched).toEqual([['P1', 'T1', 'done']]);
+    expect(el.textContent).toContain('You have done everything on your plan.');
+  });
+
+  it('shows the earlier result with a note when the latest failed after a ready check', async () => {
+    const api = new FakeApiClient();
+    api.sites = [site({ latestAssessment: { id: 'A2', status: 'failed', createdAt: '2026-08-01T00:00:00Z', completedAt: '2026-08-01T00:01:00Z' }, latestReadyAssessmentId: 'A1' })];
+    const failed = assessment({ id: 'A2', status: 'failed', errorCode: 'site_unreachable', errorMessage: 'We could not reach it.' });
+    const ready = assessment();
+    api.getAssessment = (id: string) => Promise.resolve(id === 'A2' ? failed : ready);
+    const { el } = await setup(api, 'free');
+    expect(el.textContent).toContain('Your last check on 1 August 2026 did not finish. We could not reach it.');
+    expect(el.textContent).toContain('Visibility out of 100');
+  });
+});
+```
+
+- [ ] **Step 6: Run the tests to verify they fail**
+
+Run: `npm test -- --watch=false --browsers=ChromeHeadless`
+Expected: compilation error, `./site-home` not found.
+
+- [ ] **Step 7: Write `SiteHome`**
+
+`src/app/features/site-home/site-home.ts`:
+
+```ts
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ApiClient, ApiError } from '../../core/api/api-client';
+import { AssessmentDto, PlanDto, SiteDto } from '../../core/api/types';
+import { UserStore } from '../../core/auth/user-store';
+import { SiteContext } from '../../core/site-context';
+import { ErrorNote } from '../../shared/error-note';
+import { assessmentErrorCopy } from '../../shared/assessment-error-copy';
+import { formatDate } from '../../shared/copy';
+import { toApiError } from '../../shared/to-api-error';
+import { isUpgradeRequired, pricingUrlFor } from '../../shared/upgrade-redirect';
+import { failureHeadline } from '../progress/progress';
+import { ResultView } from '../result/result-view';
+import { NextTaskView } from './next-task-view';
+
+type State =
+  | { kind: 'loading' }
+  | { kind: 'first' }
+  | { kind: 'failed'; failed: AssessmentDto }
+  | { kind: 'ready'; assessment: AssessmentDto; plan: PlanDto | null; failedNote: AssessmentDto | null; previousOverall: number | null }
+  | { kind: 'error'; error: ApiError };
+
+@Component({
+  selector: 'app-site-home',
+  imports: [RouterLink, ErrorNote, ResultView, NextTaskView],
+  template: `
+    <div class="page surface home" [class.flush]="state().kind === 'ready' && isPro()">
+      @switch (state().kind) {
+        @case ('loading') {<p class="muted">Loading…</p>}
+        @case ('error') {<app-error-note [error]="errorOf()" /><p><a routerLink="/dashboard">Back to my sites</a></p>}
+        @case ('first') {
+          <section class="card stack first">
+            <span class="eyebrow">YOUR SITE</span>
+            <h1>{{ site()?.domain }}</h1>
+            <p class="lead">Run your first check. It takes about two minutes. We read your pages and score how findable you are.</p>
+            @if (!emailVerified()) {
+              <div class="note-box stack tight"><span>Confirm your email first. Click the link in the email we sent you.</span><button type="button" class="btn btn-outline" (click)="resend()" [disabled]="resendBusy()">Send it again</button>@if (resent()) {<span class="muted">Sent. Check your inbox.</span>}</div>
+            }
+            <div class="row"><button type="button" class="btn btn-primary" (click)="check()" [disabled]="!emailVerified() || checkBusy()">Check my site</button></div>
+            @if (checkError(); as e) {<p class="error-note" role="alert">{{ assessmentErrorCopy(e) }}</p>}
+          </section>
+        }
+        @case ('failed') {
+          <section class="stack failure">
+            <span class="eyebrow tone-low">WE COULD NOT FINISH</span>
+            <h1>{{ headline(failedOf()) }}</h1>
+            @if (failedOf().errorMessage; as m) {<p class="lead">{{ m }}</p>}
+            <div class="note-box stack tight"><span class="eyebrow">GOOD NEWS</span><span>{{ isPro() ? 'This check did not count against your monthly checks.' : 'Your free check this month was not used.' }}</span></div>
+            <div class="row"><button type="button" class="btn btn-primary" (click)="check()" [disabled]="checkBusy()">Try again</button></div>
+            @if (checkError(); as e) {<p class="error-note" role="alert">{{ assessmentErrorCopy(e) }}</p>}
+          </section>
+        }
+        @case ('ready') {
+          @if (readyOf().failedNote; as f) {
+            <div class="note-box row failed-note"><span>Your last check on {{ date(f) }} did not finish. {{ f.errorMessage }}</span><span class="spacer"></span><button type="button" class="btn btn-outline" (click)="check()" [disabled]="checkBusy()">Try again</button></div>
+          }
+          @if (isPro() && readyOf().plan; as p) {
+            <app-next-task-view [site]="site()!" [assessment]="readyOf().assessment" [plan]="p" [previousOverall]="readyOf().previousOverall" [doneBusy]="doneBusy()" [checkBusy]="checkBusy()" (done)="markDone($event)" (checkAgain)="check()" />
+          } @else {
+            <app-result-view [assessment]="readyOf().assessment" [plan]="readyOf().plan" [tier]="isPro() ? 'pro' : 'free'" [siteId]="siteId" />
+          }
+          @if (checkError(); as e) {<p class="error-note" role="alert">{{ assessmentErrorCopy(e) }}</p>}
+          @if (doneError(); as e) {<app-error-note [error]="e" />}
+        }
+      }
+    </div>
+  `,
+  styles: `
+    .home { padding-top: 52px; padding-bottom: 60px; }
+    .home.flush { padding: 0; }
+    .first { max-width: 620px; padding: 38px 44px; }
+    h1 { font-size: 29px; }
+    .lead { font-size: 16px; line-height: 1.6; color: var(--body-long); max-width: 44ch; }
+    .failure { max-width: 620px; gap: 30px; }
+    .failed-note { margin-bottom: 24px; }
+    .tight { gap: 8px; }
+  `,
+})
+export class SiteHome implements OnInit, OnDestroy {
+  private api = inject(ApiClient);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
+  private siteContext = inject(SiteContext);
+  protected readonly store = inject(UserStore);
+
+  protected readonly siteId = this.route.snapshot.paramMap.get('siteId')!;
+  protected readonly site = signal<SiteDto | null>(null);
+  protected readonly state = signal<State>({ kind: 'loading' });
+  protected readonly checkBusy = signal(false);
+  protected readonly checkError = signal<ApiError | null>(null);
+  protected readonly doneBusy = signal(false);
+  protected readonly doneError = signal<ApiError | null>(null);
+  protected readonly resendBusy = signal(false);
+  protected readonly resent = signal(false);
+  protected readonly assessmentErrorCopy = assessmentErrorCopy;
+  protected readonly isPro = computed(() => this.store.user()?.tier === 'pro');
+  protected readonly emailVerified = computed(() => this.store.user()?.emailVerified === true);
+
+  ngOnInit(): void { void this.load(); }
+  ngOnDestroy(): void { this.siteContext.clear(); }
+
+  private async load(): Promise<void> {
+    try {
+      const sites = await this.api.listSites();
+      const site = sites.find((s) => s.id === this.siteId);
+      if (!site) { this.state.set({ kind: 'error', error: new ApiError('not_found', "We couldn't find that site.", 404) }); return; }
+      this.site.set(site);
+      this.siteContext.set(site.domain);
+      const latest = site.latestAssessment;
+      if (!latest) { this.state.set({ kind: 'first' }); return; }
+      if (latest.status !== 'ready' && latest.status !== 'failed') { void this.router.navigateByUrl(`/assessments/${latest.id}/progress`); return; }
+      if (latest.status === 'failed' && !site.latestReadyAssessmentId) {
+        this.state.set({ kind: 'failed', failed: await this.api.getAssessment(latest.id) });
+        return;
+      }
+      const readyId = latest.status === 'ready' ? latest.id : site.latestReadyAssessmentId!;
+      const [assessment, failedNote] = await Promise.all([
+        this.api.getAssessment(readyId),
+        latest.status === 'failed' ? this.api.getAssessment(latest.id) : Promise.resolve(null),
+      ]);
+      const plan = await this.api.getPlanForAssessment(readyId).catch(() => null);
+      let previousOverall: number | null = null;
+      if (this.isPro()) {
+        try {
+          const history = await this.api.listAssessments(this.siteId);
+          const ready = history.filter((a) => a.status === 'ready' && a.scores);
+          const idx = ready.findIndex((a) => a.id === readyId);
+          const prev = idx >= 0 ? ready[idx + 1] : null;
+          previousOverall = prev?.scores?.overall ?? null;
+        } catch { /* no delta line */ }
+      }
+      this.state.set({ kind: 'ready', assessment, plan, failedNote, previousOverall });
+    } catch (e) {
+      if (isUpgradeRequired(e)) { void this.router.navigateByUrl(pricingUrlFor(this.siteId)); return; }
+      this.state.set({ kind: 'error', error: toApiError(e) });
+    }
+  }
+
+  protected errorOf(): ApiError { const s = this.state(); return s.kind === 'error' ? s.error : new ApiError('unknown', '', 0); }
+  protected failedOf(): AssessmentDto { const s = this.state(); return s.kind === 'failed' ? s.failed : (null as unknown as AssessmentDto); }
+  protected readyOf() { const s = this.state(); return s.kind === 'ready' ? s : (null as unknown as Extract<State, { kind: 'ready' }>); }
+  protected headline(a: AssessmentDto): string { return failureHeadline(a.errorCode); }
+  protected date(a: AssessmentDto): string { return formatDate(a.completedAt ?? a.createdAt); }
+
+  protected check(): void {
+    if (this.checkBusy()) return;
+    this.checkBusy.set(true);
+    this.checkError.set(null);
+    this.api.submitAssessment(this.siteId)
+      .then((a) => this.router.navigateByUrl(`/assessments/${a.id}/progress`), (e: unknown) => {
+        if (isUpgradeRequired(e)) { void this.router.navigateByUrl(pricingUrlFor(this.siteId)); return; }
+        this.checkError.set(toApiError(e));
+      })
+      .finally(() => this.checkBusy.set(false));
+  }
+
+  protected markDone(taskId: string): void {
+    const s = this.state();
+    if (s.kind !== 'ready' || !s.plan || this.doneBusy()) return;
+    this.doneBusy.set(true);
+    this.doneError.set(null);
+    this.api.setTaskStatus(s.plan.id, taskId, 'done')
+      .then((plan) => this.state.set({ ...s, plan }), (e: unknown) => {
+        if (isUpgradeRequired(e)) { void this.router.navigateByUrl(pricingUrlFor(this.siteId)); return; }
+        this.doneError.set(toApiError(e));
+      })
+      .finally(() => this.doneBusy.set(false));
+  }
+
+  protected resend(): void {
+    if (this.resendBusy()) return;
+    this.resendBusy.set(true);
+    this.api.resendVerification().then(() => this.resent.set(true), (e: unknown) => this.checkError.set(toApiError(e))).finally(() => this.resendBusy.set(false));
+  }
+}
+```
+
+- [ ] **Step 8: Add the route**
+
+In `src/app/app.routes.ts`, add before the `sites/:siteId/history` entry:
+
+```ts
+  { path: 'sites/:siteId', canActivate: [authGuard], loadComponent: () => import('./features/site-home/site-home').then(m => m.SiteHome) },
+```
+
+- [ ] **Step 9: Run tests and build; commit**
+
+Run: `npm test -- --watch=false --browsers=ChromeHeadless` then `npx ng build`
+Expected: PASS, build green.
+
+```bash
+git add src/app/features/site-home src/app/app.routes.ts
+git commit -m "feat(frontend): site home with the free result and the pro next-task view"
+```
+
+---
