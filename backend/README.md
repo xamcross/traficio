@@ -8,6 +8,9 @@ Frontend: see `../frontend/README.md` for the web app.
 3. Run tests: `./gradlew test`
 4. Run the server: `./gradlew run` (health check: http://localhost:8080/healthz)
 5. Note: `build.gradle.kts` pins Docker API version 1.44 for Testcontainers because Docker Engine 29+ rejects the older default (set via `systemProperty("api.version", "1.44")`).
+6. The tests start one shared Testcontainers Mongo. To use a Mongo that already
+   runs, set `MONGODB_TEST_URI` (for example `mongodb://localhost:27017`). CI
+   uses this seam with a `mongo:7.0` service container.
 
 Without `RESEND_API_KEY`, emails are logged to stdout instead of sent —
 copy the `token=` value from the log line to complete flows manually.
