@@ -4,7 +4,14 @@ import app.geostrategy.crawl.CrawlDigest
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Scores(val seo: Int, val aeo: Int, val geo: Int)
+data class Scores(val seo: Int, val aeo: Int, val geo: Int) {
+    /**
+     * Derived visibility score. Round half up of the mean of the three areas.
+     * It is a body property, so the Mongo codec does not store it and `equals` ignores it.
+     * kotlinx.serialization writes it to JSON and treats it as optional on decode.
+     */
+    val overall: Int = Math.round((seo + aeo + geo) / 3.0).toInt()
+}
 
 @Serializable
 data class Finding(val id: String, val category: String, val severity: String, val evidence: String, val affectedPages: List<String>)
