@@ -26,11 +26,37 @@ Run `npx ng build`. The build output goes to `dist/frontend/browser`.
 
 ## Deploy to Cloudflare Pages
 
-1. Set the build command to `npx ng build`.
-2. Set the output directory to `dist/frontend/browser`.
-3. Set the root directory to `frontend`.
-4. The build copies `public/_redirects` into the output. This file sends all routes to
-   `index.html`, so client-side routing works on refresh and on direct links.
+CI deploys the frontend after each merge to `main` (see `.github/workflows/ci.yml`).
+The Pages project is a **direct-upload** project. Do these steps once, by hand.
+
+1. Create the Pages project: `npx wrangler pages project create geostrategy --production-branch=main`.
+2. Build and upload once by hand: `npm run build`, then
+   `npx wrangler pages deploy dist/frontend/browser --project-name=geostrategy --branch=main`.
+3. Attach the custom domain `app.<domain>` to the project in the Cloudflare dashboard.
+4. Add the repository secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` on
+   GitHub. Scope the token to the account with `Pages:Edit` only.
+
+### Files in `public/` that Pages reads
+
+- `_redirects` — one rewrite row per client route, destination `/`. A path with no
+  row answers with `404.html`. **Add a row for every new client route.** Read the
+  comment at the top of the file before you change it.
+- `404.html` — the real 404 page. Without it, every bad URL answers 200 with the
+  app shell (a soft 404).
+- `_headers` — `X-Robots-Tag: noindex` for the 404 page.
+- `robots.txt` — allows the public pages, blocks the app routes.
+
+### Test a change to `_redirects`
+
+Deploy a preview and test it in a real browser. The local emulator
+(`wrangler pages dev`) cannot parse these rules correctly. Do not trust it.
+
+    npm run build
+    npx wrangler pages deploy dist/frontend/browser --project-name=geostrategy --branch=preview
+
+Then open the preview URL and check: a hard navigation to `/login` shows the login
+page (200), `/dashboard/` (trailing slash) shows the app, and `/no-such-page` shows
+the 404 page with status 404.
 
 ## Environments
 

@@ -1,1 +1,31 @@
-/*    /index.html   200
+# Cloudflare Pages rewrite rules. Read docs/2026-08-16-platform-config-playbook.md §2.1
+# before you change this file.
+# - The destination is "/", never "/index.html". Pages turns "/index.html" into a 308.
+# - Every client route needs a row, plus its trailing-slash twin.
+# - A path with no row falls through to 404.html.
+# - Test only on a real preview deployment (--branch=preview). "wrangler pages dev"
+#   cannot parse these rules correctly.
+/pricing / 200
+/pricing/ / 200
+/terms / 200
+/terms/ / 200
+/privacy / 200
+/privacy/ / 200
+/login / 200
+/login/ / 200
+/signup / 200
+/signup/ / 200
+/verify-email / 200
+/verify-email/ / 200
+/auth/complete / 200
+/auth/complete/ / 200
+/reset-password / 200
+/reset-password/ / 200
+/reset-password/confirm / 200
+/reset-password/confirm/ / 200
+/dashboard / 200
+/dashboard/ / 200
+/assessments/* / 200
+/sites/* / 200
+/account / 200
+/account/ / 200
