@@ -17,7 +17,7 @@ copy the `token=` value from the log line to complete flows manually.
 
 ## Deploy to Fly.io (first time)
 
-CI deploys the backend after each merge to `main` (see `.github/workflows/ci.yml`).
+CI deploys the backend after each merge to `master` (see `.github/workflows/ci.yml`).
 Do these steps once, by hand, before the first CI deploy.
 
 1. Run `fly launch --no-deploy --copy-config` from `backend/`. Accept `fly.toml`.
