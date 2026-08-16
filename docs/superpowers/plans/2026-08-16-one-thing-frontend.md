@@ -2639,3 +2639,474 @@ git commit -m "feat(frontend): site home with the free result and the pro next-t
 ```
 
 ---
+### Task 8: Dashboard — redirect, site list, add-site, pending URL
+
+**Files:**
+- Modify: `src/app/features/dashboard/dashboard.ts`, `dashboard.html`, `dashboard.spec.ts`
+
+**Interfaces (produces):**
+- Rules (spec §4.1, §5.1): on load, consume the pending URL first: create the site, then submit the check, then navigate to progress. Without a pending URL: 0 sites → the add form; exactly 1 site → redirect to `/sites/:id`; 2+ sites → the list + add form (when `sitesUsed < sitesLimit`, read from `GET /v1/me/usage`).
+- The list card: domain, `platform · last checked {date}` or `No check yet`, overall, "Read-only" pill and "Upgrade to work with this site" link on read-only sites. Click → `/sites/:id`.
+
+- [ ] **Step 1: Rewrite the dashboard tests**
+
+Replace `src/app/features/dashboard/dashboard.spec.ts`. Keep the helper block at the top of the current file (`BlankPage`, `setValue`, `submitForm`, `findButtonByText`, `deferred`, `makeSite`, `makeAssessment`, `makePlan`, `FakeApiClient`) with these changes: `makeSite` adds `latestAssessment: null, latestReadyAssessmentId: null`; `makeAssessment` adds `summary: null, scoreNotes: null, pageCount: null, changes: []`; `FakeApiClient` gains `usageResult: Promise<UsageDto> = Promise.resolve({ assessmentsUsed: 0, assessmentsLimit: 1, sitesUsed: 0, sitesLimit: 1, nextCheckAt: null })` and `usage() { return this.usageResult; }`; the `provideRouter` list gains `{ path: 'sites/:siteId', component: BlankPage }`. Then replace every `it(...)` with:
+
+```ts
+  it('with a pending url: creates the site, starts the check and opens progress', async () => {
+    sessionStorage.setItem(PENDING_URL_KEY, 'rivertonbakery.com');
+    api.createSiteResult = Promise.resolve(makeSite({ id: 'S1' }));
+    api.submitAssessmentResult = Promise.resolve(makeAssessment({ id: 'A1' }));
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await fixture.whenStable();
+    expect(api.createSiteCalls).toEqual(['rivertonbakery.com']);
+    expect(api.submitAssessmentCalls).toEqual(['S1']);
+    expect(sessionStorage.getItem(PENDING_URL_KEY)).toBeNull();
+    expect(TestBed.inject(Location).path()).toBe('/assessments/A1/progress');
+  });
+
+  it('with a pending url and an unverified email: creates the site and shows the confirm note', async () => {
+    sessionStorage.setItem(PENDING_URL_KEY, 'rivertonbakery.com');
+    api.createSiteResult = Promise.resolve(makeSite({ id: 'S1' }));
+    api.submitAssessmentResult = Promise.reject(new ApiError('email_not_verified', 'Confirm first.', 403));
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Confirm your email first.');
+    expect(findButtonByText(fixture.nativeElement, 'Send the email again')).not.toBeNull();
+  });
+
+  it('with no sites shows the add form only', async () => {
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent).toContain('Add your site');
+    expect(addSiteInput(el)).not.toBeNull();
+  });
+
+  it('with exactly one site redirects to the site home', async () => {
+    api.listSitesResult = Promise.resolve([makeSite({ id: 'S1' })]);
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(TestBed.inject(Location).path()).toBe('/sites/S1');
+  });
+
+  it('with two sites lists them with scores and read-only state, and hides the add form at the cap', async () => {
+    api.listSitesResult = Promise.resolve([
+      makeSite({ id: 'S1', domain: 'one.com', platform: 'wordpress', latestScores: { seo: 62, aeo: 34, geo: 28, overall: 41 }, latestAssessment: { id: 'A1', status: 'ready', createdAt: '2026-07-28T09:00:00Z', completedAt: '2026-07-28T10:00:00Z' }, latestReadyAssessmentId: 'A1' }),
+      makeSite({ id: 'S2', domain: 'two.com', readOnly: true }),
+    ]);
+    api.usageResult = Promise.resolve({ assessmentsUsed: 0, assessmentsLimit: 1, sitesUsed: 2, sitesLimit: 2, nextCheckAt: null });
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const text = el.textContent ?? '';
+    expect(text).toContain('one.com');
+    expect(text).toContain('wordpress · last checked 28 July 2026');
+    expect(text).toContain('41');
+    expect(text).toContain('two.com');
+    expect(text).toContain('No check yet');
+    expect(text).toContain('Read-only');
+    expect(text).toContain('Upgrade to work with this site');
+    expect(addSiteInput(el)).toBeNull();
+  });
+
+  it('adding a site from the form navigates to the new site home', async () => {
+    api.listSitesResult = Promise.resolve([]);
+    api.createSiteResult = Promise.resolve(makeSite({ id: 'S7' }));
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    setValue(addSiteInput(el), 'new.example.com');
+    fixture.detectChanges();
+    submitForm(el);
+    await fixture.whenStable();
+    expect(api.createSiteCalls).toEqual(['new.example.com']);
+    expect(TestBed.inject(Location).path()).toBe('/sites/S7');
+  });
+```
+
+`addSiteInput` may return `null` now: change its return type to `HTMLInputElement | null` and use `!` where a test needs it.
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `npm test -- --watch=false --browsers=ChromeHeadless`
+Expected: FAIL.
+
+- [ ] **Step 3: Rewrite the dashboard**
+
+`src/app/features/dashboard/dashboard.ts`:
+
+```ts
+import { Component, inject, OnInit, signal } from '@angular/core';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { ApiClient, ApiError } from '../../core/api/api-client';
+import { UserStore } from '../../core/auth/user-store';
+import { SiteDto, UsageDto } from '../../core/api/types';
+import { PENDING_URL_KEY } from '../../core/config';
+import { ErrorNote } from '../../shared/error-note';
+import { assessmentErrorCopy } from '../../shared/assessment-error-copy';
+import { formatDate } from '../../shared/copy';
+import { toApiError } from '../../shared/to-api-error';
+import { pricingUrlFor } from '../../shared/upgrade-redirect';
+
+@Component({
+  selector: 'app-dashboard',
+  imports: [ReactiveFormsModule, RouterLink, ErrorNote],
+  templateUrl: './dashboard.html',
+  styles: `
+    .dash { padding-top: 48px; display: flex; flex-direction: column; gap: 34px; max-width: 760px; }
+    .site-card { display: flex; align-items: center; gap: 14px; padding: 16px 20px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-small); color: inherit; }
+    .site-card .domain { font-size: 16px; font-weight: 600; color: var(--ink); }
+    .site-card .score { font-size: 20px; font-weight: 700; color: var(--ink); }
+    .add { max-width: 480px; }
+    .small { font-size: 13px; }
+  `,
+})
+export class Dashboard implements OnInit {
+  private api = inject(ApiClient);
+  private router = inject(Router);
+  protected readonly store = inject(UserStore);
+
+  protected readonly sites = signal<SiteDto[]>([]);
+  protected readonly usage = signal<UsageDto | null>(null);
+  protected readonly loading = signal(true);
+  protected readonly error = signal<ApiError | null>(null);
+  protected readonly addBusy = signal(false);
+  protected readonly addError = signal<ApiError | null>(null);
+  protected readonly checkError = signal<ApiError | null>(null);
+  protected readonly resent = signal(false);
+  protected readonly resendBusy = signal(false);
+  protected readonly assessmentErrorCopy = assessmentErrorCopy;
+  protected readonly pricingUrl = pricingUrlFor;
+
+  protected readonly addForm = new FormGroup({
+    url: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+  });
+
+  ngOnInit(): void { void this.init(); }
+
+  private async init(): Promise<void> {
+    const pendingUrl = sessionStorage.getItem(PENDING_URL_KEY);
+    if (pendingUrl) {
+      sessionStorage.removeItem(PENDING_URL_KEY);
+      await this.createAndCheck(pendingUrl);
+      if (this.checkError() === null && this.addError() === null) return; // navigated away
+    }
+    await this.loadSites();
+  }
+
+  /** Landing hand-off: create the site, start the first check, open progress. Spec §5.1. */
+  private async createAndCheck(url: string): Promise<void> {
+    let site: SiteDto;
+    try {
+      site = await this.api.createSite(url);
+    } catch (e) {
+      this.addForm.patchValue({ url });
+      this.addError.set(toApiError(e));
+      return;
+    }
+    try {
+      const a = await this.api.submitAssessment(site.id);
+      await this.router.navigateByUrl(`/assessments/${a.id}/progress`);
+    } catch (e) {
+      this.checkError.set(toApiError(e));
+    }
+  }
+
+  private async loadSites(): Promise<void> {
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      const [sites, usage] = await Promise.all([this.api.listSites(), this.api.usage().catch(() => null)]);
+      const sorted = [...sites];
+      this.sites.set(sorted);
+      this.usage.set(usage);
+      if (sorted.length === 1 && !this.checkError() && !this.addError()) {
+        await this.router.navigateByUrl(`/sites/${sorted[0].id}`);
+        return;
+      }
+    } catch (e) {
+      this.error.set(toApiError(e));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  protected canAdd(): boolean {
+    const u = this.usage();
+    return !u || u.sitesUsed < u.sitesLimit;
+  }
+
+  protected lastChecked(site: SiteDto): string {
+    const at = site.latestAssessment?.completedAt ?? site.latestAssessment?.createdAt;
+    const platform = site.platform ?? 'Website';
+    return at ? `${platform} · last checked ${formatDate(at)}` : 'No check yet';
+  }
+
+  protected submitAdd(): void {
+    if (this.addForm.invalid || this.addBusy()) return;
+    this.addBusy.set(true);
+    this.addError.set(null);
+    const { url } = this.addForm.getRawValue();
+    this.api.createSite(url)
+      .then((created) => this.router.navigateByUrl(`/sites/${created.id}`), (e: unknown) => this.addError.set(toApiError(e)))
+      .finally(() => this.addBusy.set(false));
+  }
+
+  protected resend(): void {
+    if (this.resendBusy()) return;
+    this.resendBusy.set(true);
+    this.api.resendVerification().then(() => this.resent.set(true), (e: unknown) => this.checkError.set(toApiError(e))).finally(() => this.resendBusy.set(false));
+  }
+}
+```
+
+`src/app/features/dashboard/dashboard.html`:
+
+```html
+<div class="page surface dash">
+  @if (checkError(); as e) {
+    @if (e.code === 'email_not_verified') {
+      <div class="note-box stack" role="alert">
+        <p>{{ assessmentErrorCopy(e) }}</p>
+        <div class="row"><button type="button" class="btn btn-outline" (click)="resend()" [disabled]="resendBusy()">Send the email again</button>@if (resent()) {<span class="muted">Sent. Check your inbox.</span>}</div>
+      </div>
+    } @else if (e.code === 'quota_exceeded' || e.code === 'upgrade_required' || e.code === 'site_read_only') {
+      <p class="error-note" role="alert">{{ assessmentErrorCopy(e) }} <a [routerLink]="pricingUrl()">Upgrade</a></p>
+    } @else {
+      <app-error-note [error]="e" />
+    }
+  }
+
+  @if (loading()) {
+    <p class="muted">Loading your sites…</p>
+  } @else if (error(); as e) {
+    <app-error-note [error]="e" />
+  } @else {
+    @if (sites().length > 0) {
+      <section class="stack">
+        <span class="eyebrow">YOUR SITES</span>
+        @for (site of sites(); track site.id) {
+          <a class="site-card" [routerLink]="['/sites', site.id]">
+            <div class="stack tight" style="flex:1; gap:4px">
+              <span class="domain">{{ site.domain }}</span>
+              <span class="faint small">{{ lastChecked(site) }}</span>
+              @if (site.readOnly) {<span class="row small"><span class="pill pill-free">Read-only</span><a [routerLink]="pricingUrl(site.id)">Upgrade to work with this site</a></span>}
+            </div>
+            @if (site.latestScores; as s) {<span class="score">{{ s.overall }}</span>}
+          </a>
+        }
+      </section>
+    }
+
+    @if (canAdd()) {
+      <section class="add stack">
+        <h2>{{ sites().length === 0 ? 'Add your site' : 'Add another site' }}</h2>
+        <form [formGroup]="addForm" (ngSubmit)="submitAdd()" class="stack">
+          <label class="stack tight"><span class="muted small">Website</span><input type="text" formControlName="url" placeholder="yourbusiness.com" autocomplete="url" /></label>
+          <div class="row"><button type="submit" class="btn btn-primary" [disabled]="addBusy() || addForm.invalid">Add site</button></div>
+        </form>
+        @if (addError(); as e) {
+          @if (e.code === 'invalid_url') {<p class="error-note" role="alert">That address does not look right. Enter it like example.com.</p>}
+          @else if (e.code === 'site_exists') {<p class="error-note" role="alert">You already added this site.</p>}
+          @else if (e.code === 'site_limit_reached') {<p class="error-note" role="alert">{{ e.message }} <a [routerLink]="pricingUrl()">Upgrade</a></p>}
+          @else {<app-error-note [error]="e" />}
+        }
+      </section>
+    }
+  }
+</div>
+```
+
+- [ ] **Step 4: Run tests and build; commit**
+
+Run: `npm test -- --watch=false --browsers=ChromeHeadless` then `npx ng build`
+Expected: PASS, build green.
+
+```bash
+git add src/app/features/dashboard
+git commit -m "feat(frontend): dashboard hand-off, redirect and compact site list"
+```
+
+---
+
+### Task 9: Plan checklist (Pro) with the Free redirect
+
+**Files:**
+- Modify: `src/app/features/plan/plan.ts`, `plan.html`, `plan.spec.ts`
+
+**Interfaces (produces):**
+- Free (`plan.locked === true`) → `router.navigateByUrl(pricingUrlFor(plan.siteId))`.
+- Pro: heading "Your plan", bar, "{done} of {N} done · {effort} left", "← Do this next" link, rows with checkbox, title, area, impact badge, minutes, expand `<button aria-expanded>`.
+
+- [ ] **Step 1: Update the plan tests**
+
+In `plan.spec.ts`: add `{ path: 'pricing', component: BlankPage }` and `{ path: 'sites/:siteId', component: BlankPage }` to the router list (create `BlankPage` if the file has none), set `locked: false` and `stepCount` on the fixtures, keep the existing tests for the checkbox flow, busy-disable, and error reset (adjust the progress label assertion to `'1 of 2 done'`), and add:
+
+```ts
+  it('redirects a locked plan to the pricing gate for its site', async () => {
+    api.getPlanForAssessmentResult = Promise.resolve(makePlan({ locked: true, siteId: 'S1' }));
+    const fixture = TestBed.createComponent(Plan);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(TestBed.inject(Location).path()).toBe('/pricing?site=S1');
+  });
+
+  it('expands a task with a keyboard-reachable button and shows the steps', async () => {
+    const fixture = TestBed.createComponent(Plan);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const toggle = el.querySelector<HTMLButtonElement>('button[aria-expanded]')!;
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    toggle.click();
+    fixture.detectChanges();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(el.textContent).toContain('HOW YOU KNOW IT WORKED');
+  });
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `npm test -- --watch=false --browsers=ChromeHeadless`
+Expected: FAIL (no redirect, no `aria-expanded` button).
+
+- [ ] **Step 3: Rewrite the plan component and template**
+
+`src/app/features/plan/plan.ts` — replace the imports, decorator, and `init()`; keep `toggleExpand`, `isChecked`, `toggleStatus` as they are:
+
+```ts
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ApiClient, ApiError } from '../../core/api/api-client';
+import { PlanDto, PlanTaskDto } from '../../core/api/types';
+import { ErrorNote } from '../../shared/error-note';
+import { ImpactBadge } from '../../shared/impact-badge';
+import { areaName, effortText } from '../../shared/copy';
+import { toApiError } from '../../shared/to-api-error';
+import { isUpgradeRequired, pricingUrlFor } from '../../shared/upgrade-redirect';
+import { openMinutes } from '../result/result-view';
+
+@Component({
+  selector: 'app-plan',
+  imports: [RouterLink, ErrorNote, ImpactBadge],
+  templateUrl: './plan.html',
+  styles: `
+    .plan { padding-top: 48px; display: flex; flex-direction: column; gap: 26px; }
+    .task { border-bottom: 1px solid var(--line); padding: 14px 0; }
+    .task-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .expand { background: none; border: none; padding: 0; text-align: left; font: inherit; color: var(--ink); font-weight: 600; cursor: pointer; flex: 1; }
+    .details { padding: 12px 0 0 32px; display: flex; flex-direction: column; gap: 12px; }
+    .steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; color: var(--ink); }
+    .small { font-size: 13px; }
+  `,
+})
+export class Plan implements OnInit {
+  private api = inject(ApiClient);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
+
+  protected readonly id = this.route.snapshot.paramMap.get('id')!;
+  protected readonly plan = signal<PlanDto | null>(null);
+  protected readonly error = signal<ApiError | null>(null);
+  protected readonly patchError = signal<ApiError | null>(null);
+  protected readonly expanded = signal<string | null>(null);
+  protected readonly busyTaskId = signal<string | null>(null);
+  protected readonly areaName = areaName;
+
+  protected readonly progressPercent = computed(() => {
+    const p = this.plan()?.progress;
+    if (!p || p.total === 0) return 0;
+    return (100 * (p.done + p.verified)) / p.total;
+  });
+  protected readonly progressLabel = computed(() => {
+    const plan = this.plan();
+    if (!plan) return '';
+    const p = plan.progress;
+    return `${p.done + p.verified} of ${p.total} done · ${effortText(openMinutes(plan))} left`;
+  });
+
+  ngOnInit(): void { void this.init(); }
+
+  private async init(): Promise<void> {
+    try {
+      const plan = await this.api.getPlanForAssessment(this.id);
+      if (plan.locked) { void this.router.navigateByUrl(pricingUrlFor(plan.siteId)); return; }
+      this.plan.set(plan);
+    } catch (e) {
+      if (isUpgradeRequired(e)) { void this.router.navigateByUrl(pricingUrlFor(null)); return; }
+      this.error.set(toApiError(e));
+    }
+  }
+  // toggleExpand, isChecked, toggleStatus: unchanged from the current file
+}
+```
+
+`src/app/features/plan/plan.html`:
+
+```html
+<div class="page surface plan">
+  @if (error(); as e) {
+    <app-error-note [error]="e" />
+    <p><a routerLink="/dashboard">Back to my sites</a></p>
+  } @else if (plan(); as p) {
+    <div class="row"><a class="muted small" [routerLink]="['/sites', p.siteId]">← Do this next</a></div>
+    <h1>Your plan</h1>
+    <div class="bar" role="img" [attr.aria-label]="progressLabel()"><div class="bar-fill tone-high" [style.width.%]="progressPercent()"></div></div>
+    <p class="muted small">{{ progressLabel() }}</p>
+    @if (patchError(); as e) {<app-error-note [error]="e" />}
+
+    <section>
+      @for (task of p.tasks; track task.taskId) {
+        <article class="task">
+          <div class="task-header">
+            <label class="row small">
+              <input type="checkbox" [checked]="isChecked(task)" [disabled]="task.status === 'verified' || busyTaskId() !== null" (change)="toggleStatus(task, $event)" />
+              {{ task.status === 'verified' ? 'Checked by us' : 'Done' }}
+            </label>
+            <button type="button" class="expand" [attr.aria-expanded]="expanded() === task.taskId" [attr.aria-controls]="'details-' + task.taskId" (click)="toggleExpand(task.taskId)">{{ task.title }}</button>
+            <span class="faint small">{{ areaName(task.category) }}</span>
+            <app-impact-badge [impact]="task.impact" />
+            <span class="faint small">{{ task.effortMinutes }} min</span>
+          </div>
+          @if (expanded() === task.taskId) {
+            <div class="details" [id]="'details-' + task.taskId">
+              @if (task.whyItMatters) {<p>{{ task.whyItMatters }}</p>}
+              <ol class="steps">@for (step of task.steps ?? []; track $index) {<li>{{ step }}</li>}</ol>
+              @if (task.doneCheck) {<div class="note-box stack" style="gap:6px"><span class="eyebrow">HOW YOU KNOW IT WORKED</span><span>{{ task.doneCheck }}</span></div>}
+            </div>
+          }
+        </article>
+      }
+    </section>
+  } @else {
+    <p class="muted">Loading…</p>
+  }
+</div>
+```
+
+- [ ] **Step 4: Run tests and build; commit**
+
+Run: `npm test -- --watch=false --browsers=ChromeHeadless` then `npx ng build`
+Expected: PASS, build green.
+
+```bash
+git add src/app/features/plan
+git commit -m "feat(frontend): pro plan checklist with keyboard expand and the free redirect"
+```
+
+---
