@@ -7,6 +7,7 @@ import com.mongodb.client.model.Sorts
 import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.toList
 import org.bson.codecs.pojo.annotations.BsonId
 import org.bson.types.ObjectId
 import java.time.Instant
@@ -63,6 +64,7 @@ class PlanRepository(db: MongoDatabase) {
     suspend fun findByAssessment(assessmentId: ObjectId): PlanDoc? = col.find(eq("assessmentId", assessmentId)).firstOrNull()
     suspend fun latestFor(siteId: ObjectId): PlanDoc? =
         col.find(eq("siteId", siteId)).sort(Sorts.descending("createdAt")).firstOrNull()
+    suspend fun listFor(siteId: ObjectId): List<PlanDoc> = col.find(eq("siteId", siteId)).toList()
 
     suspend fun updateTaskStatus(planId: ObjectId, taskId: String, status: String): PlanDoc? {
         val doc = findById(planId) ?: return null

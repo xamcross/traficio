@@ -6,14 +6,13 @@ import app.geostrategy.TestMongo
 import app.geostrategy.appModule
 import app.geostrategy.claude.CannedClaudeClient
 import app.geostrategy.crawl.Crawler
+import app.geostrategy.makePro
 import app.geostrategy.plans.PlanRepository
 import app.geostrategy.registerVerifyLogin
 import app.geostrategy.testDeps
-import app.geostrategy.users.User
-import com.mongodb.client.model.Filters.eq
-import com.mongodb.client.model.Updates.set
 import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.get
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -23,6 +22,7 @@ import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.bson.types.ObjectId
@@ -40,10 +40,6 @@ class ReassessmentTest {
         """<html><head><title>Menu</title></head><body><h1>Menu</h1><p>${"w ".repeat(60)}</p></body></html>"""
     private val homeLinkingToMenuWithMeta =
         """<html><head><title>T</title><meta name="description" content="Now present."></head><body><h1>H</h1><p>${"w ".repeat(60)}</p><a href="/menu">Menu</a></body></html>"""
-
-    private suspend fun makePro(db: com.mongodb.kotlin.client.coroutine.MongoDatabase, email: String) {
-        db.getCollection<User>("users").updateOne(eq("email", email), set("tier", "pro"))
-    }
 
     @Test
     fun `free user cannot re-assess, pro user can, history is pro-only`() = testApplication {
@@ -221,5 +217,45 @@ class ReassessmentTest {
         // the /menu finding vanished only because the page wasn't crawled this run, not because it was fixed
         val menuTask = verifiedPlan.tasks.first { it.findingId == "missing-meta-description:/menu" }
         assertEquals("todo", menuTask.status)
+    }
+
+    @Test
+    fun `history items carry what changed since the previous ready check`() = testApplication {
+        val db = TestMongo.freshDb()
+        val emails = RecordingEmailSender()
+        val deps = testDeps(db, email = emails)
+        application { appModule(deps) }
+        val http = createClient { install(HttpCookies) }
+        registerVerifyLogin(http, emails, "ada@example.com")
+        runBlocking { makePro(db, "ada@example.com") }
+        val siteId = Json.parseToJsonElement(
+            http.post("/v1/sites") { contentType(ContentType.Application.Json); setBody("""{"url":"example.com"}""") }.bodyAsText(),
+        ).jsonObject["id"]!!.jsonPrimitive.content
+
+        suspend fun run(html: String) {
+            http.post("/v1/sites/$siteId/assessments")
+            val pipeline = AssessmentPipeline(deps.assessments, deps.sites, deps.plans, Crawler(MapFetcher(mapOf("https://example.com" to html))), CannedClaudeClient())
+            pipeline.handle(deps.jobs.claim()!!)
+        }
+        run(pageNoMeta)
+        // the user marks the low-impact task done between the two checks; the second run
+        // does not touch its finding, so it stays done while the meta-description task
+        // gets auto-verified.
+        val plan1 = runBlocking { deps.plans.latestFor(ObjectId(siteId))!! }
+        val doneTask = plan1.tasks.last()
+        assertEquals(HttpStatusCode.OK, http.patch("/v1/plans/${plan1.id.toHexString()}/tasks/${doneTask.taskId}") {
+            contentType(ContentType.Application.Json); setBody("""{"status":"done"}""")
+        }.status)
+        run(pageWithMeta)
+
+        val items = Json.parseToJsonElement(http.get("/v1/sites/$siteId/assessments").bodyAsText()).jsonObject["assessments"]!!.jsonArray
+        assertEquals(2, items.size)
+        val newest = items[0].jsonObject
+        val oldest = items[1].jsonObject
+        assertEquals(0, oldest["changes"]!!.jsonArray.size)
+        val kinds = newest["changes"]!!.jsonArray.map { it.jsonObject["kind"]!!.jsonPrimitive.content }
+        assertTrue("done" in kinds, kinds.toString())
+        assertTrue("verified" in kinds, kinds.toString())
+        assertTrue(newest["changes"]!!.jsonArray.any { it.jsonObject["title"]!!.jsonPrimitive.content == doneTask.title })
     }
 }

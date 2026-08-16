@@ -40,14 +40,16 @@ data class AssessmentDto(
     val errorMessage: String?,
     val createdAt: String,
     val completedAt: String?,
+    val changes: List<TaskChangeDto> = emptyList(),
 )
 
-fun Assessment.toDto() = AssessmentDto(
+fun Assessment.toDto(changes: List<TaskChangeDto> = emptyList()) = AssessmentDto(
     id = id.toHexString(), siteId = siteId.toHexString(), status = status, scores = scores,
     summary = summary, scoreNotes = scoreNotes, findings = findings,
     pageCount = crawlDigest?.pages?.size,
     errorCode = errorCode, errorMessage = errorMessage,
     createdAt = createdAt.toString(), completedAt = completedAt?.toString(),
+    changes = changes,
 )
 
 fun Route.assessmentRoutes(deps: AppDeps) {
@@ -101,7 +103,9 @@ fun Route.assessmentRoutes(deps: AppDeps) {
         if (user.tier != "pro") {
             throw AppException(HttpStatusCode.Forbidden, "upgrade_required", "Score history is a Pro feature. Upgrade to see your progress over time.")
         }
-        call.respond(AssessmentListResponse(deps.assessments.listFor(site.id).map { it.toDto() }))
+        val list = deps.assessments.listFor(site.id)
+        val changes = changesFor(list, deps.plans.listFor(site.id))
+        call.respond(AssessmentListResponse(list.map { it.toDto(changes[it.id] ?: emptyList()) }))
     }
 
     get("/v1/assessments/{id}") {
