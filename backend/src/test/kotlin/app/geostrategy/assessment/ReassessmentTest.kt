@@ -238,9 +238,9 @@ class ReassessmentTest {
             pipeline.handle(deps.jobs.claim()!!)
         }
         run(pageNoMeta)
-        // the user marks the low-impact task done between the two checks; the second run
-        // does not touch its finding, so it stays done while the meta-description task
-        // gets auto-verified.
+        // The user marks the low-impact task done between the two checks.
+        // The second run does not fix that finding, so the task stays done.
+        // The second run auto-verifies the meta-description task.
         val plan1 = runBlocking { deps.plans.latestFor(ObjectId(siteId))!! }
         val doneTask = plan1.tasks.last()
         assertEquals(HttpStatusCode.OK, http.patch("/v1/plans/${plan1.id.toHexString()}/tasks/${doneTask.taskId}") {
