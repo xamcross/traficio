@@ -1,8 +1,11 @@
 package app.geostrategy.assessment
 
+import app.geostrategy.MapFetcher
 import app.geostrategy.RecordingEmailSender
 import app.geostrategy.TestMongo
 import app.geostrategy.appModule
+import app.geostrategy.claude.CannedClaudeClient
+import app.geostrategy.crawl.Crawler
 import app.geostrategy.registerAndLogin
 import app.geostrategy.registerVerifyLogin
 import app.geostrategy.testDeps
@@ -18,6 +21,7 @@ import io.ktor.server.testing.testApplication
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
@@ -165,5 +169,40 @@ class AssessmentRoutesTest {
         assertEquals(1L, runBlocking { deps.assessments.countNonFailedForUserSince(user.id, Instant.EPOCH) })
         // the rolled-back assessment was never enqueued
         assertNull(runBlocking { deps.jobs.claim() })
+    }
+
+    @Test
+    fun `assessment dto carries summary, score notes, overall and page count after the pipeline`() = testApplication {
+        val db = TestMongo.freshDb()
+        val emails = RecordingEmailSender()
+        val deps = testDeps(db, email = emails)
+        application { appModule(deps) }
+        val http = createClient { install(HttpCookies) }
+        registerVerifyLogin(http, emails, "ada@example.com")
+        val siteId = Json.parseToJsonElement(
+            http.post("/v1/sites") { contentType(ContentType.Application.Json); setBody("""{"url":"example.com"}""") }.bodyAsText(),
+        ).jsonObject["id"]!!.jsonPrimitive.content
+        val assessmentId = Json.parseToJsonElement(http.post("/v1/sites/$siteId/assessments").bodyAsText())
+            .jsonObject["id"]!!.jsonPrimitive.content
+
+        val queued = Json.parseToJsonElement(http.get("/v1/assessments/$assessmentId").bodyAsText()).jsonObject
+        assertEquals(JsonNull, queued["summary"])
+        assertEquals(JsonNull, queued["pageCount"])
+
+        val html = """<html><head><title>T</title></head><body><h1>H</h1><p>${"w ".repeat(60)}</p></body></html>"""
+        val pipeline = AssessmentPipeline(
+            deps.assessments, deps.sites, deps.plans,
+            Crawler(MapFetcher(mapOf("https://example.com" to html))), CannedClaudeClient(),
+        )
+        runBlocking { pipeline.handle(deps.jobs.claim()!!) }
+
+        val ready = Json.parseToJsonElement(http.get("/v1/assessments/$assessmentId").bodyAsText()).jsonObject
+        assertEquals("ready", ready["status"]!!.jsonPrimitive.content)
+        assertTrue(ready["summary"]!!.jsonPrimitive.content.isNotBlank())
+        assertTrue(ready["scoreNotes"]!!.jsonObject["geo"]!!.jsonPrimitive.content.isNotBlank())
+        assertEquals(1, ready["pageCount"]!!.jsonPrimitive.content.toInt())
+        val scores = ready["scores"]!!.jsonObject
+        val expectedOverall = Math.round((scores["seo"]!!.jsonPrimitive.content.toInt() + scores["aeo"]!!.jsonPrimitive.content.toInt() + scores["geo"]!!.jsonPrimitive.content.toInt()) / 3.0).toInt()
+        assertEquals(expectedOverall, scores["overall"]!!.jsonPrimitive.content.toInt())
     }
 }

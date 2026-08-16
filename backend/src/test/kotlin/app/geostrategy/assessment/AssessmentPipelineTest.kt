@@ -7,6 +7,7 @@ import app.geostrategy.claude.AnalysisResult
 import app.geostrategy.claude.ClaudeClient
 import app.geostrategy.claude.ClaudeResponse
 import app.geostrategy.claude.ClaudeUsage
+import app.geostrategy.claude.GOOD_SEVERITY
 import app.geostrategy.claude.PlanResult
 import app.geostrategy.crawl.Crawler
 import app.geostrategy.crawl.CrawlDigest
@@ -192,5 +193,35 @@ class AssessmentPipelineTest {
         assertEquals(1000L, done.inputTokens)
         assertEquals(500L, done.outputTokens)
         assertEquals(1000 * 5.0 / 1_000_000 + 500 * 25.0 / 1_000_000, done.costUsd, 1e-9)
+    }
+
+    @Test
+    fun `happy path stores summary and notes and writes no task for a good finding`() = runBlocking {
+        val db = TestMongo.freshDb()
+        val f = fixtures(db)
+        val crawler = Crawler(MapFetcher(mapOf("https://example.com" to homeHtml)))
+        val canned = CannedClaudeClient()
+        var planInputSeverities: List<String> = emptyList()
+        val spyingClaude = object : ClaudeClient {
+            override suspend fun analyze(digest: CrawlDigest) = canned.analyze(digest)
+            override suspend fun plan(analysis: AnalysisResult, platform: String): ClaudeResponse<PlanResult> {
+                planInputSeverities = analysis.findings.map { it.severity }
+                return canned.plan(analysis, platform)
+            }
+        }
+        val pipeline = AssessmentPipeline(f.assessments, f.sites, f.plans, crawler, spyingClaude)
+        f.jobs.enqueue("assessment", Document("assessmentId", f.assessment.id))
+        pipeline.handle(f.jobs.claim()!!)
+
+        val done = f.assessments.findById(f.assessment.id)!!
+        assertNotNull(done.summary)
+        assertNotNull(done.scoreNotes)
+        // the stored findings keep the good ones (the report shows them) ...
+        assertTrue(done.findings.any { it.severity == GOOD_SEVERITY })
+        // ... but the plan call never sees them
+        assertTrue(planInputSeverities.isNotEmpty() && planInputSeverities.none { it == GOOD_SEVERITY })
+        val goodIds = done.findings.filter { it.severity == GOOD_SEVERITY }.map { it.id }.toSet()
+        val plan = f.plans.findByAssessment(f.assessment.id)!!
+        assertTrue(plan.tasks.none { it.findingId in goodIds })
     }
 }

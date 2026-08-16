@@ -2,6 +2,7 @@ package app.geostrategy.assessment
 
 import app.geostrategy.claude.AnalysisResult
 import app.geostrategy.claude.ClaudeClient
+import app.geostrategy.claude.GOOD_SEVERITY
 import app.geostrategy.crawl.Crawler
 import app.geostrategy.email.EmailSender
 import app.geostrategy.http.AppException
@@ -45,7 +46,7 @@ class AssessmentPipeline(
             val saved = assessments.findById(id) ?: return
             val analysis: AnalysisResult
             if (saved.scores != null) {
-                analysis = AnalysisResult(saved.scores, saved.findings)
+                analysis = AnalysisResult(saved.scores, saved.findings, saved.summary, saved.scoreNotes)
             } else {
                 assessments.setStatus(id, "analyzing")
                 val result = claude.analyze(digest)
@@ -71,7 +72,9 @@ class AssessmentPipeline(
 
             assessments.setStatus(id, "planning")
             if (plans.findByAssessment(id) == null) {
-                val planResult = claude.plan(analysis, digest.platform)
+                // Good findings describe what is already right. They get no task.
+                val planInput = analysis.copy(findings = analysis.findings.filter { it.severity != GOOD_SEVERITY })
+                val planResult = claude.plan(planInput, digest.platform)
                 plans.insert(buildPlanDoc(saved, planResult.value))
                 assessments.addUsage(id, planResult.usage)
             }

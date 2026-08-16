@@ -3,6 +3,7 @@ package app.geostrategy.assessment
 import app.geostrategy.AppDeps
 import app.geostrategy.auth.requireUser
 import app.geostrategy.claude.Finding
+import app.geostrategy.claude.ScoreNotes
 import app.geostrategy.claude.Scores
 import app.geostrategy.http.AppException
 import app.geostrategy.sites.allowedSiteIds
@@ -31,7 +32,10 @@ data class AssessmentDto(
     val siteId: String,
     val status: String,
     val scores: Scores?,
+    val summary: String?,
+    val scoreNotes: ScoreNotes?,
     val findings: List<Finding>,
+    val pageCount: Int?,
     val errorCode: String?,
     val errorMessage: String?,
     val createdAt: String,
@@ -40,7 +44,9 @@ data class AssessmentDto(
 
 fun Assessment.toDto() = AssessmentDto(
     id = id.toHexString(), siteId = siteId.toHexString(), status = status, scores = scores,
-    findings = findings, errorCode = errorCode, errorMessage = errorMessage,
+    summary = summary, scoreNotes = scoreNotes, findings = findings,
+    pageCount = crawlDigest?.pages?.size,
+    errorCode = errorCode, errorMessage = errorMessage,
     createdAt = createdAt.toString(), completedAt = completedAt?.toString(),
 )
 

@@ -3,6 +3,7 @@ package app.geostrategy.assessment
 import app.geostrategy.claude.AnalysisResult
 import app.geostrategy.claude.ClaudeUsage
 import app.geostrategy.claude.Finding
+import app.geostrategy.claude.ScoreNotes
 import app.geostrategy.claude.Scores
 import app.geostrategy.crawl.CrawlDigest
 import com.mongodb.client.model.Filters.and
@@ -28,6 +29,8 @@ data class Assessment(
     val crawlDigest: CrawlDigest? = null,
     val scores: Scores? = null,
     val findings: List<Finding> = emptyList(),
+    val summary: String? = null,
+    val scoreNotes: ScoreNotes? = null,
     val errorCode: String? = null,
     val errorMessage: String? = null,
     val inputTokens: Long = 0,
@@ -74,6 +77,8 @@ open class AssessmentRepository(db: MongoDatabase) {
             combine(
                 set("scores", analysis.scores),
                 set("findings", analysis.findings),
+                set("summary", analysis.summary),
+                set("scoreNotes", analysis.scoreNotes),
                 Updates.inc("inputTokens", usage.inputTokens),
                 Updates.inc("outputTokens", usage.outputTokens),
                 set("updatedAt", Instant.now()),
