@@ -26,12 +26,12 @@ Run `npx ng build`. The build output goes to `dist/frontend/browser`.
 
 ## Deploy to Cloudflare Pages
 
-CI deploys the frontend after each merge to `main` (see `.github/workflows/ci.yml`).
+CI deploys the frontend after each merge to `master` (see `.github/workflows/ci.yml`).
 The Pages project is a **direct-upload** project. Do these steps once, by hand.
 
-1. Create the Pages project: `npx wrangler pages project create geostrategy --production-branch=main`.
-2. Build and upload once by hand: `npm run build`, then
-   `npx wrangler pages deploy dist/frontend/browser --project-name=geostrategy --branch=main`.
+1. Create the Pages project: `npx wrangler pages project create geostrategy --production-branch=master`.
+2. Build once by hand: `npm run build`. Then upload once by hand:
+   `npx wrangler pages deploy dist/frontend/browser --project-name=geostrategy --branch=master`.
 3. Attach the custom domain `app.<domain>` to the project in the Cloudflare dashboard.
 4. Add the repository secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` on
    GitHub. Scope the token to the account with `Pages:Edit` only.
@@ -48,15 +48,17 @@ The Pages project is a **direct-upload** project. Do these steps once, by hand.
 
 ### Test a change to `_redirects`
 
-Deploy a preview and test it in a real browser. The local emulator
+Deploy a preview. Then test it in a real browser. The local emulator
 (`wrangler pages dev`) cannot parse these rules correctly. Do not trust it.
 
     npm run build
     npx wrangler pages deploy dist/frontend/browser --project-name=geostrategy --branch=preview
 
-Then open the preview URL and check: a hard navigation to `/login` shows the login
-page (200), `/dashboard/` (trailing slash) shows the app, and `/no-such-page` shows
-the 404 page with status 404.
+Then open the preview URL. Check these three results:
+
+- A hard navigation to `/login` shows the login page (200).
+- `/dashboard/` (with the trailing slash) shows the app.
+- `/no-such-page` shows the 404 page with status 404.
 
 ## Environments
 
