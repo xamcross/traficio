@@ -21,8 +21,10 @@ primary_region = "waw"  # closest Atlas M0 region is Frankfurt (eu-central-1)
   [[http_service.checks]]
     interval = "30s"
     timeout = "5s"
-    # The JVM cold boot can take minutes on a shared VM. A short grace period kills
-    # the machine mid-boot.
+    # The JVM cold boot can take more than a minute on a shared VM. Fly lowers a
+    # grace period above 1 minute to 1 minute at deploy time (flyctl warns about it).
+    # Keep 120s as the intent; the effective value is 60s. A failed check does not
+    # stop the machine; it only delays the "healthy" state.
     grace_period = "120s"
     method = "GET"
     path = "/healthz"
