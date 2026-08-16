@@ -32,26 +32,31 @@ Run `npx ng build`. The build output goes to `dist/frontend/browser`.
 4. The build copies `public/_redirects` into the output. This file sends all routes to
    `index.html`, so client-side routing works on refresh and on direct links.
 
-## Connect to the API in production
+## Environments
 
-Choose one of two options.
+`src/environments/environment.ts` holds the development values. `npm run build`
+replaces it with `src/environments/environment.production.ts` (see
+`fileReplacements` in `angular.json`). Nothing in these files is secret. Every
+value ships to every browser.
 
-**Option A: same origin.** Add a Cloudflare Origin Rule or Worker that routes
-`app.<domain>/v1/*` to the API. Keep `API_BASE = ''` in `src/app/core/config.ts`. The app then
-calls the API on its own origin, the same way the dev proxy does.
+| Key | Development | Production |
+|-----|-------------|------------|
+| `apiBaseUrl` | `''` (same origin, dev proxy) | `https://api.<domain>` |
+| `freemiusProductId` | `REPLACE_ME_FREEMIUS_PRODUCT_ID` | the real product id |
+| `freemiusPublicKey` | `REPLACE_ME_FREEMIUS_PUBLIC_KEY` | the real public key |
 
-**Option B: separate API subdomain.** Set `API_BASE` in `src/app/core/config.ts` to
-`https://api.<domain>`. On the backend, set `APP_URL` to the app origin. Set `COOKIE_DOMAIN` to
-`.<domain>` so the session cookie works across both subdomains.
+The SPA and the API share one registrable domain (`app.<domain>` and
+`api.<domain>`). The session cookie is same-site, so `SameSite=Lax` works. The
+backend allows the SPA origin in CORS through `APP_URL`.
 
 ## Before production
 
 Complete this checklist before you launch.
 
-- Replace `REPLACE_ME_FREEMIUS_PRODUCT_ID` in `src/app/core/config.ts` with the real Freemius
-  product id.
-- Replace `REPLACE_ME_FREEMIUS_PUBLIC_KEY` in `src/app/core/config.ts` with the real Freemius
-  public key.
+- Replace `REPLACE_ME_DOMAIN` in `src/environments/environment.production.ts` with the real
+  domain.
+- Replace `REPLACE_ME_FREEMIUS_PRODUCT_ID` and `REPLACE_ME_FREEMIUS_PUBLIC_KEY` in
+  `src/environments/environment.production.ts` with the real Freemius values.
 - Replace `REPLACE_ME_CONTACT_EMAIL` (in the legal pages) with the real contact email address.
 - Set the Google OAuth redirect URI to the API callback URL. See the backend README for the
   exact path.
