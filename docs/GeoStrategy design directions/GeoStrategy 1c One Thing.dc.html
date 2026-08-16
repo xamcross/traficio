@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #efe7db; }
+a { color: #b4552f; text-decoration: none; }
+a:hover { color: #8e3f20; }
+input, button { font: inherit; }
+</style>
+</helmet>
+
+<section style="padding: 72px 72px 120px; font-family: 'Libre Franklin', sans-serif; display: flex; flex-direction: column; gap: 40px">
+
+  <div style="display: flex; flex-direction: column; gap: 14px; max-width: 76ch">
+    <div style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #8c8275; font-family: 'IBM Plex Mono', monospace">Turn 2 · direction 1c, built out</div>
+    <h1 style="font-size: 40px; font-weight: 700; margin: 0; letter-spacing: -0.03em; color: #221c15; line-height: 1.1">One Thing</h1>
+    <p style="margin: 0; font-size: 15px; line-height: 1.65; color: #4d463c; text-wrap: pretty">The free tier now runs a real check and shows a real result — the overall score, the three sub-scores, and every problem found in plain language. What it does not show is the fix. The step-by-step plan, the verification check and the tracking are Pro.</p>
+    <p style="margin: 0; font-size: 15px; line-height: 1.65; color: #4d463c; text-wrap: pretty">This puts the paywall at the moment of highest intent: the owner has just read that their address is invisible to assistants and wants to know what to do about it. The gate is honest about what is behind it — each locked task shows its title, its impact and how long it takes, so the value is legible before paying. Nothing is teased that does not exist.</p>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; font-size: 13px; color: #6d6355">
+      <span style="background: #fdf7ee; border: 1px solid #e6dccb; border-radius: 999px; padding: 6px 13px">Free · score + findings</span>
+      <span style="background: #fdf7ee; border: 1px solid #e6dccb; border-radius: 999px; padding: 6px 13px">Pro · the plan</span>
+      <span style="background: #fdf7ee; border: 1px solid #e6dccb; border-radius: 999px; padding: 6px 13px">Backend change: gate <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px">GET /v1/plans</span> on tier</span>
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 1 — FREE RESULT ============ -->
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: baseline; gap: 12px">
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; background: #221c15; color: #fdf7ee; padding: 4px 8px; border-radius: 4px">01</span>
+      <h2 style="font-size: 19px; font-weight: 600; margin: 0; color: #221c15; letter-spacing: -0.015em">Your result — free tier</h2>
+      <span style="font-size: 13px; color: #8c8275">the check ran; the score and the findings are real</span>
+    </div>
+
+    <div style="width: 1080px; background: #fdf7ee; border: 1px solid #ecdfcc; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; align-items: center; gap: 18px; padding: 16px 44px; border-bottom: 1px solid #f0e5d4">
+        <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: #221c15">GEOSTRATEGY</span>
+        <div style="flex: 1"></div>
+        <span style="font-size: 14px; color: #7a6a58">rivertonbakery.com</span>
+        <span style="font-size: 13px; color: #8a7a66; background: #f3e9da; border-radius: 999px; padding: 5px 11px">Free plan</span>
+        <span style="font-size: 14px; color: #b4552f; font-weight: 500">Account</span>
+      </div>
+
+      <div style="padding: 52px 44px 60px; display: flex; flex-direction: column; gap: 46px">
+
+        <div style="display: flex; gap: 56px; align-items: flex-start">
+          <div style="display: flex; flex-direction: column; gap: 16px; width: 400px; flex-shrink: 0">
+            <div style="font-size: 13px; color: #a89478; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.06em">CHECKED 28 JULY 2026</div>
+            <div style="display: flex; align-items: flex-end; gap: 16px">
+              <span style="font-size: 92px; font-weight: 700; color: #221c15; letter-spacing: -0.045em; line-height: 0.85">41</span>
+              <div style="display: flex; flex-direction: column; gap: 5px; padding-bottom: 8px">
+                <span style="font-size: 20px; font-weight: 600; color: #b4552f">Needs work</span>
+                <span style="font-size: 14px; color: #7a6a58">Visibility out of 100</span>
+              </div>
+            </div>
+            <div style="display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: #f0e5d4; margin-top: 4px">
+              <div style="width: 41%; background: #b4552f"></div>
+            </div>
+            <p style="margin: 0; font-size: 17px; line-height: 1.6; color: #4c4237; text-wrap: pretty">People searching Google for a bakery in Riverton can find you. People asking ChatGPT or Perplexity cannot.</p>
+          </div>
+
+          <div style="flex: 1; display: flex; flex-direction: column">
+            <div style="display: flex; flex-direction: column; border-top: 1px solid #f0e5d4; width: 100%">
+              <div style="display: flex; align-items: center; gap: 22px; padding: 19px 0; border-bottom: 1px solid #f0e5d4">
+                <div style="width: 150px; display: flex; flex-direction: column; gap: 3px">
+                  <span style="font-size: 16px; font-weight: 600; color: #221c15">Google search</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #b09a7e; letter-spacing: 0.08em">SEO</span>
+                </div>
+                <div style="width: 130px; height: 6px; background: #f0e5d4; border-radius: 999px; overflow: hidden"><div style="width: 62%; height: 100%; background: #6b7d4f"></div></div>
+                <span style="font-size: 24px; font-weight: 700; color: #221c15; width: 40px">62</span>
+                <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #7a6a58; flex: 1">Indexed and titled well enough to rank.</p>
+              </div>
+              <div style="display: flex; align-items: center; gap: 22px; padding: 19px 0; border-bottom: 1px solid #f0e5d4">
+                <div style="width: 150px; display: flex; flex-direction: column; gap: 3px">
+                  <span style="font-size: 16px; font-weight: 600; color: #221c15">Answer boxes</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #b09a7e; letter-spacing: 0.08em">AEO</span>
+                </div>
+                <div style="width: 130px; height: 6px; background: #f0e5d4; border-radius: 999px; overflow: hidden"><div style="width: 34%; height: 100%; background: #b4552f"></div></div>
+                <span style="font-size: 24px; font-weight: 700; color: #221c15; width: 40px">34</span>
+                <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #7a6a58; flex: 1">Rarely pulled into the box at the top of results.</p>
+              </div>
+              <div style="display: flex; align-items: center; gap: 22px; padding: 19px 0; border-bottom: 1px solid #f0e5d4">
+                <div style="width: 150px; display: flex; flex-direction: column; gap: 3px">
+                  <span style="font-size: 16px; font-weight: 600; color: #221c15">AI assistants</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #b09a7e; letter-spacing: 0.08em">GEO</span>
+                </div>
+                <div style="width: 130px; height: 6px; background: #f0e5d4; border-radius: 999px; overflow: hidden"><div style="width: 28%; height: 100%; background: #b4552f"></div></div>
+                <span style="font-size: 24px; font-weight: 700; color: #221c15; width: 40px">28</span>
+                <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #7a6a58; flex: 1">Assistants have to guess your address and hours.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 20px">
+          <div style="display: flex; align-items: baseline; gap: 12px">
+            <h2 style="font-size: 22px; font-weight: 700; margin: 0; color: #221c15; letter-spacing: -0.02em">What we found</h2>
+            <span style="font-size: 14px; color: #a89478">4 things, across 3 areas</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0; border-top: 1px solid #f0e5d4">
+            <div style="display: flex; gap: 22px; padding: 20px 0; border-bottom: 1px solid #f0e5d4; align-items: flex-start">
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #b4552f; background: #fbeae1; padding: 4px 9px; border-radius: 4px; margin-top: 2px; width: 52px; text-align: center; flex-shrink: 0">HIGH</span>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 5px">
+                <p style="margin: 0; font-size: 17px; line-height: 1.55; color: #221c15; text-wrap: pretty">No page on your site states your address, phone number and opening hours in a form a machine can read.</p>
+                <span style="font-size: 13px; color: #b09a7e; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.05em">BUSINESS DETAILS · AFFECTS EVERY PAGE</span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 22px; padding: 20px 0; border-bottom: 1px solid #f0e5d4; align-items: flex-start">
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #b4552f; background: #fbeae1; padding: 4px 9px; border-radius: 4px; margin-top: 2px; width: 52px; text-align: center; flex-shrink: 0">HIGH</span>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 5px">
+                <p style="margin: 0; font-size: 17px; line-height: 1.55; color: #221c15; text-wrap: pretty">Nothing on your site answers “where can I buy sourdough in Riverton” — the phrase people actually type.</p>
+                <span style="font-size: 13px; color: #b09a7e; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.05em">WHAT YOUR PAGES SAY</span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 22px; padding: 20px 0; border-bottom: 1px solid #f0e5d4; align-items: flex-start">
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #8a6a2f; background: #f7eed8; padding: 4px 9px; border-radius: 4px; margin-top: 2px; width: 52px; text-align: center; flex-shrink: 0">MED</span>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 5px">
+                <p style="margin: 0; font-size: 17px; line-height: 1.55; color: #221c15; text-wrap: pretty">14 of your 18 product pages give no price or availability that search engines can read.</p>
+                <span style="font-size: 13px; color: #b09a7e; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.05em">BUSINESS DETAILS · 14 PAGES</span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 22px; padding: 20px 0; border-bottom: 1px solid #f0e5d4; align-items: flex-start">
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #5c7040; background: #eaf0e0; padding: 4px 9px; border-radius: 4px; margin-top: 2px; width: 52px; text-align: center; flex-shrink: 0">FINE</span>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 5px">
+                <p style="margin: 0; font-size: 17px; line-height: 1.55; color: #7a6a58; text-wrap: pretty">AI crawlers are allowed to read your site. Nothing to do here.</p>
+                <span style="font-size: 13px; color: #b09a7e; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.05em">ACCESS</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: #fff; border: 1.5px solid #ecdfcc; border-radius: 14px; padding: 36px 40px; display: flex; gap: 48px; align-items: center">
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 13px">
+            <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #a89478">NEXT</span>
+            <h2 style="font-size: 27px; font-weight: 700; margin: 0; color: #221c15; letter-spacing: -0.025em; line-height: 1.2; max-width: 26ch">We wrote you eight things to fix, in order.</h2>
+            <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #5c4f40; max-width: 46ch; text-wrap: pretty">Each one is a short set of steps you can follow yourself, with a way to check it worked. About three hours of work in total. The first one alone should move your score the most.</p>
+            <div style="display: flex; align-items: center; gap: 18px; margin-top: 10px">
+              <button type="button" style="font-family: 'Libre Franklin', sans-serif; font-size: 16px; font-weight: 600; color: #fff; background: #b4552f; border: none; border-radius: 9px; padding: 15px 28px; cursor: pointer">Read my plan</button>
+              <span style="font-size: 14px; color: #a89478">Included with Pro, from $9 a month</span>
+            </div>
+          </div>
+
+          <div style="width: 400px; flex-shrink: 0; display: flex; flex-direction: column; gap: 0; border: 1px solid #f0e5d4; border-radius: 10px; overflow: hidden; background: #fdfaf5">
+            <div style="padding: 11px 16px; background: #faf3e9; border-bottom: 1px solid #f0e5d4; display: flex; align-items: center; gap: 8px">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: #a89478">YOUR PLAN · 8 TASKS</span>
+              <div style="flex: 1"></div>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: #b09a7e">LOCKED</span>
+            </div>
+            <div style="padding: 13px 16px; border-bottom: 1px solid #f5ece0; display: flex; align-items: center; gap: 11px">
+              <div style="width: 16px; height: 16px; border: 1.5px solid #e0cdb2; border-radius: 4px; flex-shrink: 0"></div>
+              <span style="font-size: 14px; color: #221c15; flex: 1">Put your address and hours where machines can read them</span>
+            </div>
+            <div style="padding: 0 16px 13px 43px; border-bottom: 1px solid #f5ece0; display: flex; gap: 10px">
+              <span style="font-size: 11px; font-weight: 700; color: #b4552f; background: #fbeae1; padding: 3px 7px; border-radius: 4px">BIGGEST WIN</span>
+              <span style="font-size: 12px; color: #b09a7e">4 steps · 20 min</span>
+            </div>
+            <div style="padding: 13px 16px; border-bottom: 1px solid #f5ece0; display: flex; align-items: center; gap: 11px">
+              <div style="width: 16px; height: 16px; border: 1.5px solid #e0cdb2; border-radius: 4px; flex-shrink: 0"></div>
+              <span style="font-size: 14px; color: #221c15; flex: 1">Write the one page that answers what people ask</span>
+              <span style="font-size: 12px; color: #b09a7e">45 min</span>
+            </div>
+            <div style="padding: 13px 16px; border-bottom: 1px solid #f5ece0; display: flex; align-items: center; gap: 11px">
+              <div style="width: 16px; height: 16px; border: 1.5px solid #e0cdb2; border-radius: 4px; flex-shrink: 0"></div>
+              <span style="font-size: 14px; color: #221c15; flex: 1">Add prices to your shop pages</span>
+              <span style="font-size: 12px; color: #b09a7e">30 min</span>
+            </div>
+            <div style="padding: 13px 16px; display: flex; align-items: center; gap: 11px; opacity: 0.45">
+              <div style="width: 16px; height: 16px; border: 1.5px solid #e0cdb2; border-radius: 4px; flex-shrink: 0"></div>
+              <span style="font-size: 14px; color: #221c15; flex: 1">5 more</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 2 — PLAN GATE ============ -->
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: baseline; gap: 12px">
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; background: #221c15; color: #fdf7ee; padding: 4px 8px; border-radius: 4px">02</span>
+      <h2 style="font-size: 19px; font-weight: 600; margin: 0; color: #221c15; letter-spacing: -0.015em">Read my plan → choose a plan</h2>
+      <span style="font-size: 13px; color: #8c8275">what “Read my plan” opens for a free user</span>
+    </div>
+
+    <div style="width: 1080px; background: #fdf7ee; border: 1px solid #ecdfcc; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; align-items: center; gap: 18px; padding: 16px 44px; border-bottom: 1px solid #f0e5d4">
+        <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: #221c15">GEOSTRATEGY</span>
+        <div style="flex: 1"></div>
+        <span style="font-size: 14px; color: #7a6a58">← Back to my result</span>
+      </div>
+
+      <div style="padding: 56px 44px 64px; display: flex; flex-direction: column; gap: 40px; align-items: center">
+        <div style="display: flex; flex-direction: column; gap: 14px; align-items: center; text-align: center; max-width: 54ch">
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; color: #a89478">YOUR PLAN IS READY</span>
+          <h1 style="font-size: 36px; font-weight: 700; margin: 0; color: #221c15; letter-spacing: -0.03em; line-height: 1.15">Eight things to fix, written for your site.</h1>
+          <p style="margin: 0; font-size: 17px; line-height: 1.6; color: #5c4f40; text-wrap: pretty">Your score and your findings stay free, always. The step-by-step plan, the check that confirms each fix worked, and your score history are part of Pro.</p>
+        </div>
+
+        <div style="display: flex; gap: 20px; align-items: stretch; width: 100%; max-width: 860px">
+          <div style="flex: 1; background: #fdfaf5; border: 1px solid #ecdfcc; border-radius: 14px; padding: 30px 30px 34px; display: flex; flex-direction: column; gap: 22px">
+            <div style="display: flex; flex-direction: column; gap: 7px">
+              <div style="display: flex; align-items: center; gap: 10px">
+                <span style="font-size: 17px; font-weight: 700; color: #221c15">Free</span>
+                <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #7a6a58; background: #f3e9da; padding: 3px 8px; border-radius: 4px">YOUR PLAN NOW</span>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 6px">
+                <span style="font-size: 34px; font-weight: 700; color: #221c15; letter-spacing: -0.03em">$0</span>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 12px">
+              <div style="display: flex; gap: 12px; align-items: flex-start"><span style="color: #6b7d4f; font-size: 14px; padding-top: 2px">✓</span><span style="font-size: 15px; line-height: 1.5; color: #4c4237">One site, one check each month</span></div>
+              <div style="display: flex; gap: 12px; align-items: flex-start"><span style="color: #6b7d4f; font-size: 14px; padding-top: 2px">✓</span><span style="font-size: 15px; line-height: 1.5; color: #4c4237">Your visibility score and the three sub-scores</span></div>
+              <div style="display: flex; gap: 12px; align-items: flex-start"><span style="color: #6b7d4f; font-size: 14px; padding-top: 2px">✓</span><span style="font-size: 15px; line-height: 1.5; color: #4c4237">Every problem we found, in plain language</span></div>
+              <div style="display: flex; gap: 12px; align-items: flex-start"><span style="color: #cbb79a; font-size: 14px; padding-top: 2px">—</span><span style="font-size: 15px; line-height: 1.5; color: #a89478">No step-by-step plan</span></div>
+              <div style="display: flex; gap: 12px; align-items: flex-start"><span style="color: #cbb79a; font-size: 14px; padding-top: 2px">—</span><span style="font-size: 15px; line-height: 1.5; color: #a89478">No progress tracking or history</span></div>
+            </div>
+            <div style="flex: 1"></div>
+            <button type="button" style="font-family: 'Libre Franklin', sans-serif; font-size: 15px; font-weight: 500; color: #7a6a58; background: transparent; border: 1.5px solid #e0cdb2; border-radius: 9px; padding: 13px 0; cursor: pointer">Stay on Free</button>
+          </div>
+
+          <div style="flex: 1.15; background: #fff; border: 2px solid #b4552f; border-radius: 14px; padding: 30px 30px 34px; display: flex; flex-direction: column; gap: 22px; position: relative">
+            <div style="display: flex; flex-direction: column; gap: 7px">
+              <div style="display: flex; align-items: center; gap: 10px">
+                <span style="font-size: 17px; font-weight: 700; color: #221c15">Pro</span>
+                <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #fff; background: #b4552f; padding: 3px 8px; border-radius: 4px">UNLOCKS YOUR PLAN</span>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 7px">
+                <span style="font-size: 34px; font-weight: 700; color: #221c15; letter-spacing: -0.03em">$9</span>
+                <span style="font-size: 15px; color: #7a6a58">a month</span>
+                <span style="font-size: 14px; color: #a89478">· cancel any time</span>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 12px">
+              <div style="display: flex; gap: 12px; align-items: flex-start"><span style="color: #b4552f; font-size: 14px; padding-top: 2px">✓</span><span style="font-size: 15px; line-height: 1.5; color: #221c15"><strong style="font-weight: 600">All eight tasks with their steps</strong>, in the order that helps most first</span></div>
+              <div style="display: flex; gap: 12px; align-items: flex-start"><span style="color: #b4552f; font-size: 14px; padding-top: 2px">✓</span><span style="font-size: 15px; line-height: 1.5; color: #221c15">A way to check each fix actually worked</span></div>
+              <div style="display: flex; gap: 12px; align-items: flex-start"><span style="color: #b4552f; font-size: 14px; padding-top: 2px">✓</span><span style="font-size: 15px; line-height: 1.5; color: #221c15">We re-check your site and confirm your fixes for you</span></div>
+              <div style="display: flex; gap: 12px; align-items: flex-start"><span style="color: #b4552f; font-size: 14px; padding-top: 2px">✓</span><span style="font-size: 15px; line-height: 1.5; color: #221c15">Five sites, ten checks each month</span></div>
+              <div style="display: flex; gap: 12px; align-items: flex-start"><span style="color: #b4552f; font-size: 14px; padding-top: 2px">✓</span><span style="font-size: 15px; line-height: 1.5; color: #221c15">Score history, so you can see it working</span></div>
+            </div>
+            <div style="flex: 1"></div>
+            <button type="button" style="font-family: 'Libre Franklin', sans-serif; font-size: 16px; font-weight: 600; color: #fff; background: #b4552f; border: none; border-radius: 9px; padding: 15px 0; cursor: pointer">Unlock my plan</button>
+            <span style="font-size: 13px; color: #a89478; text-align: center">Your plan is already written and waiting.</span>
+          </div>
+        </div>
+
+        <div style="width: 100%; max-width: 860px; display: flex; flex-direction: column; gap: 14px; padding-top: 26px; border-top: 1px solid #f0e5d4">
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: #a89478">WHAT IS WAITING FOR YOU</div>
+          <div style="display: flex; flex-direction: column; border: 1px solid #f0e5d4; border-radius: 12px; overflow: hidden; background: #fdfaf5">
+            <div style="display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid #f5ece0">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #cbb79a; width: 18px">01</span>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 15px; font-weight: 600; color: #221c15">Put your address and hours where machines can read them</span>
+                <span style="font-size: 13px; color: #a89478">4 steps · 20 minutes · biggest single win</span>
+              </div>
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #b4552f; background: #fbeae1; padding: 4px 9px; border-radius: 4px">HIGH</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: #cbb79a">LOCKED</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid #f5ece0">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #cbb79a; width: 18px">02</span>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 15px; font-weight: 600; color: #221c15">Write the one page that answers what people ask</span>
+                <span style="font-size: 13px; color: #a89478">6 steps · 45 minutes</span>
+              </div>
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #b4552f; background: #fbeae1; padding: 4px 9px; border-radius: 4px">HIGH</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: #cbb79a">LOCKED</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid #f5ece0">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #cbb79a; width: 18px">03</span>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 15px; font-weight: 600; color: #221c15">Add prices to your shop pages</span>
+                <span style="font-size: 13px; color: #a89478">3 steps · 30 minutes</span>
+              </div>
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #8a6a2f; background: #f7eed8; padding: 4px 9px; border-radius: 4px">MED</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: #cbb79a">LOCKED</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px; padding: 16px 20px; color: #a89478">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #cbb79a; width: 18px">04</span>
+              <span style="font-size: 15px; flex: 1">and five more, smaller</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: #cbb79a">LOCKED</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 3 — PRO HOME ============ -->
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: baseline; gap: 12px">
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; background: #221c15; color: #fdf7ee; padding: 4px 8px; border-radius: 4px">03</span>
+      <h2 style="font-size: 19px; font-weight: 600; margin: 0; color: #221c15; letter-spacing: -0.015em">Home after unlocking — Pro</h2>
+      <span style="font-size: 13px; color: #8c8275">one task, already open</span>
+    </div>
+
+    <div style="width: 1080px; background: #fdf7ee; border: 1px solid #ecdfcc; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; align-items: center; gap: 18px; padding: 16px 44px; border-bottom: 1px solid #f0e5d4">
+        <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: #221c15">GEOSTRATEGY</span>
+        <div style="flex: 1"></div>
+        <span style="font-size: 14px; color: #7a6a58">rivertonbakery.com</span>
+        <span style="font-size: 13px; color: #b4552f; background: #fbeae1; border-radius: 999px; padding: 5px 11px; font-weight: 500">Pro</span>
+        <span style="font-size: 14px; color: #b4552f; font-weight: 500">Account</span>
+      </div>
+
+      <div style="padding: 22px 44px; border-bottom: 1px solid #f0e5d4; display: flex; align-items: center; gap: 20px; background: #fbf2e5">
+        <div style="display: flex; align-items: baseline; gap: 10px">
+          <span style="font-size: 30px; font-weight: 700; color: #221c15; letter-spacing: -0.025em">41</span>
+          <span style="font-size: 15px; color: #7a6a58">of 100</span>
+        </div>
+        <div style="width: 1px; height: 30px; background: #ecdfcc"></div>
+        <div style="display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 15px; font-weight: 600; color: #b4552f">Needs work</span>
+          <span style="font-size: 13px; color: #7a6a58">Up 4 points since your last check</span>
+        </div>
+        <div style="flex: 1"></div>
+        <div style="display: flex; gap: 24px">
+          <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end"><span style="font-size: 12px; color: #a89478">Google search</span><span style="font-size: 16px; font-weight: 700; color: #221c15">62</span></div>
+          <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end"><span style="font-size: 12px; color: #a89478">Answer boxes</span><span style="font-size: 16px; font-weight: 700; color: #221c15">34</span></div>
+          <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end"><span style="font-size: 12px; color: #a89478">AI assistants</span><span style="font-size: 16px; font-weight: 700; color: #221c15">28</span></div>
+        </div>
+        <span style="font-size: 13px; color: #b4552f; font-weight: 500; margin-left: 10px">Full report →</span>
+      </div>
+
+      <div style="padding: 44px 44px 56px; display: flex; flex-direction: column; gap: 26px">
+        <div style="display: flex; align-items: baseline; gap: 14px">
+          <h1 style="font-size: 14px; font-weight: 700; letter-spacing: 0.12em; margin: 0; color: #a89478">DO THIS NEXT</h1>
+          <span style="font-size: 14px; color: #a89478">2 of 8 done · about 3 hours left</span>
+          <div style="flex: 1"></div>
+          <span style="font-size: 14px; color: #b4552f; font-weight: 500">See all 8</span>
+        </div>
+
+        <div style="background: #fff; border: 1.5px solid #ecdfcc; border-radius: 14px; padding: 38px 44px; display: flex; flex-direction: column; gap: 26px">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: #b4552f; background: #fbeae1; padding: 5px 10px; border-radius: 5px">BIGGEST WIN</span>
+            <span style="font-size: 14px; color: #a89478">About 20 minutes</span>
+            <span style="font-size: 14px; color: #a89478">·</span>
+            <span style="font-size: 14px; color: #a89478">Business details</span>
+          </div>
+
+          <h2 style="font-size: 31px; font-weight: 700; margin: 0; color: #221c15; letter-spacing: -0.025em; line-height: 1.2; max-width: 30ch">Put your address and hours where machines can read them</h2>
+
+          <p style="margin: 0; font-size: 17px; line-height: 1.65; color: #5c4f40; max-width: 58ch; text-wrap: pretty">When somebody asks an assistant for a bakery in Riverton, it needs your address and opening hours in a form it can trust. Right now it has to guess from your page text, so it usually leaves you out.</p>
+
+          <div style="display: flex; flex-direction: column; gap: 16px; padding-top: 6px">
+            <div style="display: flex; gap: 18px; align-items: flex-start">
+              <div style="width: 28px; height: 28px; border-radius: 999px; background: #f3e6d5; color: #8a6a48; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0">1</div>
+              <span style="font-size: 17px; line-height: 1.5; color: #221c15; padding-top: 3px">Open your SEO plugin settings in WordPress.</span>
+            </div>
+            <div style="display: flex; gap: 18px; align-items: flex-start">
+              <div style="width: 28px; height: 28px; border-radius: 999px; background: #f3e6d5; color: #8a6a48; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0">2</div>
+              <span style="font-size: 17px; line-height: 1.5; color: #221c15; padding-top: 3px">Find the section called Local Business or Organization.</span>
+            </div>
+            <div style="display: flex; gap: 18px; align-items: flex-start">
+              <div style="width: 28px; height: 28px; border-radius: 999px; background: #f3e6d5; color: #8a6a48; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0">3</div>
+              <span style="font-size: 17px; line-height: 1.5; color: #221c15; padding-top: 3px">Fill in your business name, street address, phone number and opening hours.</span>
+            </div>
+            <div style="display: flex; gap: 18px; align-items: flex-start">
+              <div style="width: 28px; height: 28px; border-radius: 999px; background: #f3e6d5; color: #8a6a48; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0">4</div>
+              <span style="font-size: 17px; line-height: 1.5; color: #221c15; padding-top: 3px">Save, then clear your site cache.</span>
+            </div>
+          </div>
+
+          <div style="background: #fbf6ee; border-radius: 10px; padding: 20px 22px; display: flex; flex-direction: column; gap: 7px">
+            <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: #a89478">HOW YOU KNOW IT WORKED</div>
+            <div style="font-size: 16px; line-height: 1.55; color: #221c15">Paste your home page into Google's Rich Results Test. It should list LocalBusiness.</div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 20px; padding-top: 4px">
+            <button type="button" style="font-family: 'Libre Franklin', sans-serif; font-size: 16px; font-weight: 600; color: #fff; background: #b4552f; border: none; border-radius: 9px; padding: 15px 28px; cursor: pointer">I did this</button>
+            <span style="font-size: 15px; color: #a89478">Skip for now</span>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 2px; padding-top: 10px">
+          <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.1em; color: #c0ad94; padding-bottom: 10px">THEN</div>
+          <div style="display: flex; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid #f0e5d4">
+            <span style="font-size: 15px; color: #7a6a58; flex: 1">Write the one page that answers what people ask</span>
+            <span style="font-size: 13px; color: #b09a7e">45 min</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid #f0e5d4">
+            <span style="font-size: 15px; color: #7a6a58; flex: 1">Add prices to your shop pages</span>
+            <span style="font-size: 13px; color: #b09a7e">30 min</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid #f0e5d4">
+            <span style="font-size: 15px; color: #7a6a58; flex: 1">Link your opening hours from every page footer</span>
+            <span style="font-size: 13px; color: #b09a7e">15 min</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px; padding: 13px 0">
+            <span style="font-size: 15px; color: #b09a7e; flex: 1">3 more, smaller</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+</x-dc>
+</body>
+</html>
