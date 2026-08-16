@@ -4,6 +4,7 @@ You return JSON that matches the given schema. Do not return anything else.
 
 Rules:
 - Create one task for each finding. Copy the finding id into findingId.
+- Do not create a task for a finding with severity good.
 - Order tasks from the highest impact to the lowest impact.
 - Write a short title that starts with a verb.
 - In whyItMatters, explain the benefit in plain words. Use short sentences. No jargon.

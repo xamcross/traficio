@@ -10,6 +10,7 @@ import java.net.URI
 class CannedClaudeClient : ClaudeClient {
     private val zero = ClaudeUsage(0, 0)
     private val severityOrder = mapOf("high" to 0, "medium" to 1, "low" to 2)
+    private val areaNames = mapOf("seo" to "Google search", "aeo" to "answer boxes", "geo" to "AI assistants")
 
     override suspend fun analyze(digest: CrawlDigest): ClaudeResponse<AnalysisResult> {
         val findings = mutableListOf<Finding>()
@@ -28,13 +29,31 @@ class CannedClaudeClient : ClaudeClient {
             findings.add(Finding("missing-alt-text", "seo", "low", "More than half of your images have no alt text.", digest.pages.filter { it.imgCount > it.imgWithAltCount }.map { it.url }))
         }
 
+        // Scores count problems only. Good findings come after them and do not change the score.
         fun clamp(v: Int) = v.coerceIn(5, 100)
         val scores = Scores(
             seo = clamp(95 - 12 * findings.count { it.category == "seo" }),
             aeo = clamp(90 - 15 * findings.count { it.category == "aeo" }),
             geo = clamp(90 - 20 * findings.count { it.category == "geo" }),
         )
-        return ClaudeResponse(AnalysisResult(scores, findings), zero)
+
+        if (digest.facts.https) findings.add(Finding("https-ok", "seo", GOOD_SEVERITY, "Your site uses HTTPS. Visitors get a secure connection. Nothing to do here.", listOf(digest.startUrl)))
+        if (digest.facts.robotsTxtPresent) findings.add(Finding("robots-ok", "geo", GOOD_SEVERITY, "Your robots.txt lets crawlers read your site. Nothing to do here.", listOf(digest.startUrl)))
+
+        val byArea = mapOf("seo" to scores.seo, "aeo" to scores.aeo, "geo" to scores.geo)
+        val strongest = byArea.maxBy { it.value }.key
+        val weakest = byArea.minBy { it.value }.key
+        val summary = if (strongest == weakest) {
+            "All three areas score about the same. Start with the first finding below."
+        } else {
+            "Your strongest area is ${areaNames[strongest]}. Your weakest area is ${areaNames[weakest]}."
+        }
+        val notes = ScoreNotes(
+            seo = if (scores.seo >= 50) "Search engines can read your pages." else "Search engines miss basic details on your pages.",
+            aeo = if (scores.aeo >= 50) "Answer boxes can pick up your content." else "Answer boxes rarely pick up your content.",
+            geo = if (scores.geo >= 50) "AI assistants can find out what your site is about." else "AI assistants have little to go on.",
+        )
+        return ClaudeResponse(AnalysisResult(scores, findings, summary, notes), zero)
     }
 
     override suspend fun plan(analysis: AnalysisResult, platform: String): ClaudeResponse<PlanResult> {
@@ -46,18 +65,22 @@ class CannedClaudeClient : ClaudeClient {
             "webflow" -> "Log in to Webflow and open your project."
             else -> "Open the folder or tool you use to edit your website."
         }
-        val tasks = analysis.findings.sortedBy { severityOrder[it.severity] ?: 3 }.take(20).map { f ->
-            PlanTaskGen(
-                title = "Fix: ${f.id.substringBefore(':').replace('-', ' ')}",
-                category = f.category,
-                impact = f.severity,
-                effortMinutes = if (f.severity == "high") 30 else 15,
-                whyItMatters = f.evidence,
-                steps = listOf(firstStep, "Make this change: ${f.evidence}", "Save and publish your site."),
-                doneCheck = "Run a new assessment. This item should disappear from the list.",
-                findingId = f.id,
-            )
-        }
+        val tasks = analysis.findings
+            .filter { it.severity != GOOD_SEVERITY }
+            .sortedBy { severityOrder[it.severity] ?: 3 }
+            .take(20)
+            .map { f ->
+                PlanTaskGen(
+                    title = "Fix: ${f.id.substringBefore(':').replace('-', ' ')}",
+                    category = f.category,
+                    impact = f.severity,
+                    effortMinutes = if (f.severity == "high") 30 else 15,
+                    whyItMatters = f.evidence,
+                    steps = listOf(firstStep, "Make this change: ${f.evidence}", "Save and publish your site."),
+                    doneCheck = "Run a new assessment. This item should disappear from the list.",
+                    findingId = f.id,
+                )
+            }
         return ClaudeResponse(PlanResult(tasks), zero)
     }
 }

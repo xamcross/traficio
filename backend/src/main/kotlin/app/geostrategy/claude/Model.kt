@@ -16,8 +16,18 @@ data class Scores(val seo: Int, val aeo: Int, val geo: Int) {
 @Serializable
 data class Finding(val id: String, val category: String, val severity: String, val evidence: String, val affectedPages: List<String>)
 
+const val GOOD_SEVERITY = "good"
+
 @Serializable
-data class AnalysisResult(val scores: Scores, val findings: List<Finding>)
+data class ScoreNotes(val seo: String, val aeo: String, val geo: String)
+
+@Serializable
+data class AnalysisResult(
+    val scores: Scores,
+    val findings: List<Finding>,
+    val summary: String? = null,
+    val scoreNotes: ScoreNotes? = null,
+)
 
 @Serializable
 data class PlanTaskGen(

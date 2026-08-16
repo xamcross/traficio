@@ -5,9 +5,12 @@ import app.geostrategy.crawl.PageDigest
 import app.geostrategy.crawl.SiteFacts
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class CannedClaudeClientTest {
@@ -41,14 +44,45 @@ class CannedClaudeClientTest {
     }
 
     @Test
-    fun `plan links tasks to findings and uses platform steps`() = runBlocking {
+    fun `plan links tasks to findings, skips good findings, and uses platform steps`() = runBlocking {
         val client = CannedClaudeClient()
         val analysis = client.analyze(digest).value
         val plan = client.plan(analysis, "wordpress").value
-        assertEquals(analysis.findings.size, plan.tasks.size)
-        assertTrue(plan.tasks.all { it.findingId != null && analysis.findings.any { f -> f.id == it.findingId } })
+        val problems = analysis.findings.filter { it.severity != GOOD_SEVERITY }
+        assertEquals(problems.size, plan.tasks.size)
+        assertTrue(plan.tasks.all { it.findingId != null && problems.any { f -> f.id == it.findingId } })
         assertTrue(plan.tasks.all { it.steps.isNotEmpty() && it.whyItMatters.isNotBlank() && it.doneCheck.isNotBlank() })
         assertTrue(plan.tasks.any { task -> task.steps.first().contains("WordPress") })
+    }
+
+    @Test
+    fun `analyze returns a summary, one note per area, and at most two good findings`() = runBlocking {
+        val a = CannedClaudeClient().analyze(digest).value
+        val summary = assertNotNull(a.summary)
+        assertTrue(summary.isNotBlank())
+        val notes = assertNotNull(a.scoreNotes)
+        assertTrue(notes.seo.isNotBlank() && notes.aeo.isNotBlank() && notes.geo.isNotBlank())
+        val good = a.findings.filter { it.severity == GOOD_SEVERITY }
+        assertEquals(2, good.size)
+        assertTrue(good.all { it.evidence.endsWith("Nothing to do here.") })
+        // good findings come after every problem
+        val firstGood = a.findings.indexOfFirst { it.severity == GOOD_SEVERITY }
+        assertTrue(a.findings.drop(firstGood).all { it.severity == GOOD_SEVERITY })
+    }
+
+    @Test
+    fun `analysis schema requires summary and scoreNotes and allows severity good`() {
+        val schema = Json.parseToJsonElement(object {}.javaClass.getResource("/schemas/analysis.json")!!.readText()).jsonObject
+        val required = schema["required"]!!.jsonArray.map { it.jsonPrimitive.content }
+        assertTrue("summary" in required && "scoreNotes" in required, required.toString())
+        val severity = schema["properties"]!!.jsonObject["findings"]!!.jsonObject["items"]!!.jsonObject["properties"]!!.jsonObject["severity"]!!.jsonObject
+        val allowed = severity["enum"]!!.jsonArray.map { it.jsonPrimitive.content }
+        assertEquals(listOf("high", "medium", "low", "good"), allowed)
+        // the canned output only uses values the schema allows
+        val canned = runBlocking { CannedClaudeClient().analyze(digest).value }
+        assertTrue(canned.findings.all { it.severity in allowed })
+        val notesProps = schema["properties"]!!.jsonObject["scoreNotes"]!!.jsonObject["required"]!!.jsonArray.map { it.jsonPrimitive.content }
+        assertEquals(listOf("seo", "aeo", "geo"), notesProps)
     }
 
     @Test

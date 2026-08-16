@@ -1,7 +1,7 @@
 {
   "type": "object",
   "additionalProperties": false,
-  "required": ["scores", "findings"],
+  "required": ["scores", "summary", "scoreNotes", "findings"],
   "properties": {
     "scores": {
       "type": "object",
@@ -13,6 +13,17 @@
         "geo": { "type": "integer" }
       }
     },
+    "summary": { "type": "string" },
+    "scoreNotes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seo", "aeo", "geo"],
+      "properties": {
+        "seo": { "type": "string" },
+        "aeo": { "type": "string" },
+        "geo": { "type": "string" }
+      }
+    },
     "findings": {
       "type": "array",
       "items": {
@@ -22,7 +33,7 @@
         "properties": {
           "id": { "type": "string" },
           "category": { "type": "string", "enum": ["seo", "aeo", "geo"] },
-          "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+          "severity": { "type": "string", "enum": ["high", "medium", "low", "good"] },
           "evidence": { "type": "string" },
           "affectedPages": { "type": "array", "items": { "type": "string" } }
         }
