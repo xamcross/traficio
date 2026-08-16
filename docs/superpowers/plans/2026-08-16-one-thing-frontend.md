@@ -168,7 +168,7 @@ describe('copy helpers', () => {
 });
 ```
 
-Note on `effortText(90)`: 90 minutes is not under 90, so it rounds to hours: 90/60 = 1.5 → 2 hours. `about 1 hour` appears only for 91–89… no: for minutes ≥ 90, `Math.round(m/60)` is at least 2. The singular branch is unreachable with this rule; keep it for safety, do not test it.
+Note on `effortText(90)`: 90 minutes is not under 90, so it rounds to hours: 90/60 = 1.5 → 2 hours. With this rule the singular branch "about 1 hour" is unreachable; keep it as a guard, do not test it.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -1706,7 +1706,7 @@ describe('ResultView', () => {
   it('shows the NEXT teaser with the locked list for a free user', async () => {
     const text = await render('free', plan(true));
     expect(text).toContain('We wrote you eight things to fix, in order.');
-    expect(text).toContain('About about 3 hours of work in total.'.replace('About about', 'About'));
+    expect(text).toContain('About 3 hours of work in total.');
     expect(text).toContain('Read my plan');
     expect(text).toContain('Included with Pro, from $9 a month');
     expect(text).toContain('YOUR PLAN · 8 TASKS');
@@ -1843,7 +1843,7 @@ const AREAS: Array<{ key: 'seo' | 'aeo' | 'geo' }> = [{ key: 'seo' }, { key: 'ae
               <app-severity-badge [severity]="f.severity" />
               <div class="stack tight">
                 <p class="evidence">{{ f.evidence }}</p>
-                <span class="mono faint small">{{ areaCode(f.category) === areaCode(f.category) ? areaName(f.category).toUpperCase() : '' }} · {{ pages(f) }}</span>
+                <span class="mono faint small">{{ areaName(f.category).toUpperCase() }} · {{ pages(f) }}</span>
               </div>
             </div>
           }
@@ -1920,8 +1920,6 @@ export class ResultView {
   }
 }
 ```
-
-Simplify the finding caption line to `{{ areaName(f.category).toUpperCase() }} · {{ pages(f) }}` — the ternary above is a leftover; write the simple form.
 
 - [ ] **Step 5: Rewrite the report route**
 
@@ -2146,7 +2144,7 @@ export function clearSkips(planId: string): void { sessionStorage.removeItem(KEY
 import { Component, computed, effect, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AssessmentDto, PlanDto, PlanTaskDto, SiteDto } from '../../core/api/types';
-import { areaName, bandFor, effortText, numberWord } from '../../shared/copy';
+import { areaName, bandFor, effortText } from '../../shared/copy';
 import { openMinutes } from '../result/result-view';
 import { addSkip, clearSkips, readSkips } from './skips';
 
@@ -2293,8 +2291,6 @@ export class NextTaskView {
   }
 }
 ```
-
-`numberWord` is imported for parity with the spec's word rule in the "N more" line: the mockup shows "3 more, smaller" as digits; keep digits here (`{{ rest() }} more`) and remove the unused import.
 
 - [ ] **Step 4: Run the next-task tests to verify they pass**
 
@@ -3110,3 +3106,514 @@ git commit -m "feat(frontend): pro plan checklist with keyboard expand and the f
 ```
 
 ---
+### Task 10: Score history (screen 06)
+
+**Files:**
+- Create: `src/app/features/history/history-copy.ts`, `src/app/features/history/history-copy.spec.ts`
+- Modify: `src/app/features/history/history.ts`, `history.spec.ts`
+
+**Interfaces (produces):**
+- `history-copy.ts` pure helpers:
+  - `headlineFor(ready: AssessmentDto[]): { title: string; text: string }` — `ready` sorted oldest first, all with `scores`. Rules of spec §4.8.
+  - `changesText(a: AssessmentDto, isFirstReady: boolean): string` — spec §4.8 rules.
+  - `chartPoints(ready: AssessmentDto[], key: 'seo'|'aeo'|'geo', width: number, height: number): string` — SVG polyline points, one decimal.
+- History component: Free (`upgrade_required` on load) → `pricingUrlFor(siteId)`.
+
+- [ ] **Step 1: Write the failing helper tests**
+
+`src/app/features/history/history-copy.spec.ts`:
+
+```ts
+import { changesText, chartPoints, headlineFor } from './history-copy';
+import { AssessmentDto } from '../../core/api/types';
+
+function a(id: string, overall: number, seo: number, aeo: number, geo: number, completedAt: string, changes: AssessmentDto['changes'] = []): AssessmentDto {
+  return { id, siteId: 'S1', status: 'ready', scores: { seo, aeo, geo, overall }, summary: null, scoreNotes: null, findings: [], pageCount: null, errorCode: null, errorMessage: null, createdAt: completedAt, completedAt, changes };
+}
+
+describe('history copy', () => {
+  it('headline: one check', () => {
+    expect(headlineFor([a('1', 31, 55, 26, 13, '2026-03-02T10:00:00Z')])).toEqual({ title: 'One check so far.', text: 'Fix a task, then check again to see the change.' });
+  });
+  it('headline: it is working, names the area that moved most', () => {
+    const h = headlineFor([a('1', 31, 55, 26, 13, '2026-03-02T10:00:00Z'), a('2', 41, 62, 34, 28, '2026-07-28T10:00:00Z')]);
+    expect(h.title).toBe('It is working.');
+    expect(h.text).toBe('You have gone from 31 to 41 since March. AI assistants has moved the most.');
+  });
+  it('headline: not moving yet', () => {
+    const h = headlineFor([a('1', 41, 62, 34, 28, '2026-03-02T10:00:00Z'), a('2', 40, 62, 33, 28, '2026-07-28T10:00:00Z')]);
+    expect(h.title).toBe('Not moving yet.');
+    expect(h.text).toBe('Your score is 40. It was 41 in March. Finish the next task and check again.');
+  });
+  it('what changed text', () => {
+    const base = a('1', 41, 62, 34, 28, '2026-07-28T10:00:00Z');
+    expect(changesText(base, true)).toBe('Your first check');
+    expect(changesText({ ...base, status: 'failed', scores: null }, false)).toBe('We could not read your site that day');
+    expect(changesText(base, false)).toBe('No changes since your last check');
+    expect(changesText({ ...base, changes: [{ title: 'Page titles shortened', kind: 'done' }] }, false)).toBe('Page titles shortened');
+    expect(changesText({ ...base, changes: [{ title: 'Photos described', kind: 'verified' }] }, false)).toBe('Confirmed fixed: Photos described');
+    expect(changesText({ ...base, changes: [{ title: 'a', kind: 'verified' }, { title: 'b', kind: 'verified' }] }, false)).toBe('Two tasks confirmed fixed');
+    expect(changesText({ ...base, changes: [{ title: 'a', kind: 'done' }, { title: 'b', kind: 'done' }, { title: 'c', kind: 'done' }] }, false)).toBe('Three tasks done');
+    expect(changesText({ ...base, changes: [{ title: 'a', kind: 'done' }, { title: 'b', kind: 'verified' }] }, false)).toBe('One task done, one confirmed fixed');
+  });
+  it('chart points use one decimal', () => {
+    const pts = chartPoints([a('1', 31, 55, 26, 13, '2026-03-02T10:00:00Z'), a('2', 41, 62, 34, 28, '2026-07-28T10:00:00Z')], 'seo', 1000, 240);
+    expect(pts).toBe('0,108 1000,91.2');
+  });
+});
+```
+
+Point math for the last test: x = width × i/(n−1); y = height − score × height/100 → 240 − 55×2.4 = 108; 240 − 62×2.4 = 91.2.
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `npm test -- --watch=false --browsers=ChromeHeadless`
+Expected: compilation error, `./history-copy` not found.
+
+- [ ] **Step 3: Write `history-copy.ts`**
+
+```ts
+import { AssessmentDto, Scores } from '../../core/api/types';
+import { areaName, monthName, numberWord } from '../../shared/copy';
+
+const AREAS: Array<'seo' | 'aeo' | 'geo'> = ['seo', 'aeo', 'geo'];
+
+/** Headline for the history page. `ready` is oldest first and every item has scores. Spec §4.8. */
+export function headlineFor(ready: AssessmentDto[]): { title: string; text: string } {
+  if (ready.length < 2) return { title: 'One check so far.', text: 'Fix a task, then check again to see the change.' };
+  const first = ready[0], last = ready[ready.length - 1];
+  const f = first.scores as Scores, l = last.scores as Scores;
+  const month = monthName(first.completedAt ?? first.createdAt);
+  if (l.overall > f.overall) {
+    const best = AREAS.map((k) => ({ k, d: l[k] - f[k] })).sort((x, y) => y.d - x.d)[0].k;
+    return { title: 'It is working.', text: `You have gone from ${f.overall} to ${l.overall} since ${month}. ${areaName(best)} has moved the most.` };
+  }
+  return { title: 'Not moving yet.', text: `Your score is ${l.overall}. It was ${f.overall} in ${month}. Finish the next task and check again.` };
+}
+
+function cap(s: string): string { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+/** The "what changed" cell. Spec §4.8. */
+export function changesText(a: AssessmentDto, isFirstReady: boolean): string {
+  if (a.status !== 'ready' || !a.scores) return 'We could not read your site that day';
+  if (isFirstReady) return 'Your first check';
+  const c = a.changes ?? [];
+  if (c.length === 0) return 'No changes since your last check';
+  if (c.length === 1) return c[0].kind === 'verified' ? `Confirmed fixed: ${c[0].title}` : c[0].title;
+  const done = c.filter((x) => x.kind === 'done').length;
+  const verified = c.filter((x) => x.kind === 'verified').length;
+  const tasks = (n: number) => `${numberWord(n)} task${n === 1 ? '' : 's'}`;
+  if (verified === 0) return `${cap(tasks(done))} done`;
+  if (done === 0) return `${cap(tasks(verified))} confirmed fixed`;
+  return `${cap(tasks(done))} done, ${numberWord(verified)} confirmed fixed`;
+}
+
+export function chartPoints(ready: AssessmentDto[], key: 'seo' | 'aeo' | 'geo', width: number, height: number): string {
+  const n = ready.length;
+  if (n < 2) return '';
+  const r1 = (v: number) => Math.round(v * 10) / 10;
+  return ready.map((a, i) => `${r1((width / (n - 1)) * i)},${r1(height - (a.scores as Scores)[key] * (height / 100))}`).join(' ');
+}
+```
+
+- [ ] **Step 4: Update the history tests**
+
+In `history.spec.ts`: add `{ path: 'pricing', component: BlankPage }` to the router list; fixtures gain the new DTO fields; replace the "upsell on upgrade_required" test with a redirect assertion `expect(TestBed.inject(Location).path()).toBe('/pricing?site=S1')` (the fake route's `siteId` is whatever the spec passes through `ActivatedRoute`; keep the existing value); keep the "Check again" and resend tests; add:
+
+```ts
+  it('renders the headline, the legend, and the table with what changed', async () => {
+    api.listAssessmentsResult = Promise.resolve([
+      makeAssessment({ id: 'A2', status: 'ready', scores: { seo: 62, aeo: 34, geo: 28, overall: 41 }, createdAt: '2026-07-28T10:00:00Z', completedAt: '2026-07-28T10:03:00Z', changes: [{ title: 'a', kind: 'verified' }, { title: 'b', kind: 'verified' }] }),
+      makeAssessment({ id: 'F1', status: 'failed', scores: null, createdAt: '2026-06-16T10:00:00Z', completedAt: '2026-06-16T10:01:00Z' }),
+      makeAssessment({ id: 'A1', status: 'ready', scores: { seo: 55, aeo: 26, geo: 13, overall: 31 }, createdAt: '2026-03-02T10:00:00Z', completedAt: '2026-03-02T10:03:00Z' }),
+    ]);
+    const fixture = TestBed.createComponent(History);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('It is working.');
+    expect(text).toContain('You have gone from 31 to 41 since March.');
+    expect(text).toContain('Google search');
+    expect(text).toContain('WHAT CHANGED');
+    expect(text).toContain('28 July 2026');
+    expect(text).toContain('Two tasks confirmed fixed');
+    expect(text).toContain('We could not read your site that day');
+    expect(text).toContain('Your first check');
+    expect(text).toContain('MAR – JUL 2026');
+  });
+```
+
+- [ ] **Step 5: Rewrite `history.ts`**
+
+Replace the template, `SERIES`, `pointsFor`, and the computed members. Keep `loadHistory`, `checkAgain`, `resend` with two edits: `loadHistory` navigates on `upgrade_required` (`if (isUpgradeRequired(e)) { void this.router.navigateByUrl(pricingUrlFor(this.siteId)); return; }` inside the catch), and `checkAgain` does the same in its rejection branch. Add `SiteContext` (set the domain from `listSites` in `ngOnInit`, clear on destroy) like the report.
+
+```ts
+const SERIES: { key: 'seo' | 'aeo' | 'geo'; label: string; color: string }[] = [
+  { key: 'seo', label: 'Google search', color: 'var(--olive)' },
+  { key: 'aeo', label: 'Answer boxes', color: 'var(--accent)' },
+  { key: 'geo', label: 'AI assistants', color: 'var(--amber)' },
+];
+const W = 1000, H = 240;
+```
+
+Template:
+
+```html
+<div class="page surface history">
+  @if (listError(); as e) {
+    <app-error-note [error]="e" />
+  } @else if (loading()) {
+    <p class="muted">Loading…</p>
+  } @else {
+    <div class="row head">
+      <div class="stack"><h1>{{ headline().title }}</h1><p class="lead">{{ headline().text }}</p></div>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-primary" (click)="checkAgain()" [disabled]="busy()">Check again</button>
+    </div>
+    @if (checkError(); as ce) {
+      @if (ce.code === 'email_not_verified') {
+        <div class="note-box stack" role="alert"><p>{{ assessmentErrorCopy(ce) }}</p><button type="button" class="btn btn-outline" (click)="resend()" [disabled]="resendBusy()">Send the email again</button>@if (resent()) {<p>Sent. Check your inbox.</p>}</div>
+      } @else {<p class="error-note" role="alert">{{ assessmentErrorCopy(ce) }}</p>}
+    }
+
+    <section class="card chart stack">
+      <div class="row legend">
+        @for (s of series; track s.key) {<span class="row small"><span class="swatch" [style.background]="s.color"></span>{{ s.label }}</span>}
+        <span class="spacer"></span><span class="mono faint small">{{ range() }}</span>
+      </div>
+      @if (hasTrend()) {
+        <svg [attr.viewBox]="'0 0 ' + W + ' ' + H" role="img" [attr.aria-label]="chartLabel()">
+          @for (g of [0, 25, 50, 75]; track g) {<line x1="0" [attr.y1]="H - g * H / 100" [attr.x2]="W" [attr.y2]="H - g * H / 100" stroke="var(--line)" stroke-width="1" />}
+          @for (s of series; track s.key) {<polyline [attr.points]="points()[s.key]" fill="none" [attr.stroke]="s.color" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />}
+        </svg>
+      } @else {<p class="muted">Run more checks to see your progress line.</p>}
+    </section>
+
+    <div class="table-scroll">
+      <table class="data">
+        <thead><tr><th>DATE</th><th class="num">OVERALL</th><th class="num">GOOGLE</th><th class="num">ANSWERS</th><th class="num">AI</th><th>WHAT CHANGED</th></tr></thead>
+        <tbody>
+          @for (a of assessments(); track a.id; let i = $index) {
+            <tr [class.failed]="!a.scores">
+              <td>{{ dateLabel(a) }}</td>
+              @if (a.scores; as s) {<td class="num strong">{{ s.overall }}</td><td class="num">{{ s.seo }}</td><td class="num">{{ s.aeo }}</td><td class="num">{{ s.geo }}</td>}
+              @else {<td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>}
+              <td class="muted">{{ changeText(a) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+```
+
+Class members:
+
+```ts
+  protected readonly W = W; protected readonly H = H;
+  private readonly readyAssessments = computed(() => [...this.assessments()].filter((a) => a.status === 'ready' && a.scores != null).reverse());
+  protected readonly hasTrend = computed(() => this.readyAssessments().length >= 2);
+  protected readonly headline = computed(() => headlineFor(this.readyAssessments()));
+  protected readonly points = computed(() => ({ seo: chartPoints(this.readyAssessments(), 'seo', W, H), aeo: chartPoints(this.readyAssessments(), 'aeo', W, H), geo: chartPoints(this.readyAssessments(), 'geo', W, H) }));
+  protected readonly range = computed(() => {
+    const r = this.readyAssessments();
+    if (r.length === 0) return '';
+    const m = (a: AssessmentDto) => monthName(a.completedAt ?? a.createdAt).slice(0, 3).toUpperCase();
+    const last = r[r.length - 1];
+    return `${m(r[0])} – ${m(last)} ${new Date(last.completedAt ?? last.createdAt).getUTCFullYear()}`;
+  });
+  protected readonly chartLabel = computed(() => {
+    const r = this.readyAssessments();
+    const l = r[r.length - 1]?.scores;
+    return l ? `Score trend. Latest: Google search ${l.seo}, Answer boxes ${l.aeo}, AI assistants ${l.geo}.` : 'Score trend';
+  });
+  protected dateLabel(a: AssessmentDto): string { return formatDate(a.completedAt ?? a.createdAt); }
+  protected changeText(a: AssessmentDto): string {
+    const firstReadyId = this.readyAssessments()[0]?.id;
+    return changesText(a, a.id === firstReadyId);
+  }
+```
+
+Imports: `headlineFor, changesText, chartPoints` from `./history-copy`; `formatDate, monthName` from `../../shared/copy`; `isUpgradeRequired, pricingUrlFor` from `../../shared/upgrade-redirect`; `SiteContext`. Styles: `.history { padding-top: 48px; display: flex; flex-direction: column; gap: 40px; } .head { align-items: flex-end; } h1 { font-size: 32px; } .lead { font-size: 17px; max-width: 46ch; color: var(--body-long); } .chart { padding: 30px 34px 26px; } .legend { gap: 26px; } .swatch { width: 18px; height: 3px; border-radius: 999px; display: inline-block; margin-right: 8px; } svg { width: 100%; height: auto; display: block; } td.strong { font-weight: 700; color: var(--ink); } tr.failed td { color: var(--faint); } .small { font-size: 14px; }`.
+
+- [ ] **Step 6: Run tests and build; commit**
+
+Run: `npm test -- --watch=false --browsers=ChromeHeadless` then `npx ng build`
+Expected: PASS, build green.
+
+```bash
+git add src/app/features/history
+git commit -m "feat(frontend): score history with headline, chart and what changed"
+```
+
+---
+
+### Task 11: Account (screen 07)
+
+**Files:**
+- Modify: `src/app/features/account/account.ts`, `account.html`, `account.spec.ts`
+
+**Interfaces (produces):** the Account page loads `usage()` and `listSites()`; renders the spec §4.8 account layout; logout lives here (moved from the shell in Task 2).
+
+- [ ] **Step 1: Update the account tests**
+
+In `account.spec.ts`: `FakeApiClient` gains `listSitesResult: Promise<SiteDto[]> = Promise.resolve([])` and `listSites()`; `usage` fixtures gain `nextCheckAt`. Keep the resend and logout tests. Replace the meter/tier tests with:
+
+```ts
+  it('free at the limit: meters, next check date, site card, upgrade card', async () => {
+    const store = TestBed.inject(UserStore);
+    store.user.set(makeUser({ email: 'dana@rivertonbakery.com', tier: 'free' }));
+    api.usageResult = Promise.resolve({ assessmentsUsed: 1, assessmentsLimit: 1, sitesUsed: 1, sitesLimit: 1, nextCheckAt: '2026-09-01T10:00:00Z' });
+    api.listSitesResult = Promise.resolve([{ id: 'S1', domain: 'rivertonbakery.com', url: 'https://rivertonbakery.com', platform: 'wordpress', latestScores: { seo: 62, aeo: 34, geo: 28, overall: 41 }, readOnly: false, latestAssessment: { id: 'A1', status: 'ready', createdAt: '2026-07-28T09:00:00Z', completedAt: '2026-07-28T10:00:00Z' }, latestReadyAssessmentId: 'A1' }]);
+    const fixture = TestBed.createComponent(Account);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Your account');
+    expect(text).toContain('dana@rivertonbakery.com');
+    expect(text).toContain('Checks used');
+    expect(text).toContain('1 of 1');
+    expect(text).toContain('Your next free check is available on 1 September.');
+    expect(text).toContain('YOUR SITE');
+    expect(text).toContain('wordpress · last checked 28 July 2026');
+    expect(text).toContain('Pro lets you add four more sites.');
+    expect(text).toContain('YOUR PLAN IS WAITING');
+    expect(text).toContain('Unlock my plan');
+    expect(text).toContain('Log out');
+    expect(text).not.toContain('Delete my account');
+  });
+
+  it('pro: manage subscription card, no upgrade card', async () => {
+    const store = TestBed.inject(UserStore);
+    store.user.set(makeUser({ tier: 'pro' }));
+    api.usageResult = Promise.resolve({ assessmentsUsed: 3, assessmentsLimit: 10, sitesUsed: 2, sitesLimit: 5, nextCheckAt: null });
+    const fixture = TestBed.createComponent(Account);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('You are on Pro');
+    expect(text).toContain('Manage subscription');
+    expect(text).not.toContain('Unlock my plan');
+    expect(text).toContain('3 of 10');
+  });
+```
+
+- [ ] **Step 2: Rewrite the account component**
+
+`account.ts` — keep `resend()` and `logout()`; replace the loader and add fields:
+
+```ts
+  protected readonly usage = signal<UsageDto | null>(null);
+  protected readonly sites = signal<SiteDto[]>([]);
+  protected readonly proSitesLeft = computed(() => Math.max(0, PRO_TIER_COPY.sites - this.sites().length));
+  protected readonly word = numberWord;
+  protected readonly price = PRO_PRICE_LABEL;
+  protected readonly hasReadyCheck = computed(() => this.sites().some((s) => s.latestReadyAssessmentId));
+
+  private async load(): Promise<void> {
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      const [usage, sites] = await Promise.all([this.api.usage(), this.api.listSites().catch(() => [] as SiteDto[])]);
+      this.usage.set(usage);
+      this.sites.set(sites);
+    } catch (e) {
+      this.error.set(toApiError(e));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+  protected lastChecked(site: SiteDto): string {
+    const at = site.latestAssessment?.completedAt ?? site.latestAssessment?.createdAt;
+    return at ? `${site.platform ?? 'Website'} · last checked ${formatDate(at)}` : 'No check yet';
+  }
+  protected nextCheck(u: UsageDto): string {
+    if (!u.nextCheckAt) return '';
+    const when = formatDateShort(u.nextCheckAt);
+    return this.store.user()?.tier === 'pro' ? `Your next check is available on ${when}.` : `Your next free check is available on ${when}.`;
+  }
+  protected pct(used: number, limit: number): number { return limit > 0 ? Math.min(100, (100 * used) / limit) : 0; }
+  protected unlock(): void { void this.router.navigateByUrl(pricingUrlFor(this.sites().find((s) => s.latestReadyAssessmentId)?.id ?? null)); }
+```
+
+Imports: `computed`, `SiteDto`, `PRO_PRICE_LABEL`, `PRO_TIER_COPY`, `formatDate`, `formatDateShort`, `numberWord`, `pricingUrlFor`, `toApiError`. Component `imports: [RouterLink, ErrorNote]`. Add styles: `.account { padding-top: 48px; } .col { flex: 1; gap: 34px; } .side { width: 348px; flex-shrink: 0; border: 2px solid var(--accent); padding: 30px 30px 34px; gap: 20px; } .side.pro { border-color: var(--line-strong); } .meter { gap: 11px; } .price { font-size: 32px; font-weight: 700; color: var(--ink); letter-spacing: -0.03em; } .site-card { display: flex; align-items: center; gap: 14px; padding: 16px 20px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-small); color: inherit; } .small { font-size: 13px; } @media (max-width: 760px) { .side { width: 100%; } }`.
+
+`account.html`:
+
+```html
+<div class="page surface account">
+  @if (loading()) {<p class="muted">Loading your account…</p>}
+  @else if (error(); as e) {<app-error-note [error]="e" />}
+  @else {
+    <div class="two-col">
+      <div class="stack col">
+        <div class="stack" style="gap:10px"><h1>Your account</h1><span class="muted">{{ store.user()?.email }}</span></div>
+
+        @if (store.user()?.emailVerified === false) {
+          <div class="card row" role="alert" style="padding:24px 28px">
+            <div class="stack" style="gap:6px"><strong>Confirm your email address</strong><span class="muted">We sent a link to {{ store.user()?.email }}. Until you click it we cannot run checks for you.</span></div>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-outline" (click)="resend()" [disabled]="resendBusy()">Send it again</button>
+          </div>
+          @if (resent()) {<p class="muted small">Sent. Check your inbox.</p>}
+          @if (resendError(); as e) {<app-error-note [error]="e" />}
+        }
+
+        @if (usage(); as u) {
+          <section class="stack">
+            <span class="eyebrow">THIS MONTH</span>
+            <div class="stack meter">
+              <div class="row"><span>Checks used</span><span class="spacer"></span><strong>{{ u.assessmentsUsed }} of {{ u.assessmentsLimit }}</strong></div>
+              <div class="bar" role="img" [attr.aria-label]="'Checks used ' + u.assessmentsUsed + ' of ' + u.assessmentsLimit"><div class="bar-fill tone-low" [style.width.%]="pct(u.assessmentsUsed, u.assessmentsLimit)"></div></div>
+              @if (nextCheck(u); as n) {<span class="muted small">{{ n }}</span>}
+            </div>
+            <div class="stack meter">
+              <div class="row"><span>Sites</span><span class="spacer"></span><strong>{{ u.sitesUsed }} of {{ u.sitesLimit }}</strong></div>
+              <div class="bar" role="img" [attr.aria-label]="'Sites ' + u.sitesUsed + ' of ' + u.sitesLimit"><div class="bar-fill tone-low" [style.width.%]="pct(u.sitesUsed, u.sitesLimit)"></div></div>
+            </div>
+          </section>
+        }
+
+        <section class="stack divider" style="padding-top:26px">
+          <span class="eyebrow">{{ sites().length === 1 ? 'YOUR SITE' : 'YOUR SITES' }}</span>
+          @for (site of sites(); track site.id) {
+            <a class="site-card" [routerLink]="['/sites', site.id]">
+              <div class="stack" style="flex:1; gap:4px"><strong>{{ site.domain }}</strong><span class="faint small">{{ lastChecked(site) }}</span></div>
+              @if (site.latestScores; as s) {<span class="price" style="font-size:20px">{{ s.overall }}</span>}
+            </a>
+          }
+          @if (store.user()?.tier !== 'pro' && proSitesLeft() > 0) {<span class="faint small">Pro lets you add {{ word(proSitesLeft()) }} more sites.</span>}
+        </section>
+
+        <div class="row divider" style="padding-top:26px"><button type="button" class="btn btn-text" (click)="logout()">Log out</button></div>
+      </div>
+
+      @if (store.user()?.tier === 'pro') {
+        <aside class="card side pro stack">
+          <span class="eyebrow">YOU ARE ON PRO</span>
+          <p class="muted">Manage your payment method, invoices, and cancellation in the customer portal.</p>
+          <a class="btn btn-outline" [href]="portalUrl" target="_blank" rel="noopener">Manage subscription</a>
+        </aside>
+      } @else {
+        <aside class="card side stack">
+          <span class="eyebrow tone-low">{{ hasReadyCheck() ? 'YOUR PLAN IS WAITING' : 'PRO' }}</span>
+          <div class="row" style="align-items:baseline; gap:7px"><span class="price">{{ price }}</span><span class="muted">a month</span></div>
+          <p class="muted">{{ hasReadyCheck() ? 'Tasks written for your site, with the steps to do each one and a check that confirms it worked.' : 'The step-by-step plan for your site, with the steps to do each one and a check that confirms it worked.' }}</p>
+          <ul class="features stack" style="list-style:none; margin:0; padding:0; gap:11px">
+            <li>✓ The full step-by-step plan</li><li>✓ We confirm your fixes for you</li><li>✓ Five sites, ten checks a month</li><li>✓ Score history</li>
+          </ul>
+          <button type="button" class="btn btn-primary" (click)="unlock()">Unlock my plan</button>
+          <span class="faint small" style="text-align:center">Cancel any time. Your score stays free.</span>
+        </aside>
+      }
+    </div>
+  }
+</div>
+```
+
+The "Five sites, ten checks a month" line composes from `PRO_TIER_COPY` the same way `PlanCards` does: replace the literal with `{{ proSites }} sites, {{ proChecks }} checks a month` and add the two fields from `PlanCards` to the component.
+
+- [ ] **Step 3: Run tests and build; commit**
+
+Run: `npm test -- --watch=false --browsers=ChromeHeadless` then `npx ng build`
+Expected: PASS, build green.
+
+```bash
+git add src/app/features/account
+git commit -m "feat(frontend): account page with meters, site card and the upgrade card"
+```
+
+---
+
+### Task 12: Playwright paths, docs, and the full check
+
+**Files:**
+- Modify: `e2e/happy-path.spec.ts`
+- Create: `e2e/pro-next-task.spec.ts`
+- Modify: `frontend/README.md`, `docs/launch-checklist.md`
+
+- [ ] **Step 1: Update path 1 (Free journey)**
+
+In `e2e/happy-path.spec.ts`:
+- Update every mocked DTO to the 5a shape: `userDto` unchanged; sites gain `latestAssessment` and `latestReadyAssessmentId` that follow `state` (`null` before the check, `{ id: 'A1', status: 'queued', … }` after submit, `status: 'ready'` + `latestReadyAssessmentId: 'A1'` when ready); `assessmentDto` gains `summary: 'People searching Google can find you. People asking ChatGPT cannot.'`, `scoreNotes`, `pageCount: 3`, `changes: []`, `scores.overall: 65`; the plan mock returns `locked: true` with `stepCount` and null steps for `GET /v1/assessments/A1/plan` and `GET /v1/sites/S1/plan`.
+- Route mock for `GET /v1/sites`: return the site array once `state.siteCreated` is true (set it in the `POST /v1/sites` handler), so the dashboard hand-off and the site home both see it.
+- Add a mock for `GET /v1/me/usage` → `{ assessmentsUsed: 0, assessmentsLimit: 1, sitesUsed: 0, sitesLimit: 1, nextCheckAt: null }`.
+- The journey: land → type the URL → "Check my site free" → register → login → the dashboard hand-off creates the site and submits → progress shows "Reading your pages…" or "Finding your site…" → set `state.assessmentReady = true` when the SSE mock closes (keep the current SSE mock approach) → the site home renders: `await expect(page.getByText('Visibility out of 100')).toBeVisible()`; `await expect(page.getByText('Read my plan')).toBeVisible()` → click "Read my plan" → `await expect(page).toHaveURL(/\/pricing\?site=S1$/)`; `await expect(page.getByText('YOUR PLAN IS READY')).toBeVisible()`.
+- Remove the old plan-checkbox steps from this path.
+
+- [ ] **Step 2: Write path 2 (Pro next task)**
+
+`e2e/pro-next-task.spec.ts`:
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test('pro user sees the next task, marks it done, and the following task appears', async ({ page }) => {
+  test.setTimeout(60_000);
+  const user = { id: 'U1', email: 'dana@rivertonbakery.com', emailVerified: true, tier: 'pro' };
+  const scores = { seo: 62, aeo: 34, geo: 28, overall: 41 };
+  const assessment = { id: 'A1', siteId: 'S1', status: 'ready', scores, summary: 'Summary.', scoreNotes: { seo: 'a', aeo: 'b', geo: 'c' }, findings: [], pageCount: 18, errorCode: null, errorMessage: null, createdAt: '2026-07-28T09:00:00Z', completedAt: '2026-07-28T10:00:00Z', changes: [] };
+  const site = { id: 'S1', domain: 'rivertonbakery.com', url: 'https://rivertonbakery.com', platform: 'wordpress', latestScores: scores, readOnly: false, latestAssessment: { id: 'A1', status: 'ready', createdAt: assessment.createdAt, completedAt: assessment.completedAt }, latestReadyAssessmentId: 'A1' };
+  const task = (id: string, title: string, minutes: number, status: string) => ({ taskId: id, title, category: 'geo', impact: 'high', effortMinutes: minutes, stepCount: 2, whyItMatters: 'Because.', steps: ['Open the settings.', 'Save.'], doneCheck: 'Look at the page.', status });
+  const plan = { id: 'P1', assessmentId: 'A1', siteId: 'S1', locked: false, progress: { done: 0, verified: 0, total: 2 }, tasks: [task('T1', 'Put your address and hours where machines can read them', 20, 'todo'), task('T2', 'Write the one page that answers what people ask', 45, 'todo')] };
+
+  await page.route('**/v1/**', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 'e2e_unmocked_route', message: route.request().url() }) }));
+  await page.route(/\/v1\/me$/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(user) }));
+  await page.route(/\/v1\/sites$/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sites: [site] }) }));
+  await page.route(/\/v1\/assessments\/A1$/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(assessment) }));
+  await page.route(/\/v1\/assessments\/A1\/plan$/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(plan) }));
+  await page.route(/\/v1\/sites\/S1\/assessments$/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ assessments: [assessment] }) }));
+  await page.route(/\/v1\/plans\/P1\/tasks\/T1$/, (route) => {
+    plan.tasks[0].status = 'done';
+    plan.progress.done = 1;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(plan) });
+  });
+
+  await page.goto('/sites/S1');
+  await expect(page.getByText('DO THIS NEXT')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Put your address and hours where machines can read them' })).toBeVisible();
+  await page.getByRole('button', { name: 'I did this' }).click();
+  await expect(page.getByRole('heading', { name: 'Write the one page that answers what people ask' })).toBeVisible();
+  await expect(page.getByText('1 of 2 done')).toBeVisible();
+});
+```
+
+- [ ] **Step 3: Run the e2e suite**
+
+Run: `npm run e2e`
+Expected: both specs PASS. Fix mocks until they do; do not weaken assertions.
+
+- [ ] **Step 4: Update the docs**
+
+`frontend/README.md` — in "What this is", replace the paragraph with: "This is the GeoStrategy web app. A user adds a site and runs a check. The Free tier sees the score, the findings, and a locked plan preview. Pro unlocks the step-by-step plan, task tracking, re-checks, and history." In "Before production", add: "Set `PRO_PRICE_LABEL`, `FREE_TIER_COPY`, and `PRO_TIER_COPY` in `src/app/core/config.ts` equal to the Freemius price and the backend tier env values."
+
+`docs/launch-checklist.md` — item 7.1a exists from Plan 5a; confirm it names all three constants. Add to section 8: "8.8 **Plan gate.** As a Free user with a ready check, open `/assessments/<id>/plan`. Confirm the redirect to `/pricing?site=<id>` and that the locked list shows task titles without steps."
+
+- [ ] **Step 5: Full check and commit**
+
+Run: `npm test -- --watch=false --browsers=ChromeHeadless`, `npx ng build`, `npm run e2e`
+Expected: all green.
+
+```bash
+git add e2e frontend/README.md docs/launch-checklist.md
+git commit -m "test(frontend): playwright free journey and pro next-task path; docs for one thing"
+```
+
+---
+
+## Self-review against the spec
+
+- §4.1 routes: `/sites/:siteId` (Task 7); redirects for `/plan` (Task 9) and `/history` (Task 10); `/dashboard` rules (Task 8); `/pricing?site=` (Task 4).
+- §4.2 site home states: Task 7 (first / running / failed / failed-after-ready / Free result / Pro next task).
+- §4.3 result view: Task 6 (date, band, summary, notes, findings sort, captions, teaser, Pro links, empty copy).
+- §4.4 next-task view: Task 7 (strip, delta, DO THIS NEXT, THEN, skip session, all-done, Check again).
+- §4.5 gate and public pricing: Task 4. §4.6 landing: Task 3. §4.7 progress: Task 5. §4.8 history, plan checklist, account, dashboard list: Tasks 10, 9, 11, 8. §4.9 header/footer: Task 2 (header), Task 3 (landing footer; the pricing and legal pages reuse the same footer markup — add it to `Pricing` and the two legal components in Task 4 and Task 12 respectively).
+- §5.1 pending URL: Task 8. §5.2–5.4 bands, labels, dates, words: Task 1. §5.5 upgrade flow: Task 4. §5.6 `upgrade_required` navigation: Tasks 7, 9, 10, 8. §5.7 price label: Task 1 (+ every consumer).
+- §6 tokens, fonts, radii, responsive, focus ring, a11y: Task 2 (+ per-component styles).
+- §7 frontend tests: covered per task; Playwright paths in Task 12.
+- §8: `score-dial` deleted (Task 6); README and checklist (Task 12).
+- Type consistency: `pricingUrlFor(siteId?)` (Task 1) is used in Tasks 4, 6, 7, 8, 9, 10, 11; `openMinutes`/`sortedFindings` exported from `result-view.ts` (Task 6) and used in Tasks 7 and 9; `failureHeadline` exported from `progress.ts` (Task 5) and used in Task 7; `STEP_LABELS` (Task 5); `nextTaskFor`, `readSkips/addSkip/clearSkips` (Task 7).
