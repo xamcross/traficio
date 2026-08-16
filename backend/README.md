@@ -13,24 +13,43 @@ Without `RESEND_API_KEY`, emails are logged to stdout instead of sent —
 copy the `token=` value from the log line to complete flows manually.
 
 ## Deploy to Fly.io (first time)
-1. `fly launch --no-deploy --copy-config` (accept the existing fly.toml; adjust app name/region)
-2. Set secrets:
-   fly secrets set \
-     MONGODB_URI="mongodb+srv://<user>:<pass>@<cluster>.mongodb.net" \
-     MONGODB_DB="geostrategy" \
-     BASE_URL="https://api.<your-domain>" \
-     APP_URL="https://app.<your-domain>" \
-     COOKIE_DOMAIN=".<your-domain>" \
-     RESEND_API_KEY="re_..." \
-     EMAIL_FROM="GeoStrategy <noreply@<your-domain>>" \
-     GOOGLE_CLIENT_ID="..." GOOGLE_CLIENT_SECRET="..."
-3. `fly deploy`
-4. In Cloudflare DNS: CNAME `api` -> `geostrategy-api.fly.dev` (proxied), after
-   `fly certs add api.<your-domain>`.
-5. Google Cloud Console: add `https://api.<your-domain>/v1/auth/google/callback`
-   as an authorized redirect URI on the OAuth client.
-6. MongoDB Atlas: allow the Fly.io egress IPs (or 0.0.0.0/0 + strong credentials
-   to start), database user with readWrite on `geostrategy`.
+
+CI deploys the backend after each merge to `main` (see `.github/workflows/ci.yml`).
+Do these steps once, by hand, before the first CI deploy.
+
+1. Run `fly launch --no-deploy --copy-config` from `backend/`. Accept `fly.toml`.
+   Adjust the app name if `geostrategy-api` is taken.
+2. Set the secrets. Use one `fly secrets set` command:
+
+       MONGODB_URI="mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/?maxPoolSize=50&minPoolSize=5"
+       MONGODB_DB="geostrategy"
+       BASE_URL="https://api.<domain>"
+       APP_URL="https://app.<domain>"
+       RESEND_API_KEY="re_..."
+       EMAIL_FROM="GeoStrategy <noreply@<domain>>"
+       GOOGLE_CLIENT_ID="..." GOOGLE_CLIENT_SECRET="..."
+       ANTHROPIC_API_KEY="sk-ant-..."
+       FREEMIUS_SECRET_KEY="..." FREEMIUS_PRO_PLAN_ID="..."
+
+   Do not set `COOKIE_DOMAIN`. The session cookie is then host-only on
+   `api.<domain>`, and the browser sends it on every credentialed call from
+   `app.<domain>`. If you must widen it, use `COOKIE_DOMAIN=<domain>` with no
+   leading dot.
+   `PORT` lives in `fly.toml`. `JAVA_OPTS` lives in the `Dockerfile`. They are not
+   secrets.
+3. Run `fly deploy` once by hand.
+4. Run `fly certs add api.<domain>`. In Cloudflare DNS add a CNAME `api` →
+   `geostrategy-api.fly.dev` (proxied).
+5. Check `https://api.<domain>/healthz`. It must return `ok`.
+6. Google Cloud Console: add `https://api.<domain>/v1/auth/google/callback` as an
+   authorized redirect URI.
+7. MongoDB Atlas: a database user with `readWrite` on `geostrategy`. Network
+   access `0.0.0.0/0` is the pragmatic M0 choice; the credential is the gate.
+
+The machine is always on (`min_machines_running = 1`). Reason: the job worker and
+the billing revalidator run in-process. The cost is about USD 3 per month.
+The JVM heap cap is 300 MB on a 512 MB machine. Raise both together if the
+crawler needs more memory.
 
 ## Assessment engine
 
