@@ -1,8 +1,15 @@
 package app.geostrategy.sites
 
+import app.geostrategy.MapFetcher
+import app.geostrategy.RecordingEmailSender
 import app.geostrategy.TestMongo
 import app.geostrategy.appModule
+import app.geostrategy.assessment.AssessmentPipeline
+import app.geostrategy.claude.CannedClaudeClient
+import app.geostrategy.crawl.Crawler
+import app.geostrategy.makePro
 import app.geostrategy.registerAndLogin
+import app.geostrategy.registerVerifyLogin
 import app.geostrategy.testDeps
 import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.get
@@ -15,6 +22,11 @@ import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.bson.types.ObjectId
 import java.time.Instant
 import kotlin.test.Test
@@ -126,5 +138,49 @@ class SiteRoutesTest {
 
         assertEquals(setOf(a.id, b.id), forward)
         assertEquals(forward, reversed)
+    }
+
+    @Test
+    fun `site list carries the latest assessment and the latest ready assessment id`() = testApplication {
+        val db = TestMongo.freshDb()
+        val emails = RecordingEmailSender()
+        val deps = testDeps(db, email = emails)
+        application { appModule(deps) }
+        val http = createClient { install(HttpCookies) }
+        registerVerifyLogin(http, emails, "ada@example.com")
+        val created = Json.parseToJsonElement(
+            http.post("/v1/sites") { contentType(ContentType.Application.Json); setBody("""{"url":"example.com"}""") }.bodyAsText(),
+        ).jsonObject
+        assertEquals(JsonNull, created["latestAssessment"])
+        assertEquals(JsonNull, created["latestReadyAssessmentId"])
+        val siteId = created["id"]!!.jsonPrimitive.content
+
+        suspend fun firstSite() = Json.parseToJsonElement(http.get("/v1/sites").bodyAsText()).jsonObject["sites"]!!.jsonArray.first().jsonObject
+        assertEquals(JsonNull, firstSite()["latestAssessment"])
+
+        val firstId = Json.parseToJsonElement(http.post("/v1/sites/$siteId/assessments").bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        val queued = firstSite()
+        assertEquals(firstId, queued["latestAssessment"]!!.jsonObject["id"]!!.jsonPrimitive.content)
+        assertEquals("queued", queued["latestAssessment"]!!.jsonObject["status"]!!.jsonPrimitive.content)
+        assertEquals(JsonNull, queued["latestReadyAssessmentId"])
+
+        val html = """<html><head><title>T</title></head><body><h1>H</h1><p>${"w ".repeat(60)}</p></body></html>"""
+        val pipeline = AssessmentPipeline(
+            deps.assessments, deps.sites, deps.plans,
+            Crawler(MapFetcher(mapOf("https://example.com" to html))), CannedClaudeClient(),
+        )
+        runBlocking { pipeline.handle(deps.jobs.claim()!!) }
+        val ready = firstSite()
+        assertEquals("ready", ready["latestAssessment"]!!.jsonObject["status"]!!.jsonPrimitive.content)
+        assertEquals(firstId, ready["latestReadyAssessmentId"]!!.jsonPrimitive.content)
+        assertTrue(ready["latestAssessment"]!!.jsonObject["completedAt"]!!.jsonPrimitive.content.isNotBlank())
+        assertTrue(ready["latestScores"]!!.jsonObject.containsKey("overall"))
+
+        // a second (pro) submission becomes the latest; the ready id stays on the first
+        runBlocking { makePro(db, "ada@example.com") }
+        val secondId = Json.parseToJsonElement(http.post("/v1/sites/$siteId/assessments").bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        val again = firstSite()
+        assertEquals(secondId, again["latestAssessment"]!!.jsonObject["id"]!!.jsonPrimitive.content)
+        assertEquals(firstId, again["latestReadyAssessmentId"]!!.jsonPrimitive.content)
     }
 }

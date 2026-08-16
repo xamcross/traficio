@@ -1,6 +1,7 @@
 package app.geostrategy.sites
 
 import app.geostrategy.AppDeps
+import app.geostrategy.assessment.Assessment
 import app.geostrategy.assessment.hostOf
 import app.geostrategy.assessment.normalizeUrl
 import app.geostrategy.auth.requireUser
@@ -17,10 +18,24 @@ import org.bson.types.ObjectId
 import java.time.Instant
 
 @Serializable data class CreateSiteRequest(val url: String)
-@Serializable data class SiteDto(val id: String, val domain: String, val url: String, val platform: String?, val latestScores: Scores?, val readOnly: Boolean)
+@Serializable data class LatestAssessmentDto(val id: String, val status: String, val createdAt: String, val completedAt: String?)
+@Serializable data class SiteDto(
+    val id: String,
+    val domain: String,
+    val url: String,
+    val platform: String?,
+    val latestScores: Scores?,
+    val readOnly: Boolean,
+    val latestAssessment: LatestAssessmentDto?,
+    val latestReadyAssessmentId: String?,
+)
 @Serializable data class SiteListResponse(val sites: List<SiteDto>)
 
-fun Site.toDto(readOnly: Boolean) = SiteDto(id.toHexString(), domain, url, platform, latestScores, readOnly)
+fun Site.toDto(readOnly: Boolean, latest: Assessment? = null, latestReady: Assessment? = null) = SiteDto(
+    id = id.toHexString(), domain = domain, url = url, platform = platform, latestScores = latestScores, readOnly = readOnly,
+    latestAssessment = latest?.let { LatestAssessmentDto(it.id.toHexString(), it.status, it.createdAt.toString(), it.completedAt?.toString()) },
+    latestReadyAssessmentId = latestReady?.id?.toHexString(),
+)
 
 fun allowedSiteIds(sites: List<Site>, max: Int): Set<ObjectId> =
     sites.sortedWith(compareBy({ it.createdAt }, { it.id })).take(max).map { it.id }.toSet()
@@ -53,6 +68,13 @@ fun Route.siteRoutes(deps: AppDeps) {
         val user = call.requireUser(deps)
         val sites = deps.sites.listFor(user.id)
         val allowed = allowedSiteIds(sites, deps.config.tierLimits.maxSitesFor(user.tier))
-        call.respond(SiteListResponse(sites.map { it.toDto(readOnly = it.id !in allowed) }))
+        val dtos = sites.map { site ->
+            site.toDto(
+                readOnly = site.id !in allowed,
+                latest = deps.assessments.latestFor(site.id),
+                latestReady = deps.assessments.latestReadyFor(site.id),
+            )
+        }
+        call.respond(SiteListResponse(dtos))
     }
 }

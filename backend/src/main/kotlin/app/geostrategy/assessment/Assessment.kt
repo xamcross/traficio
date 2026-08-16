@@ -45,6 +45,7 @@ val TERMINAL_STATUSES = setOf("ready", "failed")
 
 open class AssessmentRepository(db: MongoDatabase) {
     private val col = db.getCollection<Assessment>("assessments")
+    private val newestFirst = Sorts.orderBy(Sorts.descending("createdAt"), Sorts.descending("_id"))
 
     open suspend fun insert(a: Assessment): Assessment { col.insertOne(a); return a }
 
@@ -56,6 +57,12 @@ open class AssessmentRepository(db: MongoDatabase) {
 
     suspend fun listFor(siteId: ObjectId): List<Assessment> =
         col.find(eq("siteId", siteId)).sort(Sorts.descending("createdAt")).toList()
+
+    suspend fun latestFor(siteId: ObjectId): Assessment? =
+        col.find(eq("siteId", siteId)).sort(newestFirst).firstOrNull()
+
+    suspend fun latestReadyFor(siteId: ObjectId): Assessment? =
+        col.find(and(eq("siteId", siteId), eq("status", "ready"))).sort(newestFirst).firstOrNull()
 
     suspend fun countNonFailedForUserSince(userId: ObjectId, since: Instant): Long =
         col.countDocuments(and(eq("userId", userId), ne("status", "failed"), gte("createdAt", since)))
