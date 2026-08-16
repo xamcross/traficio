@@ -157,8 +157,8 @@ with mocks and canned clients.
       limits and the "Manage subscription" link.
 - [ ] 9.6 **Downgrade path.** Cancel or refund the sandbox purchase. Confirm the
       account returns to Free and extra sites become read-only.
-- [ ] 9.7 **Session across subdomains** (Option B only): log in on `app.` and
-      confirm API calls to `api.` carry the session (no 401s).
+- [ ] 9.7 **Session across subdomains.** Log in on `app.<your-domain>`. Confirm the
+      API calls to `api.<your-domain>` carry the session (no 401s).
 
 ## 10. Prompt quality check (from the spec, manual)
 
