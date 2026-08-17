@@ -1,7 +1,7 @@
 # Fly.io configuration for the GeoStrategy API.
 # See docs/2026-08-16-platform-config-playbook.md §2.2 for the reasons behind each value.
 app = "geostrategy-api"
-primary_region = "waw"  # closest Atlas M0 region is Frankfurt (eu-central-1)
+primary_region = "fra"  # closest to an Atlas M0 in Frankfurt (eu-central-1)
 
 [build]
   dockerfile = "Dockerfile"

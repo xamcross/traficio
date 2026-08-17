@@ -1,3 +1,7 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
 /404
   X-Robots-Tag: noindex
 /404.html

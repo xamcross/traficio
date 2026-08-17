@@ -43,7 +43,9 @@ The Pages project is a **direct-upload** project. Do these steps once, by hand.
   comment at the top of the file before you change it.
 - `404.html` — the real 404 page. Without it, every bad URL answers 200 with the
   app shell (a soft 404).
-- `_headers` — `X-Robots-Tag: noindex` for the 404 page.
+- `_headers` — security headers for every path (no framing, no MIME sniffing, a strict
+  referrer policy) and `X-Robots-Tag: noindex` for the literal `/404` path. The `404.html`
+  page carries its own `noindex` meta tag for every bad URL.
 - `robots.txt` — allows the public pages, blocks the app routes.
 
 ### Test a change to `_redirects`

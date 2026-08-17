@@ -46,7 +46,7 @@
 
 ## Facts about the environment (verified 2026-08-16)
 
-- Remote: `https://github.com/xamcross/traficio.git`. The repository is **empty** and **public**. Nothing secret is in the code (scan done). The `.superpowers/sdd/` review artifacts will become public with the first push.
+- Remote: `https://github.com/xamcross/traficio.git`. The repository is **public**. It was empty on 2026-08-16 morning; another session pushed `master` the same day, so the default branch is `master`. Nothing secret is in the code (scan done). The `.superpowers/sdd/` review artifacts will become public with the first push.
 - Local branch is `master`. No `main` exists yet. `ci.yml` triggers on `main`. Rename before the first push: `git branch -m master main` in the main checkout, then `git push -u origin main`.
 - Baseline in the worktree: frontend 78 unit tests pass, backend 117 tests pass.
 - Local tools: Node 24.13.0, npm 11.6.2, JDK 24 on `PATH` (Gradle uses the toolchain JDK 21), Docker Desktop 29.5.3, `flyctl` 0.4.79, `wrangler` 4.95.0 (`npx`), `gh` 2.92.0.

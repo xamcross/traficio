@@ -42,7 +42,7 @@ Do these steps once, by hand, before the first CI deploy.
    secrets.
 3. Run `fly deploy` once by hand.
 4. Run `fly certs add api.<domain>`. In Cloudflare DNS add a CNAME `api` →
-   `geostrategy-api.fly.dev` (proxied).
+   `<fly-app-name>.fly.dev` (proxied).
 5. Check `https://api.<domain>/healthz`. It must return `ok`.
 6. Google Cloud Console: add `https://api.<domain>/v1/auth/google/callback` as an
    authorized redirect URI.
@@ -50,9 +50,11 @@ Do these steps once, by hand, before the first CI deploy.
    access `0.0.0.0/0` is the pragmatic M0 choice; the credential is the gate.
 
 The machine is always on (`min_machines_running = 1`). Reason: the job worker and
-the billing revalidator run in-process. The cost is about USD 3 per month.
+the billing revalidator run in-process. The cost is a few US dollars per month.
+Check the current Fly.io price list.
 The JVM heap cap is 300 MB on a 512 MB machine. Raise both together if the
 crawler needs more memory.
+If `fly logs` shows an out-of-memory kill, set `memory = "1gb"` in `fly.toml`.
 
 ## Assessment engine
 

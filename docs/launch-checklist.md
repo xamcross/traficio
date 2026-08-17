@@ -40,16 +40,21 @@ Do these first. Later steps need their credentials.
 
 ## 3. Push the repository and set the CI secrets
 
-- [ ] 3.1 Push the current `master`: `git push origin master`. The repository is
-      public and already holds `master`. Confirm that no secret is in the tree
-      before you push (`git grep -n -i 'sk-ant-'` must be empty).
+- [ ] 3.1 Push the current `master`: `git push origin master`. Confirm the default
+      branch is `master`: GitHub → Settings → General → Default branch. The
+      repository is public and already holds `master`. Confirm that no secret is
+      in the tree before you push
+      (`git grep -n -i -E 'sk-ant-|re_[A-Za-z0-9]{20,}|mongodb\+srv://|GOCSPX-'`
+      must be empty).
 - [ ] 3.2 In GitHub → Settings → Secrets and variables → Actions, add:
       `FLY_API_TOKEN` (from `fly tokens create deploy -x 999999h`),
       `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` (scope: the account, `Pages:Edit` only).
 - [ ] 3.3 The workflow `.github/workflows/ci.yml` runs on each push to `master`. It
       deploys the backend and the frontend after the tests pass. Do steps 4 and 8
       by hand first. That creates the Fly app and the Pages project that CI
-      needs.
+      needs. The first run's two deploy jobs fail until steps 4 and 8 are done.
+      That is expected. After steps 4 and 8, start the workflow once by hand
+      (Actions → CI → Run workflow).
 
 ## 4. Deploy the backend to Fly.io
 
@@ -79,18 +84,23 @@ Work from the `backend/` directory.
       Do not set `COOKIE_DOMAIN`. The cookie is host-only on `api.<your-domain>`, and
       that is enough. If you set it, use `<your-domain>` with no leading dot.
       The machine is always on (`min_machines_running = 1` in `fly.toml`) because the
-      job worker runs in-process. Expect about USD 3 per month.
+      job worker runs in-process. Expect a few US dollars per month. Check the
+      current Fly.io price list.
 - [ ] 4.3 Run `fly deploy`.
-- [ ] 4.4 Run `fly certs add api.<your-domain>`.
+- [ ] 4.4 Run `fly certs add api.<your-domain>`. Then run `fly certs show
+      api.<your-domain>`. Add the `_acme-challenge` CNAME that it prints to
+      Cloudflare DNS. Set that record to DNS only. Wait for the status `Ready`.
 - [ ] 4.5 Check `https://<fly-app-name>.fly.dev/healthz`. It must return `ok`. The
       first boot can take more than a minute. A failed health check does not stop
       the machine. It only delays the healthy state.
 
 ## 5. Configure Cloudflare DNS and protection
 
-- [ ] 5.1 Add a CNAME record: `api` → `<fly-app-name>.fly.dev`. Set it to proxied.
-- [ ] 5.2 Check `https://api.<your-domain>/healthz`. It must return `ok`.
-- [ ] 5.3 Add WAF rate-limiting rules for `api.<your-domain>`. Cover at minimum:
+- [ ] 5.1 Set the SSL/TLS encryption mode of the zone to **Full (strict)**. Do this
+      before you proxy any record.
+- [ ] 5.2 Add a CNAME record: `api` → `<fly-app-name>.fly.dev`. Set it to proxied.
+- [ ] 5.3 Check `https://api.<your-domain>/healthz`. It must return `ok`.
+- [ ] 5.4 Add WAF rate-limiting rules for `api.<your-domain>`. Cover at minimum:
       `POST /v1/auth/*` and `POST /v1/sites/*/assessments`. These endpoints are
       the abuse targets.
 
@@ -132,8 +142,13 @@ Work from the `backend/` directory.
       `npm run build`
       `npx wrangler pages deploy dist/frontend/browser --project-name=geostrategy --branch=master`
       After this, CI deploys on each merge to `master`.
-- [ ] 8.6 Add the custom domain `app.<your-domain>` to the Pages project.
-- [ ] 8.7 Open `https://app.<your-domain>`. Confirm: the landing page loads; a hard
+- [ ] 8.6 Add the custom domain `app.<your-domain>` to the Pages project. Add a
+      Cloudflare redirect rule: `<your-domain>/*` → `https://app.<your-domain>/$1`
+      (301), so the bare domain reaches the app.
+- [ ] 8.7 (optional) Deploy a preview first and test the `_redirects` rows in a
+      real browser. See `frontend/README.md`, section "Test a change to
+      `_redirects`".
+- [ ] 8.8 Open `https://app.<your-domain>`. Confirm: the landing page loads; a hard
       navigation to `/login` shows the login page; `/dashboard/` (trailing slash) shows
       the app; `/no-such-page` shows the 404 page with status 404.
 
@@ -152,7 +167,8 @@ with mocks and canned clients.
       crawl completes, both Claude calls stream and finish, scores and a plan
       appear, and the recorded cost on the assessment document is plausible
       (~$0.30–0.75). This is the first real test of the streaming client with
-      structured outputs.
+      structured outputs. Open the progress page in the browser. Confirm the
+      live updates arrive through the Cloudflare proxy.
 - [ ] 9.5 **Checkout in sandbox.** Put Freemius in sandbox mode. Buy Pro from the
       pricing page. Confirm: the overlay opens with your email pre-filled, the
       webhook upgrades the account to Pro, and the account page shows the Pro

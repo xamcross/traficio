@@ -119,7 +119,8 @@ jobs:
           && needs.frontend.result == 'success'
           && (needs.backend.result == 'success' || needs.backend.result == 'skipped') }}
     runs-on: ubuntu-latest
-    # Own group, never cancel: a backend deploy must not cancel a pending frontend deploy.
+    # Own group. cancel-in-progress is false, so a run in progress always finishes.
+    # A newer queued run can still replace an older pending run in the same group.
     concurrency:
       group: deploy-frontend
       cancel-in-progress: false
@@ -129,6 +130,12 @@ jobs:
         with:
           name: frontend-dist
           path: frontend-dist
+      - name: Reject a placeholder API origin
+        run: |
+          if grep -rq 'REPLACE_ME_DOMAIN' frontend-dist; then
+            echo "frontend-dist still contains REPLACE_ME_DOMAIN. Set the domain in environment.production.ts."
+            exit 1
+          fi
       - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
