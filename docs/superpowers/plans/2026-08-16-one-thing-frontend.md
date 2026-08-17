@@ -2086,7 +2086,7 @@ describe('NextTaskView', () => {
     expect(text).toContain('Skip for now');
     expect(text).toContain('THEN');
     expect(text).toContain('Write the one page that answers what people ask');
-    expect(text).toContain('3 more');
+    expect(text).toContain('2 more');   // 6 open tasks - the current one - 3 shown
   });
 
   it('skip shows the following task and emits done with the task id', async () => {
@@ -3395,7 +3395,7 @@ In `account.spec.ts`: `FakeApiClient` gains `listSitesResult: Promise<SiteDto[]>
     await fixture.whenStable();
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('You are on Pro');
+    expect(text).toContain('YOU ARE ON PRO');
     expect(text).toContain('Manage subscription');
     expect(text).not.toContain('Unlock my plan');
     expect(text).toContain('3 of 10');
