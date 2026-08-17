@@ -1,53 +1,38 @@
-@if (error(); as e) {
-  <app-error-note [error]="e" />
-  <p><a routerLink="/dashboard">Back to my sites</a></p>
-} @else if (plan(); as p) {
-  <h1>Your plan</h1>
-
-  <div class="progress-bar">
-    <div class="progress-bar-fill" [style.width.%]="progressPercent()"></div>
-  </div>
-  <p class="progress-label">{{ progressLabel() }}</p>
-
-  @if (patchError(); as e) {
+<div class="page surface plan">
+  @if (error(); as e) {
     <app-error-note [error]="e" />
-  }
+    <p><a routerLink="/dashboard">Back to my sites</a></p>
+  } @else if (plan(); as p) {
+    <div class="row"><a class="muted small" [routerLink]="['/sites', p.siteId]">← Do this next</a></div>
+    <h1>Your plan</h1>
+    <div class="bar" role="img" [attr.aria-label]="progressLabel()"><div class="bar-fill tone-high" [style.width.%]="progressPercent()"></div></div>
+    <p class="muted small">{{ progressLabel() }}</p>
+    @if (patchError(); as e) {<app-error-note [error]="e" />}
 
-  <section class="tasks">
-    @for (task of p.tasks; track task.taskId) {
-      <article class="task">
-        <div class="task-header" (click)="toggleExpand(task.taskId)">
-          <h3>{{ task.title }}</h3>
-          <span class="chip category-chip">{{ task.category }}</span>
-          <span class="chip impact-chip impact-{{ task.impact }}">{{ task.impact }}</span>
-          <span class="effort">about {{ task.effortMinutes }} minutes</span>
-        </div>
-
-        <label class="status-toggle">
-          <input
-            type="checkbox"
-            [checked]="isChecked(task)"
-            [disabled]="task.status === 'verified' || busyTaskId() !== null"
-            (change)="toggleStatus(task, $event)"
-          />
-          {{ task.status === 'verified' ? 'Checked by us' : 'Done' }}
-        </label>
-
-        @if (expanded() === task.taskId) {
-          <div class="task-details">
-            <p class="why-it-matters">{{ task.whyItMatters }}</p>
-            <ol class="steps">
-              @for (step of task.steps; track $index) {
-                <li>{{ step }}</li>
-              }
-            </ol>
-            <h4>How you know it worked</h4>
-            <p class="done-check">{{ task.doneCheck }}</p>
+    <section>
+      @for (task of p.tasks; track task.taskId) {
+        <article class="task">
+          <div class="task-header">
+            <label class="row small">
+              <input type="checkbox" [checked]="isChecked(task)" [disabled]="task.status === 'verified' || busyTaskId() !== null" (change)="toggleStatus(task, $event)" />
+              {{ task.status === 'verified' ? 'Checked by us' : 'Done' }}
+            </label>
+            <button type="button" class="expand" [attr.aria-expanded]="expanded() === task.taskId" [attr.aria-controls]="'details-' + task.taskId" (click)="toggleExpand(task.taskId)">{{ task.title }}</button>
+            <span class="faint small">{{ areaName(task.category) }}</span>
+            <app-impact-badge [impact]="task.impact" />
+            <span class="faint small">{{ task.effortMinutes }} min</span>
           </div>
-        }
-      </article>
-    }
-  </section>
-} @else {
-  <p>Loading…</p>
-}
+          @if (expanded() === task.taskId) {
+            <div class="details" [id]="'details-' + task.taskId">
+              @if (task.whyItMatters) {<p>{{ task.whyItMatters }}</p>}
+              <ol class="steps">@for (step of task.steps ?? []; track $index) {<li>{{ step }}</li>}</ol>
+              @if (task.doneCheck) {<div class="note-box stack" style="gap:6px"><span class="eyebrow">HOW YOU KNOW IT WORKED</span><span>{{ task.doneCheck }}</span></div>}
+            </div>
+          }
+        </article>
+      }
+    </section>
+  } @else {
+    <p class="muted">Loading…</p>
+  }
+</div>

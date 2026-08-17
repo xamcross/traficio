@@ -1,27 +1,33 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { PlanDto, PlanTaskDto } from '../../core/api/types';
 import { ErrorNote } from '../../shared/error-note';
+import { ImpactBadge } from '../../shared/impact-badge';
+import { areaName, effortText } from '../../shared/copy';
 import { toApiError } from '../../shared/to-api-error';
+import { isUpgradeRequired, pricingUrlFor } from '../../shared/upgrade-redirect';
+import { openMinutes } from '../result/result-view';
 
 @Component({
   selector: 'app-plan',
-  imports: [RouterLink, ErrorNote],
+  imports: [RouterLink, ErrorNote, ImpactBadge],
   templateUrl: './plan.html',
   styles: `
-    .task-header { cursor: pointer; }
-    .chip { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.85rem; margin-right: 0.4rem; }
-    .impact-high { background: #fdecea; color: #b3261e; }
-    .impact-medium { background: #fff4e0; color: #8a5a00; }
-    .impact-low { background: #e6f4ea; color: #1e7d34; }
-    .progress-bar { background: #eee; border-radius: 999px; height: 10px; overflow: hidden; }
-    .progress-bar-fill { background: #2f6feb; height: 100%; }
+    .plan { padding-top: 48px; display: flex; flex-direction: column; gap: 26px; }
+    .task { border-bottom: 1px solid var(--line); padding: 14px 0; }
+    .task-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .expand { background: none; border: none; padding: 0; text-align: left; font: inherit; color: var(--ink); font-weight: 600; cursor: pointer; flex: 1; }
+    .details { padding: 12px 0 0 32px; display: flex; flex-direction: column; gap: 12px; }
+    .steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; color: var(--ink); }
+    .small { font-size: 13px; }
   `,
 })
 export class Plan implements OnInit {
   private api = inject(ApiClient);
+  private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private destroyRef = inject(DestroyRef);
 
   protected readonly id = this.route.snapshot.paramMap.get('id')!;
   protected readonly plan = signal<PlanDto | null>(null);
@@ -29,27 +35,37 @@ export class Plan implements OnInit {
   protected readonly patchError = signal<ApiError | null>(null);
   protected readonly expanded = signal<string | null>(null);
   protected readonly busyTaskId = signal<string | null>(null);
+  protected readonly areaName = areaName;
 
   protected readonly progressPercent = computed(() => {
     const p = this.plan()?.progress;
     if (!p || p.total === 0) return 0;
     return (100 * (p.done + p.verified)) / p.total;
   });
-
   protected readonly progressLabel = computed(() => {
-    const p = this.plan()?.progress;
-    if (!p) return '';
-    return `You finished ${p.done + p.verified} of ${p.total} tasks.`;
+    const plan = this.plan();
+    if (!plan) return '';
+    const p = plan.progress;
+    return `${p.done + p.verified} of ${p.total} done · ${effortText(openMinutes(plan))} left`;
   });
 
+  /** Set once on destroy. Every async step checks this flag first, as in site-home.ts. */
+  private destroyed = false;
+
   ngOnInit(): void {
+    this.destroyRef.onDestroy(() => { this.destroyed = true; });
     void this.init();
   }
 
   private async init(): Promise<void> {
     try {
-      this.plan.set(await this.api.getPlanForAssessment(this.id));
+      const plan = await this.api.getPlanForAssessment(this.id);
+      if (this.destroyed) return;
+      if (plan.locked) { void this.router.navigateByUrl(pricingUrlFor(plan.siteId)); return; }
+      this.plan.set(plan);
     } catch (e) {
+      if (this.destroyed) return;
+      if (isUpgradeRequired(e)) { void this.router.navigateByUrl(pricingUrlFor(null)); return; }
       this.error.set(toApiError(e));
     }
   }
@@ -79,8 +95,12 @@ export class Plan implements OnInit {
     this.api
       .setTaskStatus(plan.id, task.taskId, nextStatus)
       .then(
-        (updated) => this.plan.set(updated),
+        (updated) => {
+          if (this.destroyed) return;
+          this.plan.set(updated);
+        },
         (e: unknown) => {
+          if (this.destroyed) return;
           this.patchError.set(toApiError(e));
           // The native checkbox already flipped from the user's click before this handler ran.
           // Angular's [checked] binding only rewrites the DOM when the bound value changes, and
@@ -88,6 +108,9 @@ export class Plan implements OnInit {
           checkboxEl.checked = this.isChecked(task);
         },
       )
-      .finally(() => this.busyTaskId.set(null));
+      .finally(() => {
+        if (this.destroyed) return;
+        this.busyTaskId.set(null);
+      });
   }
 }

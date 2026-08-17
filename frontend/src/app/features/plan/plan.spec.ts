@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { Location } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { Plan } from './plan';
@@ -78,13 +79,17 @@ describe('Plan', () => {
       imports: [Plan],
       providers: [
         { provide: ApiClient, useValue: api },
-        provideRouter([{ path: 'dashboard', component: BlankPage }]),
+        provideRouter([
+          { path: 'dashboard', component: BlankPage },
+          { path: 'pricing', component: BlankPage },
+          { path: 'sites/:siteId', component: BlankPage },
+        ]),
         { provide: ActivatedRoute, useValue: activatedRouteWithId('A1') },
       ],
     }).compileComponents();
   });
 
-  it('renders tasks in the served order with title, category chip, impact chip, and effort', async () => {
+  it('renders tasks in the served order with title, area name, impact badge, and minutes', async () => {
     api.getPlanForAssessmentResult = Promise.resolve(
       makePlan({
         tasks: [
@@ -104,15 +109,15 @@ describe('Plan', () => {
     expect(tasks.length).toBe(2);
     expect(tasks[0].textContent).toContain('First task');
     expect(tasks[0].textContent).toContain('Meta tags');
-    expect(tasks[0].textContent).toContain('high');
-    expect(tasks[0].textContent).toContain('about 15 minutes');
+    expect(tasks[0].textContent).toContain('HIGH');
+    expect(tasks[0].textContent).toContain('15 min');
     expect(tasks[1].textContent).toContain('Second task');
     expect(tasks[1].textContent).toContain('Structured data');
-    expect(tasks[1].textContent).toContain('low');
-    expect(tasks[1].textContent).toContain('about 5 minutes');
+    expect(tasks[1].textContent).toContain('LOW');
+    expect(tasks[1].textContent).toContain('5 min');
   });
 
-  it('expands a task on click to show whyItMatters, numbered steps, and doneCheck under "How you know it worked"', async () => {
+  it('expands a task on click to show whyItMatters, numbered steps, and doneCheck under "HOW YOU KNOW IT WORKED"', async () => {
     api.getPlanForAssessmentResult = Promise.resolve(
       makePlan({
         tasks: [
@@ -134,24 +139,32 @@ describe('Plan', () => {
 
     expect(compiled.textContent).not.toContain('This matters a lot.');
 
-    compiled.querySelector<HTMLElement>('.task-header')!.click();
+    compiled.querySelector<HTMLButtonElement>('button.expand')!.click();
     fixture.detectChanges();
 
     const text = compiled.textContent ?? '';
     expect(text).toContain('This matters a lot.');
     expect(text).toContain('Do the first thing.');
     expect(text).toContain('Do the second thing.');
-    expect(text).toContain('How you know it worked');
+    expect(text).toContain('HOW YOU KNOW IT WORKED');
     expect(text).toContain('Check it worked like this.');
-    expect(text.indexOf('How you know it worked')).toBeLessThan(text.indexOf('Check it worked like this.'));
+    expect(text.indexOf('HOW YOU KNOW IT WORKED')).toBeLessThan(text.indexOf('Check it worked like this.'));
   });
 
   it("checking a task's checkbox PATCHes done and replaces the plan; the progress bar reflects the response", async () => {
     api.getPlanForAssessmentResult = Promise.resolve(
-      makePlan({ id: 'p1', tasks: [makeTask({ taskId: 't1', status: 'todo' })], progress: { done: 0, verified: 0, total: 1 } }),
+      makePlan({
+        id: 'p1',
+        tasks: [makeTask({ taskId: 't1', status: 'todo' }), makeTask({ taskId: 't2', status: 'todo' })],
+        progress: { done: 0, verified: 0, total: 2 },
+      }),
     );
     api.setTaskStatusResult = Promise.resolve(
-      makePlan({ id: 'p1', tasks: [makeTask({ taskId: 't1', status: 'done' })], progress: { done: 1, verified: 0, total: 1 } }),
+      makePlan({
+        id: 'p1',
+        tasks: [makeTask({ taskId: 't1', status: 'done' }), makeTask({ taskId: 't2', status: 'todo' })],
+        progress: { done: 1, verified: 0, total: 2 },
+      }),
     );
     const fixture = TestBed.createComponent(Plan);
     fixture.detectChanges();
@@ -166,7 +179,7 @@ describe('Plan', () => {
     fixture.detectChanges();
 
     expect(api.setTaskStatusCalls).toEqual([['p1', 't1', 'done']]);
-    expect(compiled.textContent).toContain('You finished 1 of 1 tasks.');
+    expect(compiled.textContent).toContain('1 of 2 done');
   });
 
   it('renders a disabled checkbox labeled "Checked by us" for a verified task, and it cannot be toggled', async () => {
@@ -182,7 +195,7 @@ describe('Plan', () => {
     const checkbox = compiled.querySelector<HTMLInputElement>('input[type=checkbox]')!;
     expect(checkbox.disabled).toBeTrue();
     expect(checkbox.checked).toBeTrue();
-    expect(compiled.querySelector('.status-toggle')?.textContent).toContain('Checked by us');
+    expect(compiled.querySelector('.task-header label')?.textContent).toContain('Checked by us');
 
     checkbox.dispatchEvent(new Event('change'));
     await fixture.whenStable();
@@ -317,7 +330,29 @@ describe('Plan', () => {
     fixture.detectChanges();
 
     expect(compiled.querySelector('.error-note')?.textContent).toContain('We could not reach the server.');
-    expect(compiled.textContent).toContain('You finished 0 of 1 tasks.');
+    expect(compiled.textContent).toContain('0 of 1 done');
     expect((compiled.querySelector('input[type=checkbox]') as HTMLInputElement).checked).toBeFalse();
+  });
+
+  it('redirects a locked plan to the pricing gate for its site', async () => {
+    api.getPlanForAssessmentResult = Promise.resolve(makePlan({ locked: true, siteId: 'S1' }));
+    const fixture = TestBed.createComponent(Plan);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(TestBed.inject(Location).path()).toBe('/pricing?site=S1');
+  });
+
+  it('expands a task with a keyboard-reachable button and shows the steps', async () => {
+    const fixture = TestBed.createComponent(Plan);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const toggle = el.querySelector<HTMLButtonElement>('button[aria-expanded]')!;
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    toggle.click();
+    fixture.detectChanges();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(el.textContent).toContain('HOW YOU KNOW IT WORKED');
   });
 });
