@@ -1,40 +1,68 @@
-@if (loading()) {
-  <p>Loading your account…</p>
-} @else if (error(); as e) {
-  <app-error-note [error]="e" />
-} @else {
-  <section class="account-summary">
-    <p class="email">{{ store.user()?.email }}</p>
-    <span class="chip">{{ store.user()?.tier === 'pro' ? 'Pro plan' : 'Free plan' }}</span>
+<div class="page surface account">
+  @if (loading()) {<p class="muted">Loading your account…</p>}
+  @else if (error(); as e) {<app-error-note [error]="e" />}
+  @else {
+    <div class="two-col">
+      <div class="stack col">
+        <div class="stack" style="gap:10px"><h1>Your account</h1><span class="muted">{{ store.user()?.email }}</span></div>
 
-    @if (store.user()?.emailVerified === false) {
-      <div class="confirm-email-note" role="alert">
-        <p>Confirm your email to unlock all features.</p>
-        <button type="button" (click)="resend()" [disabled]="resendBusy()">Send the email again</button>
-        @if (resent()) {
-          <p>Sent. Check your inbox.</p>
+        @if (store.user()?.emailVerified === false) {
+          <div class="card row" role="alert" style="padding:24px 28px">
+            <div class="stack" style="gap:6px"><strong>Confirm your email address</strong><span class="muted">We sent a link to {{ store.user()?.email }}. Until you click it we cannot run checks for you.</span></div>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-outline" (click)="resend()" [disabled]="resendBusy()">Send it again</button>
+          </div>
+          @if (resent()) {<p class="muted small">Sent. Check your inbox.</p>}
+          @if (resendError(); as e) {<app-error-note [error]="e" />}
         }
-        @if (resendError(); as e) {
-          <app-error-note [error]="e" />
+
+        @if (usage(); as u) {
+          <section class="stack">
+            <span class="eyebrow">THIS MONTH</span>
+            <div class="stack meter">
+              <div class="row"><span>Checks used</span><span class="spacer"></span><strong>{{ u.assessmentsUsed }} of {{ u.assessmentsLimit }}</strong></div>
+              <div class="bar" role="img" [attr.aria-label]="'Checks used ' + u.assessmentsUsed + ' of ' + u.assessmentsLimit"><div class="bar-fill tone-low" [style.width.%]="pct(u.assessmentsUsed, u.assessmentsLimit)"></div></div>
+              @if (nextCheck(u); as n) {<span class="muted small">{{ n }}</span>}
+            </div>
+            <div class="stack meter">
+              <div class="row"><span>Sites</span><span class="spacer"></span><strong>{{ u.sitesUsed }} of {{ u.sitesLimit }}</strong></div>
+              <div class="bar" role="img" [attr.aria-label]="'Sites ' + u.sitesUsed + ' of ' + u.sitesLimit"><div class="bar-fill tone-low" [style.width.%]="pct(u.sitesUsed, u.sitesLimit)"></div></div>
+            </div>
+          </section>
         }
+
+        <section class="stack divider" style="padding-top:26px">
+          <span class="eyebrow">{{ sites().length === 1 ? 'YOUR SITE' : 'YOUR SITES' }}</span>
+          @for (site of sites(); track site.id) {
+            <a class="site-card" [routerLink]="['/sites', site.id]">
+              <div class="stack" style="flex:1; gap:4px"><strong>{{ site.domain }}</strong><span class="faint small">{{ lastChecked(site) }}</span></div>
+              @if (site.latestScores; as s) {<span class="price" style="font-size:20px">{{ s.overall }}</span>}
+            </a>
+          }
+          @if (store.user()?.tier !== 'pro' && proSitesLeft() > 0) {<span class="faint small">Pro lets you add {{ word(proSitesLeft()) }} more sites.</span>}
+        </section>
+
+        <div class="row divider" style="padding-top:26px"><button type="button" class="btn btn-text" (click)="logout()">Log out</button></div>
       </div>
-    }
 
-    @if (usage(); as u) {
-      <section class="meters">
-        <p>Checks this month: {{ u.assessmentsUsed }} of {{ u.assessmentsLimit }}</p>
-        <progress [value]="u.assessmentsUsed" [max]="u.assessmentsLimit"></progress>
-        <p>Sites: {{ u.sitesUsed }} of {{ u.sitesLimit }}</p>
-        <progress [value]="u.sitesUsed" [max]="u.sitesLimit"></progress>
-      </section>
-    }
-
-    @if (store.user()?.tier === 'pro') {
-      <a [href]="portalUrl" target="_blank" rel="noopener">Manage subscription</a>
-    } @else {
-      <a routerLink="/pricing">Upgrade</a>
-    }
-
-    <button type="button" (click)="logout()">Log out</button>
-  </section>
-}
+      @if (store.user()?.tier === 'pro') {
+        <aside class="card side pro stack">
+          <span class="eyebrow">YOU ARE ON PRO</span>
+          <p class="muted">Manage your payment method, invoices, and cancellation in the customer portal.</p>
+          <a class="btn btn-outline" [href]="portalUrl" target="_blank" rel="noopener">Manage subscription</a>
+        </aside>
+      } @else {
+        <aside class="card side stack">
+          <span class="eyebrow tone-low">{{ hasReadyCheck() ? 'YOUR PLAN IS WAITING' : 'PRO' }}</span>
+          <div class="row" style="align-items:baseline; gap:7px"><span class="price">{{ price }}</span><span class="muted">a month</span></div>
+          <p class="muted">{{ hasReadyCheck() ? 'Tasks written for your site, with the steps to do each one and a check that confirms it worked.' : 'The step-by-step plan for your site, with the steps to do each one and a check that confirms it worked.' }}</p>
+          <ul class="features stack" style="list-style:none; margin:0; padding:0; gap:11px">
+            <li>✓ The full step-by-step plan</li><li>✓ We confirm your fixes for you</li><li>✓ {{ proSites }} sites, {{ proChecks }} checks a month</li><li>✓ Score history</li>
+          </ul>
+          <button type="button" class="btn btn-primary" (click)="unlock()">Unlock my plan</button>
+          <span class="faint small" style="text-align:center">Cancel any time. Your score stays free.</span>
+        </aside>
+      }
+    </div>
+  }
+</div>

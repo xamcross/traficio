@@ -4,9 +4,8 @@ import { Location } from '@angular/common';
 import { provideRouter } from '@angular/router';
 import { Account } from './account';
 import { ApiClient, ApiError } from '../../core/api/api-client';
-import { UsageDto, UserDto } from '../../core/api/types';
+import { SiteDto, UsageDto, UserDto } from '../../core/api/types';
 import { UserStore } from '../../core/auth/user-store';
-import { FREEMIUS_PORTAL_URL } from '../../core/config';
 
 /** No-op routed targets so provideRouter() has something real to navigate to. */
 @Component({ selector: 'account-spec-blank', template: '' })
@@ -27,6 +26,7 @@ function makeUsage(overrides: Partial<UsageDto> = {}): UsageDto {
 /** Hand-rolled fake with controllable, per-call-configurable promises. No jasmine.createSpy. */
 class FakeApiClient {
   usageResult: Promise<UsageDto> = Promise.resolve(makeUsage());
+  listSitesResult: Promise<SiteDto[]> = Promise.resolve([]);
   resendVerificationResult: Promise<unknown> = Promise.resolve(undefined);
   logoutResult: Promise<unknown> = Promise.resolve(undefined);
 
@@ -35,6 +35,9 @@ class FakeApiClient {
 
   usage(): Promise<UsageDto> {
     return this.usageResult;
+  }
+  listSites(): Promise<SiteDto[]> {
+    return this.listSitesResult;
   }
   resendVerification(): Promise<unknown> {
     this.resendVerificationCalls++;
@@ -66,34 +69,43 @@ describe('Account', () => {
     }).compileComponents();
   });
 
-  it('renders email, tier chip, and the two usage meters', async () => {
-    api.usageResult = Promise.resolve(makeUsage({ assessmentsUsed: 1, assessmentsLimit: 10, sitesUsed: 2, sitesLimit: 5 }));
-    const fixture = TestBed.createComponent(Account);
+  it('free at the limit: meters, next check date, site card, upgrade card', async () => {
     const store = TestBed.inject(UserStore);
-    store.user.set(makeUser({ email: 'ada@example.com', tier: 'free' }));
-    store.loaded.set(true);
+    store.user.set(makeUser({ email: 'dana@rivertonbakery.com', tier: 'free' }));
+    api.usageResult = Promise.resolve({ assessmentsUsed: 1, assessmentsLimit: 1, sitesUsed: 1, sitesLimit: 1, nextCheckAt: '2026-09-01T10:00:00Z' });
+    api.listSitesResult = Promise.resolve([{ id: 'S1', domain: 'rivertonbakery.com', url: 'https://rivertonbakery.com', platform: 'wordpress', latestScores: { seo: 62, aeo: 34, geo: 28, overall: 41 }, readOnly: false, latestAssessment: { id: 'A1', status: 'ready', createdAt: '2026-07-28T09:00:00Z', completedAt: '2026-07-28T10:00:00Z' }, latestReadyAssessmentId: 'A1' }]);
+    const fixture = TestBed.createComponent(Account);
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-
-    expect(compiled.textContent).toContain('ada@example.com');
-    expect(compiled.textContent).toContain('Free plan');
-    expect(compiled.textContent).toContain('Checks this month: 1 of 10');
-    expect(compiled.textContent).toContain('Sites: 2 of 5');
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Your account');
+    expect(text).toContain('dana@rivertonbakery.com');
+    expect(text).toContain('Checks used');
+    expect(text).toContain('1 of 1');
+    expect(text).toContain('Your next free check is available on 1 September.');
+    expect(text).toContain('YOUR SITE');
+    expect(text).toContain('wordpress · last checked 28 July 2026');
+    expect(text).toContain('Pro lets you add four more sites.');
+    expect(text).toContain('YOUR PLAN IS WAITING');
+    expect(text).toContain('Unlock my plan');
+    expect(text).toContain('Log out');
+    expect(text).not.toContain('Delete my account');
   });
 
-  it('shows Pro plan for a pro user', async () => {
-    const fixture = TestBed.createComponent(Account);
+  it('pro: manage subscription card, no upgrade card', async () => {
     const store = TestBed.inject(UserStore);
     store.user.set(makeUser({ tier: 'pro' }));
-    store.loaded.set(true);
+    api.usageResult = Promise.resolve({ assessmentsUsed: 3, assessmentsLimit: 10, sitesUsed: 2, sitesLimit: 5, nextCheckAt: null });
+    const fixture = TestBed.createComponent(Account);
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-
-    expect(compiled.textContent).toContain('Pro plan');
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('YOU ARE ON PRO');
+    expect(text).toContain('Manage subscription');
+    expect(text).not.toContain('Unlock my plan');
+    expect(text).toContain('3 of 10');
   });
 
   it('shows a "Confirm your email" note with a resend button when emailVerified is false', async () => {
@@ -107,7 +119,7 @@ describe('Account', () => {
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(compiled.textContent).toContain('Confirm your email');
-    const resendButton = findButtonByText(compiled, 'Send the email again');
+    const resendButton = findButtonByText(compiled, 'Send it again');
     expect(resendButton).toBeTruthy();
 
     resendButton!.click();
@@ -129,7 +141,7 @@ describe('Account', () => {
     const compiled = fixture.nativeElement as HTMLElement;
 
     api.resendVerificationResult = Promise.reject(new ApiError('rate_limited', 'Too many requests. Try again later.', 429));
-    findButtonByText(compiled, 'Send the email again')!.click();
+    findButtonByText(compiled, 'Send it again')!.click();
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -149,7 +161,7 @@ describe('Account', () => {
 
     let resolveResend!: () => void;
     api.resendVerificationResult = new Promise((res) => (resolveResend = () => res(undefined)));
-    const resendButton = findButtonByText(compiled, 'Send the email again')!;
+    const resendButton = findButtonByText(compiled, 'Send it again')!;
     resendButton.click();
     fixture.detectChanges();
     expect(resendButton.disabled).toBeTrue();
@@ -160,38 +172,6 @@ describe('Account', () => {
     fixture.detectChanges();
 
     expect(api.resendVerificationCalls).toBe(1);
-  });
-
-  it('renders "Manage subscription" as an external link to the Freemius portal for pro users', async () => {
-    const fixture = TestBed.createComponent(Account);
-    const store = TestBed.inject(UserStore);
-    store.user.set(makeUser({ tier: 'pro' }));
-    store.loaded.set(true);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-
-    const link = Array.from(compiled.querySelectorAll('a')).find((a) => a.textContent?.includes('Manage subscription'));
-    expect(link).toBeTruthy();
-    expect(link!.getAttribute('href')).toBe(FREEMIUS_PORTAL_URL);
-    expect(link!.getAttribute('target')).toBe('_blank');
-    expect(link!.getAttribute('rel')).toBe('noopener');
-  });
-
-  it('renders an "Upgrade" link to /pricing for free users', async () => {
-    const fixture = TestBed.createComponent(Account);
-    const store = TestBed.inject(UserStore);
-    store.user.set(makeUser({ tier: 'free' }));
-    store.loaded.set(true);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-
-    const link = Array.from(compiled.querySelectorAll('a')).find((a) => a.getAttribute('href') === '/pricing');
-    expect(link).toBeTruthy();
-    expect(link!.textContent).toContain('Upgrade');
   });
 
   it('logs out: calls api.logout, clears the store, and navigates to /', async () => {
