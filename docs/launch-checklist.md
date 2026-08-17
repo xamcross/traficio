@@ -97,6 +97,9 @@ Work from the `backend/` directory.
 - [ ] 7.1 Edit `frontend/src/app/core/config.ts`:
       - Replace `REPLACE_ME_FREEMIUS_PRODUCT_ID` with the Freemius product id.
       - Replace `REPLACE_ME_FREEMIUS_PUBLIC_KEY` with the Freemius public key.
+- [ ] 7.1a In the Freemius dashboard, set the Pro price equal to `PRO_PRICE_LABEL` in
+      `frontend/src/app/core/config.ts` (default `$9` a month). Keep `FREE_TIER_COPY` and
+      `PRO_TIER_COPY` in the same file equal to the tier env values of step 3.2.
 - [ ] 7.2 Replace `REPLACE_ME_CONTACT_EMAIL` in
       `frontend/src/app/features/legal/terms.ts` and
       `frontend/src/app/features/legal/privacy.ts` with your contact address.

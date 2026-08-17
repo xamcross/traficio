@@ -44,6 +44,13 @@ Set these environment variables:
 - `FREE_MAX_SITES` (default 1), `FREE_ASSESSMENTS_PER_MONTH` (default 1),
   `PRO_MAX_SITES` (default 5), `PRO_ASSESSMENTS_PER_MONTH` (default 10) —
   the tier limits.
+- The plan is a Pro feature. `GET /v1/assessments/{id}/plan` and `GET /v1/sites/{id}/plan`
+  return a locked plan for a Free user: task titles, impact, effort, and step count, but no
+  steps, no "why it matters", and no done-check. `PATCH /v1/plans/{planId}/tasks/{taskId}`
+  answers 403 `upgrade_required` for a Free user.
+- The analysis returns `summary` and `scoreNotes` and can add up to two findings with
+  severity `good`. The pipeline gives no `good` finding to the plan call.
+- Every `scores` object in the API carries a derived `overall` (round half up of the mean).
 
 How an assessment runs:
 1. The user sends `POST /v1/sites/{id}/assessments`.
