@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiClient } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
@@ -103,6 +103,13 @@ export class Pricing implements OnInit {
   protected readonly phase = signal<Phase>('idle');
   protected readonly note = signal<string | null>(null);
   private siteId: string | null = null;
+  // The Freemius success callback can fire minutes later, after the visitor left the page.
+  // Guard every post-payment step so a stale callback cannot navigate a destroyed component.
+  private destroyed = false;
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => { this.destroyed = true; });
+  }
 
   ngOnInit(): void { void this.init(); }
 
@@ -145,13 +152,16 @@ export class Pricing implements OnInit {
   }
 
   private async afterPayment(): Promise<void> {
+    if (this.destroyed) return;
     this.phase.set('unlocking');
     const ok = await this.flow.awaitUpgrade();
+    if (this.destroyed) return;
     if (!ok) { this.phase.set('timeout'); return; }
     this.goToSite();
   }
 
   protected async refreshOnce(): Promise<void> {
+    if (this.destroyed) return;
     try {
       const me = await this.api.me();
       if (me.tier === 'pro') { this.store.user.set(me); this.goToSite(); }
@@ -161,6 +171,7 @@ export class Pricing implements OnInit {
   }
 
   private goToSite(): void {
+    if (this.destroyed) return;
     const target = this.gate()?.site.id ?? this.siteId;
     void this.router.navigateByUrl(target ? `/sites/${target}` : '/dashboard');
   }

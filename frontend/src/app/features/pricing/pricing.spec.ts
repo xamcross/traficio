@@ -7,6 +7,7 @@ import { UpgradeFlow } from './upgrade-flow';
 import { ApiClient } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
 import { PlanDto, SiteDto, UserDto } from '../../core/api/types';
+import { FREEMIUS_PORTAL_URL } from '../../core/config';
 
 @Component({ selector: 'pricing-spec-blank', template: '' })
 class BlankPage {}
@@ -46,10 +47,16 @@ class FakeApiClient {
 class FakeUpgradeFlow {
   openCheckoutCalls: string[] = [];
   succeed = true;
+  failMessage = 'not_connected';
   upgraded = true;
+  // When true, openCheckout stores the success callback instead of invoking it, so a test can
+  // fire it later, after the component under test may already be destroyed.
+  captureSuccess = false;
+  capturedOnSuccess: (() => void) | null = null;
   async openCheckout(email: string, onSuccess: () => void): Promise<void> {
     this.openCheckoutCalls.push(email);
-    if (!this.succeed) throw new Error('not_connected');
+    if (!this.succeed) throw new Error(this.failMessage);
+    if (this.captureSuccess) { this.capturedOnSuccess = onSuccess; return; }
     onSuccess();
   }
   async awaitUpgrade(): Promise<boolean> { return this.upgraded; }
@@ -129,5 +136,50 @@ describe('Pricing', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(el.textContent).toContain('Your payment went through. Your plan unlocks in a minute. Refresh this page.');
+  });
+
+  it('does not navigate when the success callback fires after the component was destroyed', async () => {
+    const { el, flow, fixture } = await setup({ site: 'S1' }, freeUser);
+    flow.captureSuccess = true;
+    button(el, 'Unlock my plan').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const onSuccess = flow.capturedOnSuccess!;
+    fixture.destroy();
+    onSuccess();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(TestBed.inject(Location).path()).not.toBe('/sites/S1');
+  });
+
+  it('shows the generic checkout-failed note and re-enables the button on an unrecognised error', async () => {
+    const { el, flow, fixture } = await setup({ site: 'S1' }, freeUser);
+    flow.succeed = false;
+    flow.failMessage = 'boom';
+    button(el, 'Unlock my plan').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el.textContent).toContain('Checkout did not open. Please try again.');
+    expect(button(el, 'Unlock my plan').disabled).toBeFalse();
+  });
+
+  it('shows the manage-subscription link for a Pro user and hides Unlock my plan', async () => {
+    const proUser: UserDto = { id: 'u2', email: 'pro@rivertonbakery.com', emailVerified: true, tier: 'pro' };
+    const { el } = await setup({}, proUser);
+    const link = Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Manage subscription')) as HTMLAnchorElement | undefined;
+    expect(link).toBeTruthy();
+    expect(link!.getAttribute('href')).toBe(FREEMIUS_PORTAL_URL);
+    expect(link!.getAttribute('target')).toBe('_blank');
+    expect(link!.getAttribute('rel')).toBe('noopener');
+    expect(el.textContent).toContain('You are on Pro.');
+    expect(el.textContent).not.toContain('Unlock my plan');
+  });
+
+  it('sends a signed-out visitor to signup instead of opening checkout', async () => {
+    const { el, flow, fixture } = await setup({}, null);
+    button(el, 'Unlock my plan').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(TestBed.inject(Location).path()).toBe('/signup');
+    expect(flow.openCheckoutCalls).toEqual([]);
   });
 });
