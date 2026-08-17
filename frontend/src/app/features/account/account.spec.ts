@@ -6,6 +6,7 @@ import { Account } from './account';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { SiteDto, UsageDto, UserDto } from '../../core/api/types';
 import { UserStore } from '../../core/auth/user-store';
+import { FREEMIUS_PORTAL_URL } from '../../core/config';
 
 /** No-op routed targets so provideRouter() has something real to navigate to. */
 @Component({ selector: 'account-spec-blank', template: '' })
@@ -101,11 +102,18 @@ describe('Account', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const compiled = fixture.nativeElement as HTMLElement;
+    const text = compiled.textContent ?? '';
     expect(text).toContain('YOU ARE ON PRO');
     expect(text).toContain('Manage subscription');
     expect(text).not.toContain('Unlock my plan');
     expect(text).toContain('3 of 10');
+
+    const link = Array.from(compiled.querySelectorAll('a')).find((a) => a.textContent?.includes('Manage subscription'));
+    expect(link).toBeTruthy();
+    expect(link!.getAttribute('href')).toBe(FREEMIUS_PORTAL_URL);
+    expect(link!.getAttribute('target')).toBe('_blank');
+    expect(link!.getAttribute('rel')).toBe('noopener');
   });
 
   it('shows a "Confirm your email" note with a resend button when emailVerified is false', async () => {
@@ -212,6 +220,29 @@ describe('Account', () => {
 
     expect(store.user()).toBeNull();
     expect(location.path()).toBe('');
+  });
+
+  it('always clears the session, even when the component is destroyed before logout resolves', async () => {
+    let resolveLogout!: () => void;
+    api.logoutResult = new Promise((res) => (resolveLogout = () => res(undefined)));
+    const fixture = TestBed.createComponent(Account);
+    const store = TestBed.inject(UserStore);
+    store.user.set(makeUser());
+    store.loaded.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    findButtonByText(compiled, 'Log out')!.click();
+    fixture.destroy(); // route left before the server call returns
+
+    expect(store.user()).not.toBeNull(); // api.logout() has not resolved yet
+
+    resolveLogout();
+    await fixture.whenStable();
+
+    expect(store.user()).toBeNull(); // the global session is dropped regardless
   });
 
   it('shows an error note when the initial usage load fails', async () => {

@@ -115,8 +115,9 @@ export class Account implements OnInit {
       // either got revoked already or will expire on its own; swallow the
       // failure so it doesn't surface as an unhandled rejection.
     } finally {
-      if (this.destroyed) return;
-      // The client must always drop its local state, even if the call failed.
+      // The client must always drop its local state, even if the call failed
+      // or the component was destroyed while the call was in flight — the
+      // store is global, not scoped to this component's lifetime.
       this.store.clear();
       await this.router.navigateByUrl('/');
     }
