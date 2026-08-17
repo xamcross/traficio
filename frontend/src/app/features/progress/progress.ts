@@ -5,21 +5,28 @@ import { AssessmentDto, AssessmentStatus } from '../../core/api/types';
 import { openAssessmentStream } from '../../core/sse/assessment-stream';
 import { UserStore } from '../../core/auth/user-store';
 import { ErrorNote } from '../../shared/error-note';
+import { toApiError } from '../../shared/to-api-error';
 
-const NARRATION: Record<AssessmentStatus, string> = {
-  queued: 'You are in line. We start in a moment…',
-  crawling: 'Reading your pages…',
-  analyzing: 'Checking your site for search engines and AI answers…',
-  planning: 'Writing your step-by-step plan…',
-  ready: 'Done! Your plan is ready.',
-  failed: 'We could not finish the check.',
+export const STEP_LABELS: Record<'queued' | 'crawling' | 'analyzing' | 'planning', { active: string; done: string }> = {
+  queued: { active: 'Finding your site', done: 'Found your site' },
+  crawling: { active: 'Reading your pages', done: 'Read your pages' },
+  analyzing: { active: 'Checking how findable you are', done: 'Checked how findable you are' },
+  planning: { active: 'Writing your plan', done: 'Wrote your plan' },
 };
 
 /** Simple 4-step rail; ready/failed are terminal outcomes shown separately, not rail steps. */
-const STEPS: AssessmentStatus[] = ['queued', 'crawling', 'analyzing', 'planning'];
+const STEPS: Array<keyof typeof STEP_LABELS> = ['queued', 'crawling', 'analyzing', 'planning'];
 
-/** errorCode values whose errorMessage is already beginner-written, backend-authoritative copy. */
-const QUOTA_CONSUMING_ERROR_CODES = new Set(['js_only_site', 'robots_blocked', 'site_unreachable']);
+export const FAILURE_HEADLINES: Record<string, string> = {
+  robots_blocked: 'Your site would not let us read it.',
+  js_only_site: 'Your site needs JavaScript to show its content.',
+  site_unreachable: 'We could not reach your site.',
+  invalid_url: 'We could not reach your site.',
+  assessment_failed: 'Something went wrong on our side.',
+};
+export function failureHeadline(code: string | null): string {
+  return (code && FAILURE_HEADLINES[code]) || 'We could not finish the check.';
+}
 
 const RETRY_DELAY_MS = 2000;
 const DONE_BEAT_MS = 1500;
@@ -34,27 +41,58 @@ function isTerminal(status: AssessmentStatus): boolean {
   selector: 'app-progress',
   imports: [RouterLink, ErrorNote],
   template: `
-    @if (failed(); as f) {
-      <div class="failure-panel">
-        <p role="alert">{{ failureMessage(f) }}</p>
-        @if (quotaConsumed(f)) {
-          <p>Your monthly check was not used.</p>
-        }
-        <p><a routerLink="/dashboard">Back to my sites</a></p>
-      </div>
-    } @else if (retriesExhausted()) {
-      <div class="failure-panel">
-        <app-error-note [error]="retryError()" />
-        <p><a routerLink="/dashboard">Back to my sites</a></p>
-      </div>
-    } @else {
-      <p class="narration">{{ narration() }}</p>
-      <ol class="progress-rail">
-        @for (step of steps; track step) {
-          <li [class.active]="stepDone(step)">{{ step }}</li>
-        }
-      </ol>
-    }
+    <div class="page surface progress">
+      @if (failed(); as f) {
+        <div class="stack failure">
+          <span class="eyebrow tone-low">WE COULD NOT FINISH</span>
+          <h1>{{ headline(f) }}</h1>
+          @if (f.errorMessage) {<p class="lead">{{ f.errorMessage }}</p>}
+          <div class="note-box stack tight">
+            <span class="eyebrow">GOOD NEWS</span>
+            <span>{{ isPro() ? 'This check did not count against your monthly checks.' : 'Your free check this month was not used.' }}</span>
+          </div>
+          <div class="row">
+            <button type="button" class="btn btn-primary" (click)="tryAgain(f)" [disabled]="retryBusy()">Try again</button>
+            <a class="btn btn-text" [routerLink]="['/sites', f.siteId]">Back to my site</a>
+          </div>
+          @if (retryError(); as e) {<app-error-note [error]="e" />}
+        </div>
+      } @else if (retriesExhausted()) {
+        <div class="stack">
+          <app-error-note [error]="retryError()" />
+          <p><a routerLink="/dashboard">Back to my sites</a></p>
+        </div>
+      } @else {
+        <div class="stack">
+          <h1>{{ headlineActive() }}</h1>
+          <p class="lead muted">You can close this tab. We will email you when your result is ready.</p>
+        </div>
+        <ol class="rail">
+          @for (step of steps; track step) {
+            <li [class.done]="isDone(step)" [class.active]="isActive(step)">
+              <span class="dot" aria-hidden="true">{{ isDone(step) ? '✓' : '' }}</span>
+              <span class="label">{{ isDone(step) ? labels[step].done : labels[step].active }}</span>
+            </li>
+          }
+        </ol>
+        <span class="mono faint small">QUEUED → CRAWLING → ANALYZING → PLANNING</span>
+      }
+    </div>
+  `,
+  styles: `
+    .progress { max-width: 620px; padding-top: 56px; display: flex; flex-direction: column; gap: 38px; }
+    h1 { font-size: 29px; letter-spacing: -0.025em; }
+    .lead { font-size: 16px; line-height: 1.6; max-width: 44ch; }
+    .rail { list-style: none; margin: 0; padding: 0; }
+    .rail li { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); color: var(--faint-2); }
+    .rail li:last-child { border-bottom: none; }
+    .rail li.active { color: var(--ink); font-weight: 600; }
+    .rail li.done { color: var(--ink); }
+    .dot { width: 22px; height: 22px; border-radius: 999px; border: 2px solid #e6d6be; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+    .active .dot { border-color: var(--accent); }
+    .done .dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .tight { gap: 6px; }
+    .small { font-size: 13px; }
   `,
 })
 export class Progress implements OnInit {
@@ -67,13 +105,17 @@ export class Progress implements OnInit {
   private readonly id = this.route.snapshot.paramMap.get('id')!;
 
   protected readonly steps = STEPS;
+  protected readonly labels = STEP_LABELS;
   protected readonly status = signal<AssessmentStatus | null>(null);
   protected readonly failed = signal<AssessmentDto | null>(null);
   protected readonly retriesExhausted = signal(false);
   protected readonly retryError = signal<ApiError | null>(null);
-  protected readonly narration = computed(() => {
+  protected readonly retryBusy = signal(false);
+  protected readonly isPro = computed(() => this.userStore.user()?.tier === 'pro');
+  protected readonly headlineActive = computed(() => {
     const s = this.status();
-    return s ? NARRATION[s] : 'Loading…';
+    if (!s || s === 'ready' || s === 'failed') return 'Loading…';
+    return `${STEP_LABELS[s].active}…`;
   });
 
   private closeStream: (() => void) | null = null;
@@ -164,7 +206,7 @@ export class Progress implements OnInit {
     if (assessment.status === 'ready') {
       this.doneTimer = setTimeout(() => {
         if (this.destroyed) return;
-        void this.router.navigateByUrl(`/assessments/${this.id}/report`);
+        void this.router.navigateByUrl(`/sites/${assessment.siteId}`);
       }, DONE_BEAT_MS);
     } else if (assessment.status === 'failed') {
       this.failed.set(assessment);
@@ -176,23 +218,23 @@ export class Progress implements OnInit {
     this.retryTimer = setTimeout(() => this.openStream(), RETRY_DELAY_MS);
   }
 
-  protected stepDone(step: AssessmentStatus): boolean {
+  protected headline(a: AssessmentDto): string { return failureHeadline(a.errorCode); }
+
+  protected isDone(step: keyof typeof STEP_LABELS): boolean {
     const current = this.status();
-    if (!current) return false;
+    if (!current || current === 'failed') return false;
     if (current === 'ready') return true;
-    if (current === 'failed') return false;
-    return STEPS.indexOf(step) <= STEPS.indexOf(current);
+    return STEPS.indexOf(step) < STEPS.indexOf(current);
   }
+  protected isActive(step: keyof typeof STEP_LABELS): boolean { return this.status() === step; }
 
-  protected failureMessage(assessment: AssessmentDto): string {
-    if (this.quotaConsumed(assessment)) {
-      return assessment.errorMessage ?? 'We could not finish the check.';
-    }
-    return 'Something went wrong on our side. Please try again.';
-  }
-
-  protected quotaConsumed(assessment: AssessmentDto): boolean {
-    return !!assessment.errorCode && QUOTA_CONSUMING_ERROR_CODES.has(assessment.errorCode);
+  protected tryAgain(a: AssessmentDto): void {
+    if (this.retryBusy()) return;
+    this.retryBusy.set(true);
+    this.retryError.set(null);
+    this.api.submitAssessment(a.siteId)
+      .then((next) => this.router.navigateByUrl(`/assessments/${next.id}/progress`), (e: unknown) => this.retryError.set(toApiError(e)))
+      .finally(() => this.retryBusy.set(false));
   }
 
   private cleanup(): void {

@@ -15,7 +15,7 @@ class BlankPage {}
 function makeAssessment(overrides: Partial<AssessmentDto> = {}): AssessmentDto {
   return {
     id: 'A1',
-    siteId: 's1',
+    siteId: 'S1',
     status: 'queued',
     scores: null,
     summary: null,
@@ -39,10 +39,17 @@ function activatedRouteWithId(id: string): ActivatedRoute {
 class FakeApiClient {
   getAssessmentResult: Promise<AssessmentDto> = Promise.resolve(makeAssessment());
   getAssessmentCalls: string[] = [];
+  submitAssessmentResult: Promise<AssessmentDto> = Promise.resolve(makeAssessment({ id: 'A2', status: 'queued' }));
+  submitAssessmentCalls: string[] = [];
 
   getAssessment(id: string): Promise<AssessmentDto> {
     this.getAssessmentCalls.push(id);
     return this.getAssessmentResult;
+  }
+
+  submitAssessment(siteId: string): Promise<AssessmentDto> {
+    this.submitAssessmentCalls.push(siteId);
+    return this.submitAssessmentResult;
   }
 }
 
@@ -78,6 +85,8 @@ describe('Progress', () => {
         { provide: ApiClient, useValue: api },
         provideRouter([
           { path: 'assessments/:id/report', component: BlankPage },
+          { path: 'assessments/:id/progress', component: BlankPage },
+          { path: 'sites/:siteId', component: BlankPage },
           { path: 'login', component: BlankPage },
         ]),
         { provide: ActivatedRoute, useValue: activatedRouteWithId('A1') },
@@ -108,27 +117,6 @@ describe('Progress', () => {
     expect(compiled.textContent).toContain('Reading your pages');
   });
 
-  it('navigates to the report page after the stream closes and getAssessment resolves ready', fakeAsync(() => {
-    api.getAssessmentResult = Promise.resolve(makeAssessment({ status: 'queued' }));
-    const fixture = TestBed.createComponent(Progress);
-    const location = TestBed.inject(Location);
-    fixture.detectChanges();
-    tick();
-    fixture.detectChanges();
-
-    expect(sources.length).toBe(1);
-    api.getAssessmentResult = Promise.resolve(makeAssessment({ status: 'ready' }));
-    sources[0].onerror!(new Event('error'));
-    tick();
-    fixture.detectChanges();
-
-    expect(location.path()).not.toBe('/assessments/A1/report');
-    tick(1500);
-    fixture.detectChanges();
-
-    expect(location.path()).toBe('/assessments/A1/report');
-  }));
-
   it('reopens a stream after the retry delay when the re-fetched status is not terminal', fakeAsync(() => {
     api.getAssessmentResult = Promise.resolve(makeAssessment({ status: 'queued' }));
     const fixture = TestBed.createComponent(Progress);
@@ -148,26 +136,6 @@ describe('Progress', () => {
 
     expect(sources.length).toBe(2);
   }));
-
-  it('renders the JS-only explanation and no report link for a failed js_only_site assessment', async () => {
-    api.getAssessmentResult = Promise.resolve(
-      makeAssessment({
-        status: 'failed',
-        errorCode: 'js_only_site',
-        errorMessage: 'This site only works with JavaScript turned on, so we could not read it.',
-      }),
-    );
-    const fixture = TestBed.createComponent(Progress);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('This site only works with JavaScript turned on, so we could not read it.');
-    expect(compiled.textContent).toContain('Your monthly check was not used.');
-    expect(compiled.querySelector('a[href$="/report"]')).toBeNull();
-    expect(sources.length).toBe(0);
-  });
 
   it('caps consecutive refetch failures and shows a terminal error panel instead of retrying forever', fakeAsync(() => {
     api.getAssessmentResult = Promise.resolve(makeAssessment({ status: 'queued' }));
@@ -296,7 +264,47 @@ describe('Progress', () => {
     tick(1500); // past the done-beat window
     fixture.detectChanges();
 
-    expect(location.path()).not.toBe('/assessments/A1/report');
+    expect(location.path()).not.toBe('/sites/S1');
     expect(sources.length).toBe(1);
+  }));
+
+  it('names the rail steps in plain words and marks done steps with the done label', async () => {
+    api.getAssessmentResult = Promise.resolve(makeAssessment({ status: 'analyzing' }));
+    const fixture = TestBed.createComponent(Progress);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Checking how findable you are…');   // headline = active label + …
+    expect(text).toContain('Found your site');                  // done form
+    expect(text).toContain('Read your pages');                  // done form
+    expect(text).toContain('Writing your plan');                // later step keeps the active form
+    expect(text).toContain('You can close this tab. We will email you when your result is ready.');
+    expect(text).toContain('QUEUED → CRAWLING → ANALYZING → PLANNING');
+  });
+
+  it('shows the failure state with the headline for the code, the message verbatim and the free quota note', async () => {
+    TestBed.inject(UserStore).user.set({ id: 'u1', email: 'a@example.com', emailVerified: true, tier: 'free' } as UserDto);
+    api.getAssessmentResult = Promise.resolve(makeAssessment({ status: 'failed', errorCode: 'robots_blocked', errorMessage: 'Your robots.txt file tells crawlers to stay away.' }));
+    const fixture = TestBed.createComponent(Progress);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('WE COULD NOT FINISH');
+    expect(text).toContain('Your site would not let us read it.');
+    expect(text).toContain('Your robots.txt file tells crawlers to stay away.');
+    expect(text).toContain('Your free check this month was not used.');
+    expect(text).toContain('Try again');
+    expect(text).toContain('Back to my site');
+  });
+
+  it('navigates to the site home after the done beat when ready', fakeAsync(() => {
+    api.getAssessmentResult = Promise.resolve(makeAssessment({ status: 'ready', siteId: 'S1' }));
+    const fixture = TestBed.createComponent(Progress);
+    fixture.detectChanges();
+    tick();
+    tick(1500);
+    expect(TestBed.inject(Location).path()).toBe('/sites/S1');
   }));
 });
