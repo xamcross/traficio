@@ -19,7 +19,7 @@ private val EMAIL_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
 
 @Serializable data class OkResponse(val ok: Boolean = true)
 @Serializable data class UserDto(val id: String, val email: String, val emailVerified: Boolean, val tier: String)
-@Serializable data class UsageResponse(val assessmentsUsed: Int, val assessmentsLimit: Int, val sitesUsed: Int, val sitesLimit: Int)
+@Serializable data class UsageResponse(val assessmentsUsed: Int, val assessmentsLimit: Int, val sitesUsed: Int, val sitesLimit: Int, val nextCheckAt: String?)
 @Serializable data class RegisterRequest(val email: String, val password: String)
 @Serializable data class VerifyEmailRequest(val token: String)
 @Serializable data class LoginRequest(val email: String, val password: String)
@@ -74,11 +74,16 @@ fun Route.authRoutes(deps: AppDeps) {
         val user = call.requireUser(deps)
         // Mirrors the gates exactly, so the meter always matches enforcement:
         // assessment quota gate in AssessmentRoutes.kt, site cap gate in SiteRoutes.kt.
-        val assessmentsUsed = deps.assessments.countNonFailedForUserSince(user.id, Instant.now().minus(Duration.ofDays(30)))
+        val since = Instant.now().minus(Duration.ofDays(30))
+        val assessmentsUsed = deps.assessments.countNonFailedForUserSince(user.id, since)
         val assessmentsLimit = deps.config.tierLimits.assessmentsPerMonthFor(user.tier)
         val sitesUsed = deps.sites.countFor(user.id)
         val sitesLimit = deps.config.tierLimits.maxSitesFor(user.tier)
-        call.respond(UsageResponse(assessmentsUsed.toInt(), assessmentsLimit, sitesUsed.toInt(), sitesLimit))
+        // At the limit, the next check opens when the oldest counted assessment leaves the 30-day window.
+        val nextCheckAt = if (assessmentsUsed >= assessmentsLimit) {
+            deps.assessments.oldestNonFailedForUserSince(user.id, since)?.createdAt?.plus(Duration.ofDays(30))?.toString()
+        } else null
+        call.respond(UsageResponse(assessmentsUsed.toInt(), assessmentsLimit, sitesUsed.toInt(), sitesLimit, nextCheckAt))
     }
 
     post("/v1/auth/logout") {

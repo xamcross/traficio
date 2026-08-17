@@ -67,6 +67,12 @@ open class AssessmentRepository(db: MongoDatabase) {
     suspend fun countNonFailedForUserSince(userId: ObjectId, since: Instant): Long =
         col.countDocuments(and(eq("userId", userId), ne("status", "failed"), gte("createdAt", since)))
 
+    /** The oldest assessment that the monthly quota counts. Mirrors countNonFailedForUserSince. */
+    suspend fun oldestNonFailedForUserSince(userId: ObjectId, since: Instant): Assessment? =
+        col.find(and(eq("userId", userId), ne("status", "failed"), gte("createdAt", since)))
+            .sort(Sorts.orderBy(Sorts.ascending("createdAt"), Sorts.ascending("_id")))
+            .firstOrNull()
+
     suspend fun anyNonFailedFor(siteId: ObjectId): Boolean =
         col.find(and(eq("siteId", siteId), ne("status", "failed"))).firstOrNull() != null
 

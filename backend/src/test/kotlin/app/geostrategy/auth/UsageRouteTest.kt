@@ -38,7 +38,7 @@ class UsageRouteTest {
         val res = http.get("/v1/me/usage")
         assertEquals(HttpStatusCode.OK, res.status)
         assertEquals(
-            """{"assessmentsUsed":0,"assessmentsLimit":${deps.config.tierLimits.freeAssessmentsPerMonth},"sitesUsed":0,"sitesLimit":${deps.config.tierLimits.freeMaxSites}}""",
+            """{"assessmentsUsed":0,"assessmentsLimit":${deps.config.tierLimits.freeAssessmentsPerMonth},"sitesUsed":0,"sitesLimit":${deps.config.tierLimits.freeMaxSites},"nextCheckAt":null}""",
             res.bodyAsText(),
         )
     }
@@ -57,7 +57,7 @@ class UsageRouteTest {
         ).jsonObject["id"]!!.jsonPrimitive.content
 
         val user = runBlocking { deps.users.findByEmail("ada@example.com")!! }
-        val now = Instant.now()
+        val now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS)
         runBlocking {
             deps.assessments.insert(
                 Assessment(siteId = ObjectId(siteId), userId = user.id, status = "ready", createdAt = now, updatedAt = now),
@@ -66,10 +66,33 @@ class UsageRouteTest {
 
         val res = http.get("/v1/me/usage")
         assertEquals(HttpStatusCode.OK, res.status)
-        assertEquals(
-            """{"assessmentsUsed":1,"assessmentsLimit":${deps.config.tierLimits.freeAssessmentsPerMonth},"sitesUsed":1,"sitesLimit":${deps.config.tierLimits.freeMaxSites}}""",
-            res.bodyAsText(),
-        )
+        val body = Json.parseToJsonElement(res.bodyAsText()).jsonObject
+        assertEquals(1, body["assessmentsUsed"]!!.jsonPrimitive.content.toInt())
+        assertEquals(1, body["sitesUsed"]!!.jsonPrimitive.content.toInt())
+        val expected = now.plus(java.time.Duration.ofDays(30)).toString()
+        assertEquals(expected, body["nextCheckAt"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `nextCheckAt is null while the user is under the limit`() = testApplication {
+        val db = TestMongo.freshDb()
+        val emails = RecordingEmailSender()
+        val deps = testDeps(db, email = emails, env = mapOf("FREE_ASSESSMENTS_PER_MONTH" to "2"))
+        application { appModule(deps) }
+        val http = createClient { install(HttpCookies) }
+        registerVerifyLogin(http, emails, "ada@example.com")
+        val siteId = Json.parseToJsonElement(
+            http.post("/v1/sites") { contentType(ContentType.Application.Json); setBody("""{"url":"example.com"}""") }.bodyAsText(),
+        ).jsonObject["id"]!!.jsonPrimitive.content
+        val user = runBlocking { deps.users.findByEmail("ada@example.com")!! }
+        val now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS)
+        runBlocking {
+            deps.assessments.insert(Assessment(siteId = ObjectId(siteId), userId = user.id, status = "ready", createdAt = now, updatedAt = now))
+        }
+        val body = Json.parseToJsonElement(http.get("/v1/me/usage").bodyAsText()).jsonObject
+        assertEquals(1, body["assessmentsUsed"]!!.jsonPrimitive.content.toInt())
+        assertEquals(2, body["assessmentsLimit"]!!.jsonPrimitive.content.toInt())
+        assertEquals(kotlinx.serialization.json.JsonNull, body["nextCheckAt"])
     }
 
     @Test
