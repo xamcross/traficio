@@ -26,32 +26,67 @@ Run `npx ng build`. The build output goes to `dist/frontend/browser`.
 
 ## Deploy to Cloudflare Pages
 
-1. Set the build command to `npx ng build`.
-2. Set the output directory to `dist/frontend/browser`.
-3. Set the root directory to `frontend`.
-4. The build copies `public/_redirects` into the output. This file sends all routes to
-   `index.html`, so client-side routing works on refresh and on direct links.
+CI deploys the frontend after each merge to `master` (see `.github/workflows/ci.yml`).
+The Pages project is a **direct-upload** project. Do these steps once, by hand.
 
-## Connect to the API in production
+1. Create the Pages project: `npx wrangler pages project create geostrategy --production-branch=master`.
+2. Build once by hand: `npm run build`. Then upload once by hand:
+   `npx wrangler pages deploy dist/frontend/browser --project-name=geostrategy --branch=master`.
+3. Attach the custom domain `app.<domain>` to the project in the Cloudflare dashboard.
+4. Add the repository secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` on
+   GitHub. Scope the token to the account with `Pages:Edit` only.
 
-Choose one of two options.
+### Files in `public/` that Pages reads
 
-**Option A: same origin.** Add a Cloudflare Origin Rule or Worker that routes
-`app.<domain>/v1/*` to the API. Keep `API_BASE = ''` in `src/app/core/config.ts`. The app then
-calls the API on its own origin, the same way the dev proxy does.
+- `_redirects` — one rewrite row per client route, destination `/`. A path with no
+  row answers with `404.html`. **Add a row for every new client route.** Read the
+  comment at the top of the file before you change it.
+- `404.html` — the real 404 page. Without it, every bad URL answers 200 with the
+  app shell (a soft 404).
+- `_headers` — security headers for every path (no framing, no MIME sniffing, a strict
+  referrer policy) and `X-Robots-Tag: noindex` for the literal `/404` path. The `404.html`
+  page carries its own `noindex` meta tag for every bad URL.
+- `robots.txt` — allows the public pages, blocks the app routes.
 
-**Option B: separate API subdomain.** Set `API_BASE` in `src/app/core/config.ts` to
-`https://api.<domain>`. On the backend, set `APP_URL` to the app origin. Set `COOKIE_DOMAIN` to
-`.<domain>` so the session cookie works across both subdomains.
+### Test a change to `_redirects`
+
+Deploy a preview. Then test it in a real browser. The local emulator
+(`wrangler pages dev`) cannot parse these rules correctly. Do not trust it.
+
+    npm run build
+    npx wrangler pages deploy dist/frontend/browser --project-name=geostrategy --branch=preview
+
+Then open the preview URL. Check these three results:
+
+- A hard navigation to `/login` shows the login page (200).
+- `/dashboard/` (with the trailing slash) shows the app.
+- `/no-such-page` shows the 404 page with status 404.
+
+## Environments
+
+`src/environments/environment.ts` holds the development values. `npm run build`
+replaces it with `src/environments/environment.production.ts` (see
+`fileReplacements` in `angular.json`). Nothing in these files is secret. Every
+value ships to every browser.
+
+| Key | Development | Production |
+|-----|-------------|------------|
+| `apiBaseUrl` | `''` (same origin, dev proxy) | `https://api.<domain>` |
+| `freemiusProductId` | `REPLACE_ME_FREEMIUS_PRODUCT_ID` | the real product id |
+| `freemiusPublicKey` | `REPLACE_ME_FREEMIUS_PUBLIC_KEY` | the real public key |
+
+The SPA and the API share one registrable domain (`app.<domain>` and
+`api.<domain>`). The session cookie is same-site, so `SameSite=Lax` works. The
+backend allows the SPA origin in CORS through `APP_URL`.
 
 ## Before production
 
 Complete this checklist before you launch.
 
-- Replace `REPLACE_ME_FREEMIUS_PRODUCT_ID` in `src/app/core/config.ts` with the real Freemius
-  product id.
-- Replace `REPLACE_ME_FREEMIUS_PUBLIC_KEY` in `src/app/core/config.ts` with the real Freemius
-  public key.
+- Replace `REPLACE_ME_DOMAIN` in `src/environments/environment.production.ts` with the real
+  domain.
+- Replace `REPLACE_ME_FREEMIUS_PRODUCT_ID` and `REPLACE_ME_FREEMIUS_PUBLIC_KEY` in
+  `src/environments/environment.production.ts` with the real Freemius values.
 - Replace `REPLACE_ME_CONTACT_EMAIL` (in the legal pages) with the real contact email address.
 - Set the Google OAuth redirect URI to the API callback URL. See the backend README for the
   exact path.

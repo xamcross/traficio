@@ -16,7 +16,7 @@ data class AppConfig(
     val mongoDatabase: String,
     val baseUrl: String,          // public API origin, e.g. https://api.geostrategy.app
     val appUrl: String,           // SPA origin, e.g. https://app.geostrategy.app
-    val cookieDomain: String?,    // e.g. .geostrategy.app; null in dev
+    val cookieDomain: String?,    // e.g. geostrategy.app, with no leading dot; null in dev
     val secureCookies: Boolean,
     val resendApiKey: String?,
     val emailFrom: String,

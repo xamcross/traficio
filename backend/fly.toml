@@ -1,5 +1,7 @@
+# Fly.io configuration for the GeoStrategy API.
+# See docs/2026-08-16-platform-config-playbook.md §2.2 for the reasons behind each value.
 app = "geostrategy-api"
-primary_region = "waw"  # change to the region closest to your MongoDB Atlas cluster
+primary_region = "fra"  # closest to an Atlas M0 in Frankfurt (eu-central-1)
 
 [build]
   dockerfile = "Dockerfile"
@@ -10,12 +12,23 @@ primary_region = "waw"  # change to the region closest to your MongoDB Atlas clu
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = false
+  # Always on. The in-process job worker runs assessments for up to 900 s and the
+  # billing revalidator runs daily. Auto-stop would kill a running assessment.
+  auto_stop_machines = "off"
+  auto_start_machines = true
   min_machines_running = 1
 
   [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    # The JVM cold boot can take more than a minute on a shared VM. Fly lowers a
+    # grace period above 1 minute to 1 minute at deploy time (flyctl warns about it).
+    # Keep 120s as the intent; the effective value is 60s. A failed check does not
+    # stop the machine; it only delays the "healthy" state.
+    grace_period = "120s"
     method = "GET"
     path = "/healthz"
-    interval = "15s"
-    timeout = "5s"
-    grace_period = "20s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

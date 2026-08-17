@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /assessments/
+Disallow: /sites/
+Disallow: /account
+Disallow: /auth/
+Disallow: /verify-email
+Disallow: /reset-password
