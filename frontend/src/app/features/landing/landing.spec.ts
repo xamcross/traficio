@@ -5,32 +5,13 @@ import { provideRouter } from '@angular/router';
 import { Landing } from './landing';
 import { ApiClient } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
+import { PENDING_URL_KEY, PRO_PRICE_LABEL } from '../../core/config';
 import { UserDto } from '../../core/api/types';
-import { PENDING_URL_KEY } from '../../core/config';
 
-/** No-op routed targets so provideRouter() has something real to navigate to. */
 @Component({ selector: 'landing-spec-blank', template: '' })
 class BlankPage {}
 
-function setValue(el: HTMLInputElement, value: string): void {
-  el.value = value;
-  el.dispatchEvent(new Event('input'));
-}
-
-function submitForm(compiled: HTMLElement): void {
-  compiled.querySelector('form')!.dispatchEvent(new Event('submit'));
-}
-
-function findButtonByText(compiled: HTMLElement, text: string): HTMLButtonElement | null {
-  return Array.from(compiled.querySelectorAll('button')).find((b) => b.textContent?.includes(text)) ?? null;
-}
-
-/** Landing never calls the API itself (the app shell owns the /v1/me refresh); a bare stub satisfies UserStore's DI. */
-class FakeApiClient {
-  me(): Promise<UserDto> {
-    return Promise.reject(new Error('not used by Landing'));
-  }
-}
+class FakeApiClient { me(): Promise<UserDto> { return Promise.reject(new Error('not used')); } }
 
 describe('Landing', () => {
   beforeEach(async () => {
@@ -39,55 +20,50 @@ describe('Landing', () => {
       imports: [Landing],
       providers: [
         { provide: ApiClient, useValue: new FakeApiClient() },
-        provideRouter([
-          { path: 'signup', component: BlankPage },
-          { path: 'dashboard', component: BlankPage },
-        ]),
+        provideRouter([{ path: 'signup', component: BlankPage }, { path: 'dashboard', component: BlankPage }]),
       ],
     }).compileComponents();
   });
+  afterEach(() => sessionStorage.removeItem(PENDING_URL_KEY));
 
-  afterEach(() => {
-    sessionStorage.removeItem(PENDING_URL_KEY);
-  });
-
-  it('renders the URL input and a "Check my site" button', () => {
+  it('shows the hero, the three steps, the free promise and the price', () => {
     const fixture = TestBed.createComponent(Landing);
     fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-
-    expect(compiled.querySelector('input')).toBeTruthy();
-    expect(findButtonByText(compiled, 'Check my site')).toBeTruthy();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Your customers ask AI. Does it know you exist?');
+    expect(text).toContain('You give us your web address');
+    expect(text).toContain('We read it the way machines do');
+    expect(text).toContain('You fix one thing at a time');
+    expect(text).toContain('Your score and every problem we find. No card, no trial clock.');
+    expect(text).toContain(`${PRO_PRICE_LABEL} a month`);
+    expect(text).toContain('EXAMPLE RESULT, FREE TIER');
   });
 
-  it('stores the URL in sessionStorage and navigates to /signup when logged out', async () => {
+  it('stores the url and goes to signup when signed out', async () => {
     const fixture = TestBed.createComponent(Landing);
-    const location = TestBed.inject(Location);
     fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-
-    setValue(compiled.querySelector('input')!, 'example.com');
-    submitForm(compiled);
+    const el = fixture.nativeElement as HTMLElement;
+    const input = el.querySelector<HTMLInputElement>('input[type=text]')!;
+    input.value = 'rivertonbakery.com';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    el.querySelector('form')!.dispatchEvent(new Event('submit'));
     await fixture.whenStable();
-
-    expect(sessionStorage.getItem(PENDING_URL_KEY)).toBe('example.com');
-    expect(location.path()).toBe('/signup');
+    expect(sessionStorage.getItem(PENDING_URL_KEY)).toBe('rivertonbakery.com');
+    expect(TestBed.inject(Location).path()).toBe('/signup');
   });
 
-  it('stores the URL in sessionStorage and navigates to /dashboard when logged in', async () => {
+  it('goes to the dashboard when signed in', async () => {
+    TestBed.inject(UserStore).user.set({ id: 'u1', email: 'a@example.com', emailVerified: true, tier: 'free' });
     const fixture = TestBed.createComponent(Landing);
-    const store = TestBed.inject(UserStore);
-    const location = TestBed.inject(Location);
-    const user: UserDto = { id: 'u1', email: 'a@b.com', emailVerified: true, tier: 'free' };
-    store.user.set(user);
     fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-
-    setValue(compiled.querySelector('input')!, 'example.com');
-    submitForm(compiled);
+    const el = fixture.nativeElement as HTMLElement;
+    const input = el.querySelector<HTMLInputElement>('input[type=text]')!;
+    input.value = 'x.com';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    el.querySelector('form')!.dispatchEvent(new Event('submit'));
     await fixture.whenStable();
-
-    expect(sessionStorage.getItem(PENDING_URL_KEY)).toBe('example.com');
-    expect(location.path()).toBe('/dashboard');
+    expect(TestBed.inject(Location).path()).toBe('/dashboard');
   });
 });
