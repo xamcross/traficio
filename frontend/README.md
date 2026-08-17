@@ -2,8 +2,9 @@
 
 ## What this is
 
-This is the GeoStrategy web app. It is an Angular application that lets a user add a site,
-run an assessment, and view the resulting plan and report.
+This is the GeoStrategy web app. A user adds a site and runs a check. The Free tier sees
+the score, the findings, and a locked plan preview. Pro unlocks the step-by-step plan, task
+tracking, re-checks, and history.
 
 ## Run in development
 
@@ -91,3 +92,5 @@ Complete this checklist before you launch.
 - Set the Google OAuth redirect URI to the API callback URL. See the backend README for the
   exact path.
 - Test checkout in Freemius sandbox mode before you accept real payments.
+- Set `PRO_PRICE_LABEL`, `FREE_TIER_COPY`, and `PRO_TIER_COPY` in `src/app/core/config.ts`
+  equal to the Freemius price and the backend tier env values.

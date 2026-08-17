@@ -1,52 +1,47 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Single happy-path journey through the whole app, backend fully mocked with page.route.
- * Landing -> register -> log in -> add a site -> run a check -> report -> plan -> complete a task.
+ * Free-tier happy path, backend fully mocked with page.route.
+ * Landing -> register -> log in -> the dashboard hand-off creates a site and runs a check ->
+ * progress -> the site home result view -> the plan gate.
  *
  * Every /v1/** request is intercepted. A catch-all route fulfills any unmocked /v1/** request
  * with a distinctive 500 so a miss fails loudly instead of hanging or silently passing.
  */
-test('signup, add a site, run a check, view the report, complete a plan task', async ({ page }) => {
+test('signup, the dashboard hand-off runs a check, and the free result leads to the gate', async ({ page }) => {
   test.setTimeout(90_000);
 
   const state = {
     authenticated: false,
+    siteCreated: false,
+    assessmentSubmitted: false,
     assessmentReady: false,
-    plan: {
-      id: 'PLAN1',
-      assessmentId: 'A1',
-      siteId: 'S1',
-      tasks: [
-        {
-          taskId: 'T1',
-          title: 'Add a title tag',
-          category: 'SEO',
-          impact: 'high',
-          effortMinutes: 10,
-          whyItMatters: 'Search engines use the title to understand your page.',
-          steps: ['Open your homepage HTML.', 'Add a <title> tag inside <head>.'],
-          doneCheck: 'View source and confirm the <title> tag is present.',
-          status: 'todo' as const,
-        },
-        {
-          taskId: 'T2',
-          title: 'Write a meta description',
-          category: 'SEO',
-          impact: 'medium',
-          effortMinutes: 15,
-          whyItMatters: 'A good description improves click-through from search results.',
-          steps: ['Write a one or two sentence summary.', 'Add it as a meta description tag.'],
-          doneCheck: 'View source and confirm the meta description is present.',
-          status: 'todo' as const,
-        },
-      ],
-      progress: { done: 0, verified: 0, total: 2 },
-    },
   };
+
+  const SCORES = { seo: 78, aeo: 61, geo: 48, overall: 65 };
 
   function userDto() {
     return { id: 'U1', email: 'jane@example.com', emailVerified: true, tier: 'free' };
+  }
+
+  function siteDto() {
+    return {
+      id: 'S1',
+      domain: 'example.com',
+      url: 'https://example.com',
+      platform: null,
+      latestScores: state.assessmentReady ? SCORES : null,
+      readOnly: false,
+      latestAssessment: state.assessmentSubmitted
+        ? {
+            id: 'A1',
+            status: state.assessmentReady ? 'ready' : 'queued',
+            createdAt: '2026-08-06T00:00:00.000Z',
+            completedAt: state.assessmentReady ? '2026-08-06T00:05:00.000Z' : null,
+          }
+        : null,
+      latestReadyAssessmentId: state.assessmentReady ? 'A1' : null,
+    };
   }
 
   function assessmentDto() {
@@ -54,12 +49,32 @@ test('signup, add a site, run a check, view the report, complete a plan task', a
       id: 'A1',
       siteId: 'S1',
       status: state.assessmentReady ? 'ready' : 'queued',
-      scores: state.assessmentReady ? { seo: 82, aeo: 65, geo: 47 } : null,
+      scores: state.assessmentReady ? SCORES : null,
+      summary: state.assessmentReady ? 'People searching Google can find you. People asking ChatGPT cannot.' : null,
+      scoreNotes: state.assessmentReady
+        ? { seo: 'Your title tags are solid.', aeo: 'You have no FAQ page.', geo: 'AI assistants cannot find your hours.' }
+        : null,
       findings: [] as unknown[],
+      pageCount: state.assessmentReady ? 3 : null,
       errorCode: null,
       errorMessage: null,
       createdAt: '2026-08-06T00:00:00.000Z',
       completedAt: state.assessmentReady ? '2026-08-06T00:05:00.000Z' : null,
+      changes: [] as unknown[],
+    };
+  }
+
+  function lockedPlanDto() {
+    return {
+      id: 'P1',
+      assessmentId: 'A1',
+      siteId: 'S1',
+      locked: true,
+      tasks: [
+        { taskId: 'T1', title: 'Add a title tag', category: 'seo', impact: 'high', effortMinutes: 10, stepCount: 2, whyItMatters: null, steps: null, doneCheck: null, status: 'todo' },
+        { taskId: 'T2', title: 'Write a meta description', category: 'seo', impact: 'medium', effortMinutes: 15, stepCount: 2, whyItMatters: null, steps: null, doneCheck: null, status: 'todo' },
+      ],
+      progress: { done: 0, verified: 0, total: 2 },
     };
   }
 
@@ -98,20 +113,33 @@ test('signup, add a site, run a check, view the report, complete a plan task', a
     }
   });
 
+  await page.route(/\/v1\/me\/usage$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ assessmentsUsed: 0, assessmentsLimit: 1, sitesUsed: 0, sitesLimit: 1, nextCheckAt: null }),
+    });
+  });
+
   await page.route(/\/v1\/sites$/, async (route) => {
     const method = route.request().method();
     if (method === 'GET') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sites: [] }) });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ sites: state.siteCreated ? [siteDto()] : [] }),
+      });
     } else if (method === 'POST') {
-      const site = { id: 'S1', domain: 'example.com', url: 'https://example.com', platform: null, latestScores: null, readOnly: false };
-      await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(site) });
+      state.siteCreated = true;
+      await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(siteDto()) });
     } else {
       await route.fallback();
     }
   });
 
-  await page.route(/\/v1\/sites\/[^/]+\/assessments$/, async (route) => {
+  await page.route(/\/v1\/sites\/S1\/assessments$/, async (route) => {
     if (route.request().method() === 'POST') {
+      state.assessmentSubmitted = true;
       await route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify(assessmentDto()) });
     } else {
       await route.fallback();
@@ -119,22 +147,18 @@ test('signup, add a site, run a check, view the report, complete a plan task', a
   });
 
   // SSE: two status frames, then the response ends (no explicit terminator). The app's wrapper
-  // treats that close as its cue to stop listening and re-fetch the assessment.
+  // treats that close as its cue to stop listening and re-fetch the assessment. A short delay
+  // before the fulfill gives the progress page a real moment in its pre-stream "queued" state —
+  // a fully mocked, zero-latency backend would otherwise race straight through every rail state
+  // to "ready" before the assertion below has a chance to observe any of them.
   await page.route(/\/v1\/assessments\/A1\/events$/, async (route) => {
     state.assessmentReady = true;
+    await new Promise((resolve) => setTimeout(resolve, 500));
     await route.fulfill({
       status: 200,
       contentType: 'text/event-stream',
       body: 'data: {"status":"crawling"}\n\ndata: {"status":"planning"}\n\n',
     });
-  });
-
-  await page.route(/\/v1\/assessments\/A1\/plan$/, async (route) => {
-    if (route.request().method() === 'GET') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(state.plan) });
-    } else {
-      await route.fallback();
-    }
   });
 
   await page.route(/\/v1\/assessments\/A1$/, async (route) => {
@@ -145,13 +169,17 @@ test('signup, add a site, run a check, view the report, complete a plan task', a
     }
   });
 
-  await page.route(/\/v1\/plans\/PLAN1\/tasks\/T1$/, async (route) => {
-    if (route.request().method() === 'PATCH') {
-      const body = route.request().postDataJSON() as { status: 'todo' | 'done' };
-      const task = state.plan.tasks.find((t) => t.taskId === 'T1')!;
-      task.status = body.status;
-      state.plan.progress.done = state.plan.tasks.filter((t) => t.status === 'done').length;
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(state.plan) });
+  await page.route(/\/v1\/assessments\/A1\/plan$/, async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(lockedPlanDto()) });
+    } else {
+      await route.fallback();
+    }
+  });
+
+  await page.route(/\/v1\/sites\/S1\/plan$/, async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(lockedPlanDto()) });
     } else {
       await route.fallback();
     }
@@ -160,7 +188,7 @@ test('signup, add a site, run a check, view the report, complete a plan task', a
   // --- 1. Landing: type a URL and start the journey ---
   await page.goto('/');
   await page.getByLabel('Your website').fill('example.com');
-  await page.getByRole('button', { name: 'Check my site' }).click();
+  await page.getByRole('button', { name: 'Check my site free' }).click();
   await expect(page).toHaveURL(/\/signup$/);
 
   // --- 2. Register ---
@@ -178,35 +206,26 @@ test('signup, add a site, run a check, view the report, complete a plan task', a
   await page.getByLabel('Email').fill('jane@example.com');
   await page.getByLabel('Password').fill('correct horse battery staple');
   await page.getByRole('button', { name: 'Log in' }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByText('Add a site')).toBeVisible();
 
-  // --- 4. Dashboard: add-site input is pre-filled from the pending URL; submit it ---
-  await expect(page.getByLabel('Website')).toHaveValue('example.com');
-  await page.getByRole('button', { name: 'Add site' }).click();
-  await expect(page.getByText('example.com', { exact: true })).toBeVisible();
+  // --- 4. Dashboard hand-off: login lands on /dashboard, and the pending URL from the landing
+  // page creates the site and starts the first check on its own, with no extra click on this
+  // page. Against a mocked backend the hand-off itself is too fast to catch mid-flight, so we
+  // wait directly for its destination rather than pin the transient /dashboard URL. ---
+  await expect(page).toHaveURL(/\/assessments\/A1\/progress$/, { timeout: 15_000 });
 
-  // --- 5. Run a check; SSE narrates progress ---
-  // The "crawling"/"planning" narration text is only shown for the moment the SSE frame is the
-  // current status, which — with a fully mocked, zero-latency backend — can flash by faster than
-  // an assertion poll can catch (both frames land in the same fulfilled response and the app can
-  // race straight through to "ready" before the next check). The progress rail's step labels are
-  // real content from progress.ts's STEPS list, and they stay in the DOM for as long as we're on
-  // the progress page, so asserting on one of them is not racy the way the narration text is.
-  await page.getByRole('button', { name: 'Check my site' }).click();
-  await expect(page).toHaveURL(/\/assessments\/A1\/progress$/);
-  await expect(page.getByText('crawling', { exact: true })).toBeVisible();
+  // --- 5. Progress: the rail narrates the SSE frames. The delay above holds the page in its
+  // pre-stream "queued" state long enough to observe; the regex also allows the first SSE
+  // frame's text, both real content from progress.ts, so the assertion stays accurate even if
+  // the timing shifts. ---
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Finding your site…|Reading your pages…/);
 
-  // --- 6. Auto-navigates to the report once ready (after the progress page's 1.5s "Done!" beat) ---
-  await expect(page).toHaveURL(/\/assessments\/A1\/report$/, { timeout: 10_000 });
-  await expect(page.getByText('SEO', { exact: true })).toBeVisible();
-  await expect(page.getByText('AEO', { exact: true })).toBeVisible();
-  await expect(page.getByText('GEO', { exact: true })).toBeVisible();
-  await page.getByRole('link', { name: 'See my plan' }).click();
+  // --- 6. Auto-navigates to the site home once ready (after the progress page's 1.5s beat) ---
+  await expect(page).toHaveURL(/\/sites\/S1$/, { timeout: 15_000 });
+  await expect(page.getByText('Visibility out of 100')).toBeVisible();
+  await expect(page.getByText('Read my plan')).toBeVisible();
 
-  // --- 7. Plan: check off the first task ---
-  await expect(page).toHaveURL(/\/assessments\/A1\/plan$/);
-  await expect(page.getByText('You finished 0 of 2 tasks.')).toBeVisible();
-  await page.locator('article.task').first().getByRole('checkbox').check();
-  await expect(page.getByText('You finished 1 of 2 tasks.')).toBeVisible();
+  // --- 7. The Free result view's teaser leads to the plan gate ---
+  await page.getByRole('link', { name: 'Read my plan' }).click();
+  await expect(page).toHaveURL(/\/pricing\?site=S1$/);
+  await expect(page.getByText('YOUR PLAN IS READY')).toBeVisible();
 });

@@ -154,6 +154,9 @@ Work from the `backend/` directory.
 - [ ] 8.8 Open `https://app.<your-domain>`. Confirm: the landing page loads; a hard
       navigation to `/login` shows the login page; `/dashboard/` (trailing slash) shows
       the app; `/no-such-page` shows the 404 page with status 404.
+- [ ] 8.9 **Plan gate.** As a Free user with a ready check, open `/assessments/<id>/plan`.
+      Confirm the redirect to `/pricing?site=<id>` and that the locked list shows task
+      titles without steps.
 
 ## 9. Smoke tests with real services
 
