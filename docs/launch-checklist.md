@@ -52,18 +52,14 @@ network rule `0.0.0.0/0` exists. The database user was prepared in the Atlas UI
 - [x] 3.1 `master` is pushed. The default branch is `master`. The secret scan
       (`git grep -n -i -E 'sk-ant-|re_[A-Za-z0-9]{20,}|mongodb\+srv://|GOCSPX-'`)
       is empty.
-- [~] 3.2 GitHub → Settings → Secrets and variables → Actions:
+- [x] 3.2 GitHub → Settings → Secrets and variables → Actions:
       - [x] `FLY_API_TOKEN` (an app-scoped deploy token, valid one year, created 2026-08-17).
       - [x] `CLOUDFLARE_ACCOUNT_ID`.
-      - [ ] `CLOUDFLARE_API_TOKEN`. Create it yourself, so the value never passes
-        through an agent transcript: Cloudflare dashboard → My Profile → API Tokens →
-        Create Token → Create Custom Token. Name `traficio-ci-pages-deploy`.
-        Permission: Account → Cloudflare Pages → Edit. Account Resources: your
-        account. Create it, copy it once, then run
-        `gh secret set CLOUDFLARE_API_TOKEN -R xamcross/traficio` and paste it.
+      - [x] `CLOUDFLARE_API_TOKEN` (set by the owner 2026-08-18). CI run 32075239787
+        deployed both halves: all five jobs green.
 - [x] 3.3 The workflow `.github/workflows/ci.yml` runs on each push to `master`. The
-      backend deploy works (2026-08-18). The frontend deploy job waits for
-      `CLOUDFLARE_API_TOKEN` (3.2); until then deploy the frontend by hand (8.5).
+      both deploy jobs work (2026-08-18, run 32075239787). A push with a frontend
+      change deploys the SPA; a push with a backend change deploys the API.
 
 ## 4. Deploy the backend to Fly.io
 
@@ -252,5 +248,5 @@ Steps 1–8 must finish before step 9. Step 11 can run in parallel after step 7.
 `https://api.traficio.com` runs with the Atlas database; register, login, and the
 session work end to end. The verification email prints in `fly logs` until Resend is
 set (1.3). A check runs with the canned Claude client until `ANTHROPIC_API_KEY` is set.
-**Next:** 3.2 (`CLOUDFLARE_API_TOKEN`) → 1.2 + 4.2 (`ANTHROPIC_API_KEY`) → 1.3 (Resend)
-→ 1.4 + 6 (Google) → 1.5 + 7 + 8.1 (Freemius) → 5.4–5.6 → smoke tests (9).
+**Next:** follow `docs/2026-08-18-owner-setup-guide.md` (Anthropic → Resend → Google →
+Freemius → Cloudflare finishing touches → smoke tests).
