@@ -1,15 +1,19 @@
 package app.geostrategy.claude
 
 import app.geostrategy.crawl.CrawlDigest
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class Scores(val seo: Int, val aeo: Int, val geo: Int) {
     /**
      * Derived visibility score. Round half up of the mean of the three areas.
-     * It is a body property, so the Mongo codec does not store it and `equals` ignores it.
-     * kotlinx.serialization writes it to JSON and treats it as optional on decode.
+     * It is a body property. The Mongo codec does not store it. `equals` ignores it.
+     * `@EncodeDefault` makes kotlinx write it even when `encodeDefaults` is off.
      */
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault
     val overall: Int = Math.round((seo + aeo + geo) / 3.0).toInt()
 }
 

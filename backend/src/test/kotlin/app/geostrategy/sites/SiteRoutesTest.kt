@@ -4,6 +4,7 @@ import app.geostrategy.MapFetcher
 import app.geostrategy.RecordingEmailSender
 import app.geostrategy.TestMongo
 import app.geostrategy.appModule
+import app.geostrategy.assessment.Assessment
 import app.geostrategy.assessment.AssessmentPipeline
 import app.geostrategy.claude.CannedClaudeClient
 import app.geostrategy.crawl.Crawler
@@ -182,5 +183,42 @@ class SiteRoutesTest {
         val again = firstSite()
         assertEquals(secondId, again["latestAssessment"]!!.jsonObject["id"]!!.jsonPrimitive.content)
         assertEquals(firstId, again["latestReadyAssessmentId"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `site list reflects a failed latest check, with and without an earlier ready check`() = testApplication {
+        val db = TestMongo.freshDb()
+        val emails = RecordingEmailSender()
+        val deps = testDeps(db, email = emails)
+        application { appModule(deps) }
+        val http = createClient { install(HttpCookies) }
+        registerVerifyLogin(http, emails, "ada@example.com")
+        val siteId = Json.parseToJsonElement(
+            http.post("/v1/sites") { contentType(ContentType.Application.Json); setBody("""{"url":"example.com"}""") }.bodyAsText(),
+        ).jsonObject["id"]!!.jsonPrimitive.content
+        val user = runBlocking { deps.users.findByEmail("ada@example.com")!! }
+        suspend fun firstSite() = Json.parseToJsonElement(http.get("/v1/sites").bodyAsText()).jsonObject["sites"]!!.jsonArray.first().jsonObject
+        val t0 = Instant.now().minusSeconds(3600).truncatedTo(java.time.temporal.ChronoUnit.MILLIS)
+
+        // failed, nothing ready before it
+        val failed1 = runBlocking {
+            deps.assessments.insert(Assessment(siteId = ObjectId(siteId), userId = user.id, status = "failed", errorCode = "robots_blocked", errorMessage = "Robots says no.", createdAt = t0, updatedAt = t0, completedAt = t0.plusSeconds(10)))
+        }
+        val s1 = firstSite()
+        assertEquals(failed1.id.toHexString(), s1["latestAssessment"]!!.jsonObject["id"]!!.jsonPrimitive.content)
+        assertEquals("failed", s1["latestAssessment"]!!.jsonObject["status"]!!.jsonPrimitive.content)
+        assertEquals(JsonNull, s1["latestReadyAssessmentId"])
+
+        // a ready check after it, then another failed one: latest is failed, latest ready points at the ready one
+        val ready = runBlocking {
+            deps.assessments.insert(Assessment(siteId = ObjectId(siteId), userId = user.id, status = "ready", createdAt = t0.plusSeconds(100), updatedAt = t0.plusSeconds(100), completedAt = t0.plusSeconds(160)))
+        }
+        val failed2 = runBlocking {
+            deps.assessments.insert(Assessment(siteId = ObjectId(siteId), userId = user.id, status = "failed", errorCode = "site_unreachable", errorMessage = "No answer.", createdAt = t0.plusSeconds(200), updatedAt = t0.plusSeconds(200), completedAt = t0.plusSeconds(210)))
+        }
+        val s2 = firstSite()
+        assertEquals(failed2.id.toHexString(), s2["latestAssessment"]!!.jsonObject["id"]!!.jsonPrimitive.content)
+        assertEquals("failed", s2["latestAssessment"]!!.jsonObject["status"]!!.jsonPrimitive.content)
+        assertEquals(ready.id.toHexString(), s2["latestReadyAssessmentId"]!!.jsonPrimitive.content)
     }
 }

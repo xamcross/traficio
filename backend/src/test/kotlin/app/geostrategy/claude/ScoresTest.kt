@@ -19,7 +19,7 @@ class ScoresTest {
 
     @Test
     fun `overall is encoded to json and derived again on decode`() {
-        val json = Json { encodeDefaults = true }
+        val json = Json
         val encoded = json.encodeToString(Scores.serializer(), Scores(62, 34, 28))
         assertTrue(encoded.contains("\"overall\":41"), encoded)
         val decoded = json.decodeFromString(Scores.serializer(), """{"seo":62,"aeo":34,"geo":28}""")

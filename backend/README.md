@@ -44,13 +44,6 @@ Set these environment variables:
 - `FREE_MAX_SITES` (default 1), `FREE_ASSESSMENTS_PER_MONTH` (default 1),
   `PRO_MAX_SITES` (default 5), `PRO_ASSESSMENTS_PER_MONTH` (default 10) —
   the tier limits.
-- The plan is a Pro feature. `GET /v1/assessments/{id}/plan` and `GET /v1/sites/{id}/plan`
-  return a locked plan for a Free user: task titles, impact, effort, and step count, but no
-  steps, no "why it matters", and no done-check. `PATCH /v1/plans/{planId}/tasks/{taskId}`
-  answers 403 `upgrade_required` for a Free user.
-- The analysis returns `summary` and `scoreNotes` and can add up to two findings with
-  severity `good`. The pipeline gives no `good` finding to the plan call.
-- Every `scores` object in the API carries a derived `overall` (round half up of the mean).
 
 How an assessment runs:
 1. The user sends `POST /v1/sites/{id}/assessments`.
@@ -58,6 +51,26 @@ How an assessment runs:
 3. A job goes on the queue. The worker picks it up.
 4. The worker crawls the site, calls Claude two times, and stores the plan.
 5. The client follows the progress on `GET /v1/assessments/{id}/events` (SSE).
+
+### API contract for the One Thing screens
+
+- The plan is a Pro feature. `GET /v1/assessments/{id}/plan` and `GET /v1/sites/{id}/plan`
+  return a locked plan for a Free user: `locked: true`, task titles, impact, effort, and
+  `stepCount`, but `steps`, `whyItMatters`, and `doneCheck` are `null`.
+  `PATCH /v1/plans/{planId}/tasks/{taskId}` answers 403 `upgrade_required` for a Free user.
+- The analysis returns `summary` and `scoreNotes` and can add up to two findings with
+  severity `good`. The pipeline gives no `good` finding to the plan call.
+- Every `scores` object in the API carries a derived `overall` (round half up of the mean).
+- `AssessmentDto` carries `pageCount` (crawled pages; `null` before the crawl) and `changes`.
+  `changes` is filled only by the history list `GET /v1/sites/{id}/assessments`. On every other
+  assessment response it is `[]`, which means "not computed", not "nothing changed".
+  In the history list, a change belongs to the check in whose window the task's `completedAt`
+  falls. When a later check verifies a task that the user marked done, the task moves to that
+  later check's row.
+- `SiteDto` carries `latestAssessment` (id, status, createdAt, completedAt) and
+  `latestReadyAssessmentId`. Both are `null` for a site with no check.
+- `GET /v1/me/usage` carries `nextCheckAt`: the instant the next check opens when the user is
+  at the limit, else `null`.
 
 ## Billing (Freemius)
 

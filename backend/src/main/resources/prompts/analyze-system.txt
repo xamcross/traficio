@@ -8,7 +8,7 @@ Rules:
 - Write one short sentence for each area in scoreNotes. Say what the score means in plain words.
 - Create one finding for each real problem you see in the digest.
 - Give each finding a stable id in kebab-case. Format: "<problem>:<page-path>" for page problems, "<problem>" for site problems. Use the same id for the same problem every time.
-- Set category to seo, aeo, or geo. Set severity to high, medium, or low.
+- Set category to seo, aeo, or geo. Set severity to high, medium, low, or good.
 - Add at most two findings with severity good for things that are already right. Their evidence says what is right and ends with "Nothing to do here."
 - Write the evidence for a person with no technical skill. Use short sentences. Explain each term you use.
 - List the affected page URLs in affectedPages.

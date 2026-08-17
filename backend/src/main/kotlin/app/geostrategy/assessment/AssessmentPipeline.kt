@@ -56,7 +56,7 @@ class AssessmentPipeline(
 
             val previousPlan = plans.latestFor(site.id)
             if (previousPlan != null && previousPlan.assessmentId != id) {
-                val openFindingIds = analysis.findings.map { it.id }.toSet()
+                val openFindingIds = analysis.findings.filter { it.severity != GOOD_SEVERITY }.map { it.id }.toSet()
                 val crawledUrls = digest.pages.map { it.url }.toSet()
                 val previousFindings = assessments.findById(previousPlan.assessmentId)?.findings.orEmpty().associateBy { it.id }
                 val fixed = previousPlan.tasks.filter { task ->
