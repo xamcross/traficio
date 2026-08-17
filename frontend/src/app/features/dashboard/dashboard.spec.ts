@@ -49,6 +49,8 @@ function makeSite(overrides: Partial<SiteDto> = {}): SiteDto {
     platform: null,
     latestScores: null,
     readOnly: false,
+    latestAssessment: null,
+    latestReadyAssessmentId: null,
     ...overrides,
   };
 }
@@ -59,11 +61,15 @@ function makeAssessment(overrides: Partial<AssessmentDto> = {}): AssessmentDto {
     siteId: 's1',
     status: 'queued',
     scores: null,
+    summary: null,
+    scoreNotes: null,
     findings: [],
+    pageCount: null,
     errorCode: null,
     errorMessage: null,
     createdAt: '',
     completedAt: null,
+    changes: [],
     ...overrides,
   };
 }
@@ -73,6 +79,7 @@ function makePlan(overrides: Partial<PlanDto> = {}): PlanDto {
     id: 'p1',
     assessmentId: 'A1',
     siteId: 's1',
+    locked: false,
     tasks: [],
     progress: { done: 0, verified: 0, total: 0 },
     ...overrides,
@@ -142,7 +149,7 @@ describe('Dashboard', () => {
 
   it('renders one card per site, with domain, three scores, or "No check yet"', async () => {
     api.listSitesResult = Promise.resolve([
-      makeSite({ id: 's1', domain: 'a.com', latestScores: { seo: 72, aeo: 55, geo: 40 } }),
+      makeSite({ id: 's1', domain: 'a.com', latestScores: { seo: 72, aeo: 55, geo: 40, overall: 56 } }),
       makeSite({ id: 's2', domain: 'b.com', latestScores: null }),
     ]);
     const fixture = TestBed.createComponent(Dashboard);
@@ -256,7 +263,7 @@ describe('Dashboard', () => {
   it('disables other cards\' action buttons while one site\'s check is in flight', async () => {
     api.listSitesResult = Promise.resolve([
       makeSite({ id: 's1', domain: 'a.com' }),
-      makeSite({ id: 's2', domain: 'b.com', latestScores: { seo: 1, aeo: 2, geo: 3 } }),
+      makeSite({ id: 's2', domain: 'b.com', latestScores: { seo: 1, aeo: 2, geo: 3, overall: 2 } }),
     ]);
     const inFlight = deferred<AssessmentDto>();
     api.submitAssessmentResult = inFlight.promise;

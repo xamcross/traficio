@@ -23,14 +23,16 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
 }
 
 function makeTask(overrides: Partial<PlanTaskDto> = {}): PlanTaskDto {
+  const steps = ['Open your homepage HTML.', 'Add a <title> tag in the <head>.', 'Publish the change.'];
   return {
     taskId: 't1',
     title: 'Add a title tag',
     category: 'Meta tags',
     impact: 'high',
     effortMinutes: 15,
+    stepCount: steps.length,
     whyItMatters: 'Search engines use the title tag to understand your page.',
-    steps: ['Open your homepage HTML.', 'Add a <title> tag in the <head>.', 'Publish the change.'],
+    steps,
     doneCheck: 'View source and confirm a title tag with your page name appears.',
     status: 'todo',
     ...overrides,
@@ -42,6 +44,7 @@ function makePlan(overrides: Partial<PlanDto> = {}): PlanDto {
     id: 'p1',
     assessmentId: 'A1',
     siteId: 's1',
+    locked: false,
     tasks: [makeTask()],
     progress: { done: 0, verified: 0, total: 1 },
     ...overrides,

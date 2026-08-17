@@ -18,11 +18,15 @@ function makeAssessment(overrides: Partial<AssessmentDto> = {}): AssessmentDto {
     siteId: 's1',
     status: 'queued',
     scores: null,
+    summary: null,
+    scoreNotes: null,
     findings: [],
+    pageCount: null,
     errorCode: null,
     errorMessage: null,
     createdAt: '',
     completedAt: null,
+    changes: [],
     ...overrides,
   };
 }

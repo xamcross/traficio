@@ -19,12 +19,16 @@ function makeAssessment(overrides: Partial<AssessmentDto> = {}): AssessmentDto {
     id: 'A1',
     siteId: 's1',
     status: 'ready',
-    scores: { seo: 40, aeo: 45, geo: 50 },
+    scores: { seo: 40, aeo: 45, geo: 50, overall: 45 },
+    summary: null,
+    scoreNotes: null,
     findings: [],
+    pageCount: null,
     errorCode: null,
     errorMessage: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     completedAt: '2026-01-01T00:05:00.000Z',
+    changes: [],
     ...overrides,
   };
 }
@@ -68,12 +72,12 @@ describe('History', () => {
   it('renders an SVG trend chart with three polylines and a table row per assessment, newest first', async () => {
     const older = makeAssessment({
       id: 'A1',
-      scores: { seo: 40, aeo: 45, geo: 50 },
+      scores: { seo: 40, aeo: 45, geo: 50, overall: 45 },
       createdAt: '2026-01-01T00:00:00.000Z',
     });
     const newer = makeAssessment({
       id: 'A2',
-      scores: { seo: 60, aeo: 65, geo: 70 },
+      scores: { seo: 60, aeo: 65, geo: 70, overall: 65 },
       createdAt: '2026-02-01T00:00:00.000Z',
     });
     // API returns newest first.
@@ -144,8 +148,8 @@ describe('History', () => {
   });
 
   it('renders a "Failed" row with no scores for a failed assessment and excludes it from the chart', async () => {
-    const ready1 = makeAssessment({ id: 'A1', scores: { seo: 40, aeo: 45, geo: 50 }, createdAt: '2026-01-01T00:00:00.000Z' });
-    const ready2 = makeAssessment({ id: 'A2', scores: { seo: 60, aeo: 65, geo: 70 }, createdAt: '2026-02-01T00:00:00.000Z' });
+    const ready1 = makeAssessment({ id: 'A1', scores: { seo: 40, aeo: 45, geo: 50, overall: 45 }, createdAt: '2026-01-01T00:00:00.000Z' });
+    const ready2 = makeAssessment({ id: 'A2', scores: { seo: 60, aeo: 65, geo: 70, overall: 65 }, createdAt: '2026-02-01T00:00:00.000Z' });
     const failed = makeAssessment({
       id: 'A3',
       status: 'failed',

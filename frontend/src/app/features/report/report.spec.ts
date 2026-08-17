@@ -16,7 +16,9 @@ function makeAssessment(overrides: Partial<AssessmentDto> = {}): AssessmentDto {
     id: 'A1',
     siteId: 's1',
     status: 'ready',
-    scores: { seo: 72, aeo: 55, geo: 30 },
+    scores: { seo: 72, aeo: 55, geo: 30, overall: 52 },
+    summary: null,
+    scoreNotes: null,
     findings: [
       {
         id: 'f1',
@@ -40,10 +42,12 @@ function makeAssessment(overrides: Partial<AssessmentDto> = {}): AssessmentDto {
         affectedPages: ['/faq'],
       },
     ],
+    pageCount: null,
     errorCode: null,
     errorMessage: null,
     createdAt: '',
     completedAt: null,
+    changes: [],
     ...overrides,
   };
 }

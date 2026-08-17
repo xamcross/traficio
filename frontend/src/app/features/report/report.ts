@@ -4,6 +4,7 @@ import { ApiClient, ApiError } from '../../core/api/api-client';
 import { AssessmentDto, Finding } from '../../core/api/types';
 import { ScoreDial } from '../../shared/score-dial';
 import { ErrorNote } from '../../shared/error-note';
+import { toApiError } from '../../shared/to-api-error';
 
 interface FindingGroup {
   category: string;
@@ -29,10 +30,6 @@ function groupFindings(findings: Finding[]): FindingGroup[] {
     group.findings.push(finding);
   }
   return groups;
-}
-
-function toApiError(e: unknown): ApiError {
-  return e instanceof ApiError ? e : new ApiError('unknown', 'Something went wrong. Please try again.', 0);
 }
 
 @Component({

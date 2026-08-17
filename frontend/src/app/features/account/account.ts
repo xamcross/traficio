@@ -5,10 +5,7 @@ import { UserStore } from '../../core/auth/user-store';
 import { UsageDto } from '../../core/api/types';
 import { FREEMIUS_PORTAL_URL } from '../../core/config';
 import { ErrorNote } from '../../shared/error-note';
-
-function toApiError(e: unknown): ApiError {
-  return e instanceof ApiError ? e : new ApiError('unknown', 'Something went wrong. Please try again.', 0);
-}
+import { toApiError } from '../../shared/to-api-error';
 
 @Component({
   selector: 'app-account',

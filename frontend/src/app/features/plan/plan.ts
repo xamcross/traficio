@@ -3,10 +3,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { PlanDto, PlanTaskDto } from '../../core/api/types';
 import { ErrorNote } from '../../shared/error-note';
-
-function toApiError(e: unknown): ApiError {
-  return e instanceof ApiError ? e : new ApiError('unknown', 'Something went wrong. Please try again.', 0);
-}
+import { toApiError } from '../../shared/to-api-error';
 
 @Component({
   selector: 'app-plan',

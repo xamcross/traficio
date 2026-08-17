@@ -21,7 +21,7 @@ function makeUser(overrides: Partial<UserDto> = {}): UserDto {
 }
 
 function makeUsage(overrides: Partial<UsageDto> = {}): UsageDto {
-  return { assessmentsUsed: 1, assessmentsLimit: 10, sitesUsed: 2, sitesLimit: 5, ...overrides };
+  return { assessmentsUsed: 1, assessmentsLimit: 10, sitesUsed: 2, sitesLimit: 5, nextCheckAt: null, ...overrides };
 }
 
 /** Hand-rolled fake with controllable, per-call-configurable promises. No jasmine.createSpy. */

@@ -1,21 +1,20 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
-import { AssessmentDto, Scores } from '../../core/api/types';
+import { AssessmentDto } from '../../core/api/types';
 import { ErrorNote } from '../../shared/error-note';
 import { assessmentErrorCopy } from '../../shared/assessment-error-copy';
+import { toApiError } from '../../shared/to-api-error';
 
-const SERIES: { key: keyof Scores; label: string; color: string }[] = [
+type PlottedSeries = 'seo' | 'aeo' | 'geo';
+
+const SERIES: { key: PlottedSeries; label: string; color: string }[] = [
   { key: 'seo', label: 'SEO', color: '#2563eb' },
   { key: 'aeo', label: 'AEO', color: '#7c3aed' },
   { key: 'geo', label: 'GEO', color: '#0d9488' },
 ];
 
-function toApiError(e: unknown): ApiError {
-  return e instanceof ApiError ? e : new ApiError('unknown', 'Something went wrong. Please try again.', 0);
-}
-
-function pointsFor(ready: AssessmentDto[], key: keyof Scores): string {
+function pointsFor(ready: AssessmentDto[], key: PlottedSeries): string {
   const n = ready.length;
   if (n < 2) return '';
   return ready
