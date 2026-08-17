@@ -30,7 +30,7 @@ import { SiteFooter } from '../../shared/site-footer';
       <p>Keep your password safe. You are responsible for what happens under your account.</p>
 
       <h2>Questions</h2>
-      <p>Email us at <a href="mailto:REPLACE_ME_CONTACT_EMAIL">REPLACE_ME_CONTACT_EMAIL</a>.</p>
+      <p>Email us at <a href="mailto:support@traficio.com">support@traficio.com</a>.</p>
 
       <p><a routerLink="/">Back home</a></p>
 

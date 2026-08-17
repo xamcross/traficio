@@ -1,75 +1,90 @@
 # GeoStrategy — Manual Launch Checklist
 
-All code for v1 is complete and merged to `master`. This document lists the manual
-actions that remain before launch. Do the steps in order. Each step tells you where
-the action happens. Sentences follow ASD-STE100.
+All code for v1 and the "One Thing" redesign is merged to `master`. This document
+lists the manual actions that remain before launch, and the current status of each.
+Do the open steps in order. Each step tells you where the action happens. Sentences
+follow ASD-STE100.
 
-Placeholders in this document:
+Facts (2026-08-18):
 
-- `<your-domain>` — your production domain, for example `geostrategy.app`.
-- The SPA runs at `https://app.<your-domain>`. The API runs at `https://api.<your-domain>`.
+- The domain is `traficio.com`. It is registered and proxied on Cloudflare
+  (zone `traficio.com`, account `Xamcross@gmail.com's Account`).
+- The SPA runs at `https://app.traficio.com` (Cloudflare Pages project `geostrategy`).
+  The API runs at `https://api.traficio.com` (Fly app `geostrategy-api`, region `fra`).
 - Both hosts share one registrable domain. The session cookie is same-site, so
   `SameSite=Lax` works. Keep this layout.
 - The GitHub repository is `xamcross/traficio`. It is public. The default branch is `master`.
+- Legend: `[x]` done, `[ ]` open, `[~]` partly done (the item text says what is left).
 
 ---
 
 ## 1. Create the external accounts
 
-Do these first. Later steps need their credentials.
-
-- [ ] 1.1 Create a **MongoDB Atlas** cluster (M0 is enough to start). Choose the same
-      region that you will use on Fly.io.
-- [ ] 1.2 Create an **Anthropic** account at console.anthropic.com. Create an API key.
-- [ ] 1.3 Create a **Resend** account. Verify your sending domain. Create an API key.
+- [~] 1.1 **MongoDB Atlas.** The account exists (`xamcross@gmail.com`, org
+      `6a1d5f0463c3fcd7d61bf4cc`). The M0 cluster does not exist yet. See section 2.
+- [ ] 1.2 Create an **Anthropic** API key at console.anthropic.com.
+- [ ] 1.3 Create a **Resend** account. Verify the sending domain `traficio.com`
+      (Resend gives you DNS records; add them in the Cloudflare zone). Create an API key.
 - [ ] 1.4 Create a **Google Cloud** OAuth client (type: Web application). Note the
       client id and the client secret.
 - [ ] 1.5 Create a **Freemius** account. Create the product and the Pro plan. Set the
       price in the Freemius dashboard. Note: the product id, the public key, the
       secret key, and the Pro plan id.
-- [ ] 1.6 Create a **Cloudflare** account. Add `<your-domain>` as a zone.
-- [ ] 1.7 Create a **Fly.io** account. Install `flyctl` on your machine.
+- [x] 1.6 **Cloudflare.** The account exists. The zone `traficio.com` is active.
+- [x] 1.7 **Fly.io.** The account exists. `flyctl` 0.4.79 is installed and logged in.
 
 ## 2. Configure MongoDB Atlas
 
-- [ ] 2.1 Create a database user with `readWrite` on the `geostrategy` database.
-- [ ] 2.2 Open Network Access. Allow the Fly.io egress IPs. If you do not know them
-      yet, allow `0.0.0.0/0` temporarily and use a strong password. Tighten this
-      after the first deploy.
-- [ ] 2.3 Copy the connection string (`mongodb+srv://...`). You need it in step 4.2.
+The Atlas CLI session on this machine is expired. The CLI login needs an interactive
+terminal, so an agent cannot do it. Do 2.1 yourself; an agent can then do 2.2–2.4
+with the CLI.
+
+- [ ] 2.1 Log in: `atlas auth login` (choose "UserAccount", finish the browser step).
+- [ ] 2.2 Create the M0 cluster in the existing project (or a new project
+      `geostrategy`): `atlas clusters create geostrategy --tier M0 --provider AWS
+      --region EU_CENTRAL_1 --projectId <id>`. Frankfurt is the closest region to
+      the Fly region `fra`.
+- [ ] 2.3 Create the database user: `atlas dbusers create --username geostrategy
+      --role readWrite@geostrategy --password <strong>`. Allow network access
+      `0.0.0.0/0` (`atlas accessLists create 0.0.0.0/0 --type cidrBlock`). The
+      credential is the gate.
+- [ ] 2.4 Read the connection string: `atlas clusters connectionStrings describe
+      geostrategy`. Append `/?maxPoolSize=50&minPoolSize=5`. You need it in step 4.2.
 
 ## 3. Push the repository and set the CI secrets
 
-- [ ] 3.1 Push the current `master`: `git push origin master`. Confirm the default
-      branch is `master`: GitHub → Settings → General → Default branch. The
-      repository is public and already holds `master`. Confirm that no secret is
-      in the tree before you push
-      (`git grep -n -i -E 'sk-ant-|re_[A-Za-z0-9]{20,}|mongodb\+srv://|GOCSPX-'`
-      must be empty).
-- [ ] 3.2 In GitHub → Settings → Secrets and variables → Actions, add:
-      `FLY_API_TOKEN` (from `fly tokens create deploy -x 999999h`),
-      `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` (scope: the account, `Pages:Edit` only).
-- [ ] 3.3 The workflow `.github/workflows/ci.yml` runs on each push to `master`. It
-      deploys the backend and the frontend after the tests pass. Do steps 4 and 8
-      by hand first. That creates the Fly app and the Pages project that CI
-      needs. The first run's two deploy jobs fail until steps 4 and 8 are done.
-      That is expected. After steps 4 and 8, start the workflow once by hand
-      (Actions → CI → Run workflow).
+- [x] 3.1 `master` is pushed. The default branch is `master`. The secret scan
+      (`git grep -n -i -E 'sk-ant-|re_[A-Za-z0-9]{20,}|mongodb\+srv://|GOCSPX-'`)
+      is empty.
+- [~] 3.2 GitHub → Settings → Secrets and variables → Actions:
+      - [x] `FLY_API_TOKEN` (an app-scoped deploy token, valid one year, created 2026-08-17).
+      - [x] `CLOUDFLARE_ACCOUNT_ID`.
+      - [ ] `CLOUDFLARE_API_TOKEN`. Create it yourself, so the value never passes
+        through an agent transcript: Cloudflare dashboard → My Profile → API Tokens →
+        Create Token → Create Custom Token. Name `traficio-ci-pages-deploy`.
+        Permission: Account → Cloudflare Pages → Edit. Account Resources: your
+        account. Create it, copy it once, then run
+        `gh secret set CLOUDFLARE_API_TOKEN -R xamcross/traficio` and paste it.
+- [x] 3.3 The workflow `.github/workflows/ci.yml` runs on each push to `master`. The
+      first run (2026-08-17) passed the tests. Its two deploy jobs failed as expected
+      (no Cloudflare token yet; no `MONGODB_URI` yet). After 3.2 and 4.2 are done,
+      start the workflow once by hand (Actions → CI → Run workflow) or push a commit.
 
 ## 4. Deploy the backend to Fly.io
 
 Work from the `backend/` directory.
 
-- [ ] 4.1 Run `fly launch --no-deploy --copy-config`. Accept the existing `fly.toml`.
-      Adjust the app name and the region.
+- [x] 4.1 The Fly app `geostrategy-api` exists (org `personal`, region `fra`,
+      `fly.toml` accepted). The first CI deploy built the image on Fly and started a
+      machine. The machine stopped because no `MONGODB_URI` exists yet.
 - [ ] 4.2 Set the secrets. Use one `fly secrets set` command with these values:
 
       MONGODB_URI="mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/?maxPoolSize=50&minPoolSize=5"
       MONGODB_DB="geostrategy"
-      BASE_URL="https://api.<your-domain>"
-      APP_URL="https://app.<your-domain>"
+      BASE_URL="https://api.traficio.com"
+      APP_URL="https://app.traficio.com"
       RESEND_API_KEY="re_..."
-      EMAIL_FROM="GeoStrategy <noreply@<your-domain>>"
+      EMAIL_FROM="GeoStrategy <noreply@traficio.com>"
       GOOGLE_CLIENT_ID="..."
       GOOGLE_CLIENT_SECRET="..."
       ANTHROPIC_API_KEY="sk-ant-..."
@@ -81,39 +96,61 @@ Work from the `backend/` directory.
       `X-Signature`), tier limits (`FREE_MAX_SITES=1`, `FREE_ASSESSMENTS_PER_MONTH=1`,
       `PRO_MAX_SITES=5`, `PRO_ASSESSMENTS_PER_MONTH=10`).
 
-      Do not set `COOKIE_DOMAIN`. The cookie is host-only on `api.<your-domain>`, and
-      that is enough. If you set it, use `<your-domain>` with no leading dot.
+      Do not set `COOKIE_DOMAIN`. The cookie is host-only on `api.traficio.com`, and
+      that is enough. If you set it, use `traficio.com` with no leading dot.
       The machine is always on (`min_machines_running = 1` in `fly.toml`) because the
       job worker runs in-process. Expect a few US dollars per month. Check the
       current Fly.io price list.
-- [ ] 4.3 Run `fly deploy`.
-- [ ] 4.4 Run `fly certs add api.<your-domain>`. Then run `fly certs show
-      api.<your-domain>`. Add the `_acme-challenge` CNAME that it prints to
-      Cloudflare DNS. Set that record to DNS only. Wait for the status `Ready`.
-- [ ] 4.5 Check `https://<fly-app-name>.fly.dev/healthz`. It must return `ok`. The
-      first boot can take more than a minute. A failed health check does not stop
-      the machine. It only delays the healthy state.
+      You can set the secrets in two rounds. `MONGODB_URI`, `BASE_URL`, and `APP_URL`
+      are enough for the API to boot. The other keys enable email, Google login,
+      assessments, and billing when you add them. Each `fly secrets set` restarts
+      the machine.
+- [ ] 4.3 Run `fly deploy` (or let CI deploy on the next push to `master`).
+- [x] 4.4 The certificate for `api.traficio.com` is issued (Let's Encrypt, verified
+      2026-08-18). The `_acme-challenge.api` CNAME and the `_fly-ownership.api` TXT
+      records exist in the zone.
+- [ ] 4.5 Check `https://api.traficio.com/healthz`. It must return `ok`. The first
+      boot can take more than a minute. A failed health check does not stop the
+      machine. It only delays the healthy state.
 
 ## 5. Configure Cloudflare DNS and protection
 
-- [ ] 5.1 Set the SSL/TLS encryption mode of the zone to **Full (strict)**. Do this
-      before you proxy any record.
-- [ ] 5.2 Add a CNAME record: `api` → `<fly-app-name>.fly.dev`. Set it to proxied.
-- [ ] 5.3 Check `https://api.<your-domain>/healthz`. It must return `ok`.
-- [ ] 5.4 Add WAF rate-limiting rules for `api.<your-domain>`. Cover at minimum:
+- [x] 5.1 SSL/TLS encryption mode is **Full (strict)**. "Always Use HTTPS" is on.
+- [x] 5.2 DNS records in the zone `traficio.com` (all created 2026-08-18):
+      - `app` CNAME → `geostrategy.pages.dev` (proxied). Pages custom domain
+        `app.traficio.com` is active.
+      - `api` CNAME → `nw2e8o1.geostrategy-api.fly.dev` (proxied).
+      - `_acme-challenge.api` CNAME → `api.traficio.com.nw2e8o1.flydns.net` (DNS only).
+      - `_fly-ownership.api` TXT → `app-nw2e8o1`.
+      - `@` and `www` A → `192.0.2.1` (proxied placeholders; a redirect rule below
+        sends visitors to the app).
+      - A Single Redirect rule: `traficio.com/*` and `www.traficio.com/*` →
+        `https://app.traficio.com/<path>` (301, query string kept). Verified.
+- [ ] 5.3 Check `https://api.traficio.com/healthz` after 4.2. It must return `ok`.
+- [ ] 5.4 Add a WAF rate-limiting rule for `api.traficio.com` (Security → WAF →
+      Rate limiting rules; the Free plan allows one rule). Cover at minimum:
       `POST /v1/auth/*` and `POST /v1/sites/*/assessments`. These endpoints are
-      the abuse targets.
+      the abuse targets. An agent cannot do this: the setup token has no WAF scope.
+- [ ] 5.5 Enable **Email Routing** for the zone (Email → Email Routing). Add the
+      address `support@traficio.com` → your personal inbox. Verify the destination
+      address from the email Cloudflare sends. The legal pages already show
+      `support@traficio.com`. Receive-only is enough.
+- [ ] 5.6 Delete the temporary API token `traficio-setup` (My Profile → API Tokens).
+      An agent used it on 2026-08-18 to configure the zone. It has DNS, Zone
+      Settings, Single Redirect, and Pages edit rights on this zone. It is not
+      needed after this checklist is done.
 
 ## 6. Configure Google OAuth
 
 - [ ] 6.1 In the Google Cloud Console, open your OAuth client.
 - [ ] 6.2 Add this authorized redirect URI:
-      `https://api.<your-domain>/v1/auth/google/callback`.
+      `https://api.traficio.com/v1/auth/google/callback`.
+      Authorized JavaScript origin: `https://api.traficio.com`.
 
 ## 7. Configure Freemius
 
 - [ ] 7.1 In the Freemius dashboard, set the webhook URL to:
-      `https://api.<your-domain>/v1/billing/freemius/webhook`.
+      `https://api.traficio.com/v1/billing/freemius/webhook`.
 - [ ] 7.2 Send a test webhook from the Freemius dashboard. Then read the Fly logs
       (`fly logs`). Confirm the server answers 200 and the signature verifies.
 - [ ] 7.3 **Verify the contract.** Compare one real webhook payload and its signature
@@ -126,42 +163,37 @@ Work from the `backend/` directory.
 
 ## 8. Configure and deploy the frontend
 
-- [ ] 8.1 Edit `frontend/src/environments/environment.production.ts`:
-      - Replace `REPLACE_ME_DOMAIN` with `<your-domain>`.
-      - Replace `REPLACE_ME_FREEMIUS_PRODUCT_ID` with the Freemius product id.
-      - Replace `REPLACE_ME_FREEMIUS_PUBLIC_KEY` with the Freemius public key.
+- [~] 8.1 `frontend/src/environments/environment.production.ts`:
+      - [x] `apiBaseUrl` is `https://api.traficio.com`.
+      - [ ] Replace `REPLACE_ME_FREEMIUS_PRODUCT_ID` with the Freemius product id.
+      - [ ] Replace `REPLACE_ME_FREEMIUS_PUBLIC_KEY` with the Freemius public key.
+      Until then the checkout button shows "not connected"; nothing else breaks.
 - [ ] 8.1a In the Freemius dashboard, set the Pro price equal to `PRO_PRICE_LABEL` in
       `frontend/src/app/core/config.ts` (default `$9` a month). Keep `FREE_TIER_COPY` and
-      `PRO_TIER_COPY` in the same file equal to the tier env values of step 3.2.
-- [ ] 8.2 Replace `REPLACE_ME_CONTACT_EMAIL` in
-      `frontend/src/app/features/legal/terms.ts` and
-      `frontend/src/app/features/legal/privacy.ts` with your contact address.
+      `PRO_TIER_COPY` in the same file equal to the tier env values of step 4.2.
+- [x] 8.2 The legal pages show the contact address `support@traficio.com`
+      (see 5.5 for the mailbox).
 - [ ] 8.3 Review the legal pages. The current texts are short v1 stubs. Confirm they
       are acceptable for your jurisdiction, or replace them.
-- [ ] 8.4 Commit the edits from 8.1–8.3.
-- [ ] 8.5 Create the Pages project as a direct-upload project. Then deploy once by
-      hand from `frontend/`:
-      `npx wrangler pages project create geostrategy --production-branch=master`
-      `npm run build`
-      `npx wrangler pages deploy dist/frontend/browser --project-name=geostrategy --branch=master`
-      After this, CI deploys on each merge to `master`.
-- [ ] 8.6 Add the custom domain `app.<your-domain>` to the Pages project. Add a
-      Cloudflare redirect rule: `<your-domain>/*` → `https://app.<your-domain>/$1`
-      (301), so the bare domain reaches the app.
-- [ ] 8.7 (optional) Deploy a preview first. Then test the `_redirects` rows in a
-      real browser. See `frontend/README.md`, section "Test a change to
-      `_redirects`".
-- [ ] 8.8 Open `https://app.<your-domain>`. Confirm: the landing page loads; a hard
-      navigation to `/login` shows the login page; `/dashboard/` (trailing slash) shows
-      the app; `/no-such-page` shows the 404 page with status 404.
+- [ ] 8.4 Commit the edits from 8.1 when the Freemius values exist. Push `master`.
+- [x] 8.5 The Pages project `geostrategy` exists (direct upload, production branch
+      `master`). The first production deploy was made by hand on 2026-08-18. After
+      3.2 is done, CI deploys on each push to `master`.
+- [x] 8.6 The custom domain `app.traficio.com` is attached and active. The apex and
+      `www` redirect to it (see 5.2).
+- [x] 8.7 A preview deployment (`--branch=preview`) was tested in a real browser on
+      2026-08-17: all `_redirects` rows serve the SPA with 200; a bad path answers 404.
+- [x] 8.8 `https://app.traficio.com` verified 2026-08-18: `/`, `/login`, `/dashboard/`,
+      `/assessments/x/report` answer 200 with the SPA; `/no-such-page` answers 404;
+      the security headers are present.
 - [ ] 8.9 **Plan gate.** As a Free user with a ready check, open `/assessments/<id>/plan`.
       Confirm the redirect to `/pricing?site=<id>` and that the locked list shows task
-      titles without steps.
+      titles without steps. (Needs the API, section 4.)
 
 ## 9. Smoke tests with real services
 
-Run these once after deploy. They cover the paths that tests could not cover
-with mocks and canned clients.
+Run these once after the API is up (steps 4.2–4.5). They cover the paths that tests
+could not cover with mocks and canned clients.
 
 - [ ] 9.1 **Email flow.** Register with a real address. Confirm the verification
       email arrives. Click the link. Confirm the account verifies.
@@ -181,8 +213,8 @@ with mocks and canned clients.
       limits and the "Manage subscription" link.
 - [ ] 9.6 **Downgrade path.** Cancel or refund the sandbox purchase. Confirm the
       account returns to Free and extra sites become read-only.
-- [ ] 9.7 **Session across subdomains.** Log in on `app.<your-domain>`. Confirm the
-      API calls to `api.<your-domain>` carry the session (no 401s).
+- [ ] 9.7 **Session across subdomains.** Log in on `app.traficio.com`. Confirm the
+      API calls to `api.traficio.com` carry the session (no 401s).
 
 ## 10. Prompt quality check (from the spec, manual)
 
@@ -209,7 +241,13 @@ account data or a decision. Ask for them when you are ready.
 
 ---
 
-**Order summary:** accounts (1) → Atlas (2) → push & CI secrets (3) → backend deploy
-(4) → DNS/WAF (5) → Google (6) → Freemius (7) → frontend deploy (8) → smoke tests (9)
-→ prompt QA (10).
+**Order summary:** accounts (1) → Atlas (2) → CI secrets (3) → backend secrets and
+deploy (4) → DNS/WAF/email (5) → Google (6) → Freemius (7) → frontend values (8) →
+smoke tests (9) → prompt QA (10).
 Steps 1–8 must finish before step 9. Step 11 can run in parallel after step 7.
+
+**Shortest path to a working app:** 2.1–2.4 (Atlas) → 4.2 with `MONGODB_URI`,
+`BASE_URL`, `APP_URL` → 4.5 (`/healthz` is `ok`) → 3.2 (`CLOUDFLARE_API_TOKEN`) →
+register with email and password on `https://app.traficio.com` (the verification
+email prints in `fly logs` until Resend is set) → run a check (canned Claude client
+until `ANTHROPIC_API_KEY` is set).
