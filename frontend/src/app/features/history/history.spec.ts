@@ -208,4 +208,18 @@ describe('History', () => {
 
     expect(TestBed.inject(SiteContext).domain()).toBeNull();
   });
+
+  it('does not let a listAssessments() that resolves after destroy write to the assessments signal', async () => {
+    const list = deferred<AssessmentDto[]>();
+    api.listAssessmentsResult = list.promise;
+    const fixture = TestBed.createComponent(History);
+    fixture.detectChanges();
+
+    fixture.destroy();
+    list.resolve([makeAssessment({ id: 'LATE' })]);
+    await Promise.resolve();
+
+    const instance = fixture.componentInstance as unknown as { assessments: () => unknown[] };
+    expect(instance.assessments()).toEqual([]);
+  });
 });

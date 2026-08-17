@@ -138,7 +138,9 @@ export class History implements OnInit {
     this.loading.set(true);
     this.listError.set(null);
     try {
-      this.assessments.set(await this.api.listAssessments(this.siteId));
+      const list = await this.api.listAssessments(this.siteId);
+      if (this.destroyed) return;
+      this.assessments.set(list);
     } catch (e) {
       if (this.destroyed) return;
       if (isUpgradeRequired(e)) { void this.router.navigateByUrl(pricingUrlFor(this.siteId)); return; }
