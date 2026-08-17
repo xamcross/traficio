@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { Report } from './report';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { AssessmentDto, PlanDto, SiteDto } from '../../core/api/types';
+import { SiteContext } from '../../core/site-context';
 
 /** No-op routed targets so provideRouter() has something real to navigate to. */
 @Component({ selector: 'report-spec-blank', template: '' })
@@ -51,8 +52,31 @@ function makePlan(overrides: Partial<PlanDto> = {}): PlanDto {
   };
 }
 
+function makeSite(overrides: Partial<SiteDto> = {}): SiteDto {
+  return {
+    id: 's1',
+    domain: 'example.com',
+    url: 'https://example.com',
+    platform: null,
+    latestScores: null,
+    readOnly: false,
+    latestAssessment: null,
+    latestReadyAssessmentId: null,
+    ...overrides,
+  };
+}
+
 function activatedRouteWithId(id: string): ActivatedRoute {
   return { snapshot: { paramMap: convertToParamMap({ id }) } } as ActivatedRoute;
+}
+
+/** A promise whose resolution is controlled from the test, to simulate an in-flight request. */
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
 }
 
 /** Hand-rolled fake with controllable, per-call-configurable promises. No jasmine.createSpy. */
@@ -128,5 +152,21 @@ describe('Report', () => {
     expect(compiled.querySelectorAll('app-result-view').length).toBe(0);
     const backLink = compiled.querySelector('a[href="/dashboard"]');
     expect(backLink).toBeTruthy();
+  });
+
+  it('does not let a listSites() that resolves after destroy overwrite SiteContext with a stale domain', async () => {
+    const sites = deferred<SiteDto[]>();
+    api.getAssessmentResult = Promise.resolve(makeAssessment());
+    api.listSitesResult = sites.promise;
+    const fixture = TestBed.createComponent(Report);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    fixture.destroy();
+    sites.resolve([makeSite({ id: 's1', domain: 'late.example.com' })]);
+    await Promise.resolve();
+
+    expect(TestBed.inject(SiteContext).domain()).toBeNull();
   });
 });

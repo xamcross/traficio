@@ -75,7 +75,7 @@ const AREAS: Array<{ key: 'seo' | 'aeo' | 'geo' }> = [{ key: 'seo' }, { key: 'ae
             <span class="eyebrow">NEXT</span>
             <h2 class="teaser-h">We wrote you {{ word(p.tasks.length) }} things to fix, in order.</h2>
             <p class="lead">Each one is a short set of steps you can follow yourself, with a way to check it worked. {{ effortSentence(p) }} The first one alone should move your score the most.</p>
-            <div class="row"><a class="btn btn-primary" [routerLink]="pricingLink()" [queryParams]="{ site: siteId() }">Read my plan</a><span class="faint">Included with Pro, from {{ price }} a month</span></div>
+            <div class="row"><a class="btn btn-primary" [routerLink]="pricingUrlFor(siteId())">Read my plan</a><span class="faint">Included with Pro, from {{ price }} a month</span></div>
           </div>
           <app-locked-plan-list [plan]="p" />
         </section>
@@ -123,6 +123,7 @@ export class ResultView {
   protected readonly areaName = areaName;
   protected readonly areaCode = areaCode;
   protected readonly word = numberWord;
+  protected readonly pricingUrlFor = pricingUrlFor;
   protected readonly scores = computed(() => this.assessment().scores ?? { seo: 0, aeo: 0, geo: 0, overall: 0 });
   protected readonly band = computed(() => bandFor(this.scores().overall));
   protected readonly checked = computed(() => formatDate(this.assessment().completedAt ?? this.assessment().createdAt).toUpperCase());
@@ -130,7 +131,6 @@ export class ResultView {
   protected readonly areaCount = computed(() => distinctAreas(this.assessment().findings));
 
   protected pages(f: Finding): string { return pagesCaption(f.affectedPages.length, this.assessment().pageCount); }
-  protected pricingLink(): string { return pricingUrlFor(null); }
   protected effortSentence(p: PlanDto): string {
     const e = effortText(openMinutes(p));
     return `${e.charAt(0).toUpperCase()}${e.slice(1)} of work in total.`;
