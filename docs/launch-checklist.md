@@ -145,7 +145,7 @@ Work from the `backend/` directory.
 - [ ] 8.6 Add the custom domain `app.<your-domain>` to the Pages project. Add a
       Cloudflare redirect rule: `<your-domain>/*` → `https://app.<your-domain>/$1`
       (301), so the bare domain reaches the app.
-- [ ] 8.7 (optional) Deploy a preview first and test the `_redirects` rows in a
+- [ ] 8.7 (optional) Deploy a preview first. Then test the `_redirects` rows in a
       real browser. See `frontend/README.md`, section "Test a change to
       `_redirects`".
 - [ ] 8.8 Open `https://app.<your-domain>`. Confirm: the landing page loads; a hard

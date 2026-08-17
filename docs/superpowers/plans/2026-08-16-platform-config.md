@@ -1,5 +1,7 @@
 # Platform Configuration Implementation Plan
 
+> **Status (2026-08-17): executed.** All six tasks are done on branch `worktree-platform-config`. Two facts changed during execution and this text was not rewritten: the default branch is `master` (read `main` as `master` everywhere below), and the Fly region is `fra` (see D7). The ledger with every ruling was in `.superpowers/sdd/2026-08-16-platform-config/` (git-ignored) at execution time.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Align the deployment scripts and the deployment configuration of GeoStrategy with the platform playbook in `docs/2026-08-16-platform-config-playbook.md`.
@@ -41,7 +43,7 @@
 | D4 | Static `404.html` plus explicit `_redirects` rows | Playbook §2.1: a real 404 status, no soft 404s | Delete `_redirects` and `404.html`, use the automatic Pages SPA fallback (all bad URLs answer 200). |
 | D5 | Playwright e2e runs in CI and gates deploys | It is the only integration test. The backend is mocked, so it is stable. | Drop the e2e step from `ci.yml`. |
 | D6 | No `@angular/ssr` prerender | Out of scope. It is a code change, not a config change. | Follow-up: adopt `outputMode: 'static'`, then remove the `_redirects` rows of prerendered routes. |
-| D7 | Fly region stays `waw` | Already chosen. Atlas M0 has no Warsaw region; Frankfurt (`eu-central-1`) is the closest. Latency `waw`↔`fra` is small. | Change `primary_region` to `fra`. |
+| D7 | Fly region is `fra` (changed at execution time; the plan first said `waw`) | `flyctl platform regions` no longer lists `waw` (checked 2026-08-17). Frankfurt is the closest region to an Atlas M0 in `eu-central-1`. | None. |
 | D8 | Product name stays GeoStrategy | The GitHub repository is `xamcross/traficio`. Nobody has said the product renames. | If the product renames, do it in a separate task. |
 
 ## Facts about the environment (verified 2026-08-16)
