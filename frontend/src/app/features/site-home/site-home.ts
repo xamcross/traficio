@@ -55,7 +55,7 @@ type State =
             <div class="note-box row failed-note"><span>Your last check on {{ date(f) }} did not finish. {{ f.errorMessage }}</span><span class="spacer"></span><button type="button" class="btn btn-outline" (click)="check()" [disabled]="checkBusy()">Try again</button></div>
           }
           @if (isPro() && readyOf().plan; as p) {
-            <app-next-task-view [site]="site()!" [assessment]="readyOf().assessment" [plan]="p" [previousOverall]="readyOf().previousOverall" [doneBusy]="doneBusy()" [checkBusy]="checkBusy()" (done)="markDone($event)" (checkAgain)="check()" />
+            <app-next-task-view [assessment]="readyOf().assessment" [plan]="p" [previousOverall]="readyOf().previousOverall" [doneBusy]="doneBusy()" [checkBusy]="checkBusy()" (done)="markDone($event)" (checkAgain)="check()" />
           } @else {
             <app-result-view [assessment]="readyOf().assessment" [plan]="readyOf().plan" [tier]="isPro() ? 'pro' : 'free'" [siteId]="siteId" />
           }

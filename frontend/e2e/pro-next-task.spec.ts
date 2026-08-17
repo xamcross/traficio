@@ -27,4 +27,8 @@ test('pro user sees the next task, marks it done, and the following task appears
   await page.getByRole('button', { name: 'I did this' }).click();
   await expect(page.getByRole('heading', { name: 'Write the one page that answers what people ask' })).toBeVisible();
   await expect(page.getByText('1 of 2 done')).toBeVisible();
+
+  await page.getByRole('link', { name: 'See all 2' }).click();
+  await expect(page).toHaveURL(/\/assessments\/A1\/plan$/);
+  await expect(page.getByRole('heading', { name: 'Your plan' })).toBeVisible();
 });

@@ -4,7 +4,7 @@ import { UserStore } from '../../core/auth/user-store';
 
 @Component({
   selector: 'app-auth-complete',
-  template: `<p>One moment…</p>`,
+  template: `<div class="page surface plain"><p>One moment…</p></div>`,
 })
 export class AuthComplete {
   private store = inject(UserStore);

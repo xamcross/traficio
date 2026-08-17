@@ -1,10 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { NextTaskView, nextTaskFor } from './next-task-view';
-import { AssessmentDto, PlanDto, SiteDto } from '../../core/api/types';
+import { AssessmentDto, PlanDto } from '../../core/api/types';
 import { clearSkips } from './skips';
 
-const site: SiteDto = { id: 'S1', domain: 'rivertonbakery.com', url: 'https://rivertonbakery.com', platform: 'wordpress', latestScores: { seo: 62, aeo: 34, geo: 28, overall: 41 }, readOnly: false, latestAssessment: null, latestReadyAssessmentId: 'A1' };
 const assessment: AssessmentDto = { id: 'A1', siteId: 'S1', status: 'ready', scores: { seo: 62, aeo: 34, geo: 28, overall: 41 }, summary: null, scoreNotes: null, findings: [], pageCount: 18, errorCode: null, errorMessage: null, createdAt: '2026-07-28T09:00:00Z', completedAt: '2026-07-28T10:00:00Z', changes: [] };
 function plan(): PlanDto {
   const t = (i: number, title: string, minutes: number, status: 'todo' | 'done' | 'verified' = 'todo') => ({
@@ -33,7 +32,6 @@ describe('NextTaskView', () => {
   async function render(p: PlanDto, previousOverall: number | null = 37) {
     await TestBed.configureTestingModule({ imports: [NextTaskView], providers: [provideRouter([])] }).compileComponents();
     const fixture = TestBed.createComponent(NextTaskView);
-    fixture.componentRef.setInput('site', site);
     fixture.componentRef.setInput('assessment', assessment);
     fixture.componentRef.setInput('plan', p);
     fixture.componentRef.setInput('previousOverall', previousOverall);

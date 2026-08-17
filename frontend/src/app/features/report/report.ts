@@ -37,10 +37,10 @@ export class Report implements OnInit {
   protected readonly plan = signal<PlanDto | null>(null);
   protected readonly error = signal<ApiError | null>(null);
 
-  /** Set once, in cleanup(), when the component is torn down. Guards every async continuation
-   *  below so a promise that outlives the component (SiteContext is a root singleton the header
-   *  reads from, so a late write here would leak a stale domain onto whatever page is now shown)
-   *  can never touch a signal, SiteContext, or navigate after the fact. */
+  /** True after cleanup() runs, when the component is torn down.
+   *  Every async step below checks this flag first.
+   *  SiteContext is a root singleton. The header reads it.
+   *  A late write here would show a stale domain on the current page. */
   private destroyed = false;
 
   ngOnInit(): void {

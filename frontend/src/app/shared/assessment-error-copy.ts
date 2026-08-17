@@ -12,7 +12,7 @@ export function assessmentErrorCopy(e: ApiError): string {
     case 'quota_exceeded':
       return e.message;
     case 'upgrade_required':
-      return 'Re-checks need the Pro plan.';
+      return 'Re-checks are part of Pro.';
     case 'site_read_only':
       return 'This site is over your plan limit.';
     default:

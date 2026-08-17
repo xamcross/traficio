@@ -123,9 +123,9 @@ export class Progress implements OnInit {
   private doneTimer: ReturnType<typeof setTimeout> | null = null;
   /** Consecutive refetch failures since the last success; reset on any successful fetch. */
   private refetchFailures = 0;
-  /** Set once, in cleanup(), when the component is torn down. Guards every async continuation
-   *  below so a promise or timer that outlives the component can never navigate, retry, or open
-   *  a stream after the fact. */
+  /** True after cleanup() runs, when the component is torn down.
+   *  Every async step and timer below checks this flag first.
+   *  This stops a stale promise or timer from navigating, retrying, or opening a stream. */
   private destroyed = false;
 
   ngOnInit(): void {

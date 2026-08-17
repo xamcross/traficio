@@ -95,11 +95,11 @@ export class Dashboard implements OnInit {
     try {
       const [sites, usage] = await Promise.all([this.api.listSites(), this.api.usage().catch(() => null)]);
       if (this.destroyed) return;
-      const sorted = [...sites];
-      this.sites.set(sorted);
+      const list = [...sites];
+      this.sites.set(list);
       this.usage.set(usage);
-      if (sorted.length === 1 && !this.checkError() && !this.addError()) {
-        await this.router.navigateByUrl(`/sites/${sorted[0].id}`);
+      if (list.length === 1 && !this.checkError() && !this.addError()) {
+        await this.router.navigateByUrl(`/sites/${list[0].id}`);
         return;
       }
     } catch (e) {

@@ -1,7 +1,7 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
-import { AssessmentDto } from '../../core/api/types';
+import { AssessmentDto, Scores } from '../../core/api/types';
 import { SiteContext } from '../../core/site-context';
 import { ErrorNote } from '../../shared/error-note';
 import { assessmentErrorCopy } from '../../shared/assessment-error-copy';
@@ -16,6 +16,8 @@ const SERIES: { key: 'seo' | 'aeo' | 'geo'; label: string; color: string }[] = [
   { key: 'geo', label: 'AI assistants', color: 'var(--amber)' },
 ];
 const W = 1000, H = 240;
+// The viewBox is wider and taller than the plot so the end labels and month labels have room.
+const VB_W = 1060, VB_H = 260;
 
 @Component({
   selector: 'app-history',
@@ -44,9 +46,11 @@ const W = 1000, H = 240;
             <span class="spacer"></span><span class="mono faint small">{{ range() }}</span>
           </div>
           @if (hasTrend()) {
-            <svg [attr.viewBox]="'0 0 ' + W + ' ' + H" role="img" [attr.aria-label]="chartLabel()">
+            <svg [attr.viewBox]="'0 0 ' + VB_W + ' ' + VB_H" role="img" [attr.aria-label]="chartLabel()">
               @for (g of [0, 25, 50, 75]; track g) {<line x1="0" [attr.y1]="H - g * H / 100" [attr.x2]="W" [attr.y2]="H - g * H / 100" stroke="var(--line)" stroke-width="1" />}
               @for (s of series; track s.key) {<polyline [attr.points]="points()[s.key]" fill="none" [attr.stroke]="s.color" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />}
+              @for (el of endLabels(); track el.key) {<text [attr.x]="el.x" [attr.y]="el.y" font-size="14" font-weight="700" fill="var(--ink)">{{ el.value }}</text>}
+              @for (xl of xLabels(); track xl.x) {<text [attr.x]="xl.x" y="256" text-anchor="middle" font-size="11" fill="var(--faint-2)">{{ xl.text }}</text>}
             </svg>
           } @else {<p class="muted">Run more checks to see your progress line.</p>}
         </section>
@@ -92,6 +96,8 @@ export class History implements OnInit {
 
   protected readonly W = W;
   protected readonly H = H;
+  protected readonly VB_W = VB_W;
+  protected readonly VB_H = VB_H;
   protected readonly series = SERIES;
   protected readonly assessmentErrorCopy = assessmentErrorCopy;
 
@@ -122,6 +128,28 @@ export class History implements OnInit {
     const r = this.readyAssessments();
     const l = r[r.length - 1]?.scores;
     return l ? `Score trend. Latest: Google search ${l.seo}, Answer boxes ${l.aeo}, AI assistants ${l.geo}.` : 'Score trend';
+  });
+  /** One end-of-line label per series, placed just past the last plotted point. */
+  protected readonly endLabels = computed((): { key: string; x: number; y: number; value: number }[] => {
+    const r = this.readyAssessments();
+    if (r.length < 2) return [];
+    const last = r[r.length - 1].scores as Scores;
+    return this.series.map((s) => ({ key: s.key, x: W + 12, y: H - last[s.key] * (H / 100) + 4, value: last[s.key] }));
+  });
+  /** One month label per ready assessment, along the bottom of the chart.
+   *  A label repeats its neighbour's month, so the later one also shows the day. */
+  protected readonly xLabels = computed((): { x: number; text: string }[] => {
+    const r = this.readyAssessments();
+    const n = r.length;
+    if (n < 2) return [];
+    return r.map((a, i) => {
+      const iso = a.completedAt ?? a.createdAt;
+      const mon = monthName(iso).slice(0, 3).toUpperCase();
+      const prevMon = i > 0 ? monthName(r[i - 1].completedAt ?? r[i - 1].createdAt).slice(0, 3).toUpperCase() : null;
+      const d = new Date(iso).getUTCDate();
+      const text = mon === prevMon ? `${mon} ${d}` : mon;
+      return { x: (W / (n - 1)) * i, text };
+    });
   });
 
   /** Set once on destroy. Every async continuation checks it first.

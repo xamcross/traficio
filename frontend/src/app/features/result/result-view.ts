@@ -49,7 +49,7 @@ const AREAS: Array<{ key: 'seo' | 'aeo' | 'geo' }> = [{ key: 'seo' }, { key: 'ae
     </section>
 
     <section class="stack findings">
-      <div class="row baseline"><h2>What we found</h2><span class="faint">{{ findings().length }} things, across {{ areaCount() }} areas</span></div>
+      <div class="row baseline"><h2>What we found</h2><span class="muted">{{ findings().length }} things, across {{ areaCount() }} areas</span></div>
       @if (findings().length === 0) {
         <p class="muted">{{ tier() === 'pro' ? 'We found nothing to fix. Check again after your next change.' : 'We found nothing to fix.' }}</p>
       } @else {
@@ -59,7 +59,7 @@ const AREAS: Array<{ key: 'seo' | 'aeo' | 'geo' }> = [{ key: 'seo' }, { key: 'ae
               <app-severity-badge [severity]="f.severity" />
               <div class="stack tight">
                 <p class="evidence">{{ f.evidence }}</p>
-                <span class="mono faint small">{{ areaName(f.category).toUpperCase() }} · {{ pages(f) }}</span>
+                <span class="mono muted small">{{ areaName(f.category).toUpperCase() }} · {{ pages(f) }}</span>
               </div>
             </div>
           }
@@ -74,7 +74,7 @@ const AREAS: Array<{ key: 'seo' | 'aeo' | 'geo' }> = [{ key: 'seo' }, { key: 'ae
             <span class="eyebrow">NEXT</span>
             <h2 class="teaser-h">We wrote you {{ word(p.tasks.length) }} things to fix, in order.</h2>
             <p class="lead">Each one is a short set of steps you can follow yourself, with a way to check it worked. {{ effortSentence(p) }} The first one alone should move your score the most.</p>
-            <div class="row"><a class="btn btn-primary" [routerLink]="['/pricing']" [queryParams]="{ site: siteId() }">Read my plan</a><span class="faint">Included with Pro, from {{ price }} a month</span></div>
+            <div class="row"><a class="btn btn-primary" [routerLink]="['/pricing']" [queryParams]="{ site: siteId() }">Read my plan</a><span class="muted">Included with Pro, from {{ price }} a month</span></div>
           </div>
           <app-locked-plan-list [plan]="p" />
         </section>

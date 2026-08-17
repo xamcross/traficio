@@ -12,7 +12,7 @@ import { numberWord } from '../../shared/copy';
           <span class="price">$0</span>
         </div>
         <ul class="features">
-          <li class="ok">One site, {{ freeChecks }} each month</li>
+          <li class="ok">{{ freeSites }}, {{ freeChecks }} each month</li>
           <li class="ok">Your visibility score and the three sub-scores</li>
           <li class="ok">Every problem we found, in plain language</li>
           <li class="no">No step-by-step plan</li>
@@ -74,8 +74,13 @@ export class PlanCards {
   stayFree = output<void>();
 
   protected readonly price = PRO_PRICE_LABEL;
+  protected readonly freeSites = FREE_TIER_COPY.sites === 1 ? 'One site' : `${cap(numberWord(FREE_TIER_COPY.sites))} sites`;
   protected readonly freeChecks = FREE_TIER_COPY.checks === 1 ? 'one check' : `${numberWord(FREE_TIER_COPY.checks)} checks`;
   protected readonly proSites = numberWord(PRO_TIER_COPY.sites).replace(/^./, (c) => c.toUpperCase());
   protected readonly proChecks = numberWord(PRO_TIER_COPY.checks);
   protected readonly word = numberWord;
+}
+
+function cap(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

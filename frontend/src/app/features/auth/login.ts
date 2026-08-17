@@ -10,23 +10,25 @@ import { ErrorNote } from '../../shared/error-note';
   selector: 'app-login',
   imports: [ReactiveFormsModule, RouterLink, ErrorNote],
   template: `
-    <form [formGroup]="form" (ngSubmit)="submit()">
-      <label>
-        Email
-        <input type="email" formControlName="email" autocomplete="email" />
-      </label>
-      <label>
-        Password
-        <input type="password" formControlName="password" autocomplete="current-password" />
-      </label>
-      <button type="submit" [disabled]="busy() || form.invalid">Log in</button>
-    </form>
+    <div class="page surface plain">
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <label>
+          Email
+          <input type="email" formControlName="email" autocomplete="email" />
+        </label>
+        <label>
+          Password
+          <input type="password" formControlName="password" autocomplete="current-password" />
+        </label>
+        <button type="submit" class="btn btn-primary" [disabled]="busy() || form.invalid">Log in</button>
+      </form>
 
-    <app-error-note [error]="error()" />
+      <app-error-note [error]="error()" />
 
-    <p><a [href]="googleUrl">Continue with Google</a></p>
-    <p>New here? <a routerLink="/signup">Create an account</a></p>
-    <p><a routerLink="/reset-password">Forgot your password?</a></p>
+      <p><a [href]="googleUrl">Continue with Google</a></p>
+      <p>New here? <a routerLink="/signup">Create an account</a></p>
+      <p><a routerLink="/reset-password">Forgot your password?</a></p>
+    </div>
   `,
 })
 export class Login {

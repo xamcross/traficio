@@ -23,7 +23,7 @@ export function loadFreemiusScript(): Promise<void> {
     const timeout = new Promise<never>((_resolve, reject) => {
       setTimeout(() => reject(new Error('Timed out loading the checkout script.')), FREEMIUS_SCRIPT_TIMEOUT_MS);
     });
-    // A rejection must not poison the cache: null it so the next click can retry.
+    // A rejected load clears the cache. This lets the next click retry.
     freemiusScriptPromise = Promise.race([scriptLoad, timeout]).catch((e: unknown) => {
       freemiusScriptPromise = null;
       throw e;
@@ -55,6 +55,7 @@ export class UpgradeFlow {
 
   async awaitUpgrade(): Promise<boolean> {
     for (let i = 0; i < this.maxPolls; i++) {
+      if (i > 0) await new Promise((r) => setTimeout(r, this.pollMs));
       try {
         const me = await this.api.me();
         if (me.tier === 'pro') {
@@ -62,9 +63,8 @@ export class UpgradeFlow {
           return true;
         }
       } catch {
-        // A failed poll is not the end; wait and try again.
+        // A failed poll does not stop the check. The loop continues.
       }
-      await new Promise((r) => setTimeout(r, this.pollMs));
     }
     return false;
   }

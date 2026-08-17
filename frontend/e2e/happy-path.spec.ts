@@ -146,11 +146,10 @@ test('signup, the dashboard hand-off runs a check, and the free result leads to 
     }
   });
 
-  // SSE: two status frames, then the response ends (no explicit terminator). The app's wrapper
-  // treats that close as its cue to stop listening and re-fetch the assessment. A short delay
-  // before the fulfill gives the progress page a real moment in its pre-stream "queued" state —
-  // a fully mocked, zero-latency backend would otherwise race straight through every rail state
-  // to "ready" before the assertion below has a chance to observe any of them.
+  // SSE: two status frames, then the response ends. There is no explicit terminator.
+  // The app's wrapper treats the close as a cue. It stops listening and re-fetches the assessment.
+  // The delay before fulfill gives the progress page real time in its "queued" state.
+  // A zero-latency mock would race through every rail state before the test can see them.
   await page.route(/\/v1\/assessments\/A1\/events$/, async (route) => {
     state.assessmentReady = true;
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -207,10 +206,10 @@ test('signup, the dashboard hand-off runs a check, and the free result leads to 
   await page.getByLabel('Password').fill('correct horse battery staple');
   await page.getByRole('button', { name: 'Log in' }).click();
 
-  // --- 4. Dashboard hand-off: login lands on /dashboard, and the pending URL from the landing
-  // page creates the site and starts the first check on its own, with no extra click on this
-  // page. Against a mocked backend the hand-off itself is too fast to catch mid-flight, so we
-  // wait directly for its destination rather than pin the transient /dashboard URL. ---
+  // --- 4. Dashboard hand-off: login lands on /dashboard. The pending URL from the landing page
+  // creates the site and starts the first check on its own. No extra click is needed on this page.
+  // Against a mocked backend, the hand-off is too fast to catch mid-flight.
+  // The test waits for the hand-off's destination instead of the transient /dashboard URL. ---
   await expect(page).toHaveURL(/\/assessments\/A1\/progress$/, { timeout: 15_000 });
 
   // --- 5. Progress: the rail narrates the SSE frames. The delay above holds the page in its
@@ -219,7 +218,8 @@ test('signup, the dashboard hand-off runs a check, and the free result leads to 
   // the timing shifts. ---
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Finding your site…|Reading your pages…/);
 
-  // --- 6. Auto-navigates to the site home once ready (after the progress page's 1.5s beat) ---
+  // --- 6. The page auto-navigates to the site home once ready. This follows the progress
+  // page's 1.5-second beat. ---
   await expect(page).toHaveURL(/\/sites\/S1$/, { timeout: 15_000 });
   await expect(page.getByText('Visibility out of 100')).toBeVisible();
   await expect(page.getByText('Read my plan')).toBeVisible();

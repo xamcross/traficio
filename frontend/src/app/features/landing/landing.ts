@@ -1,13 +1,14 @@
 import { Component, inject } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { UserStore } from '../../core/auth/user-store';
 import { PENDING_URL_KEY, PRO_PRICE_LABEL } from '../../core/config';
 import { ScoreBar } from '../../shared/score-bar';
+import { SiteFooter } from '../../shared/site-footer';
 
 @Component({
   selector: 'app-landing',
-  imports: [ReactiveFormsModule, RouterLink, ScoreBar],
+  imports: [ReactiveFormsModule, ScoreBar, SiteFooter],
   template: `
     <div class="page surface landing">
       <section class="hero">
@@ -46,11 +47,7 @@ import { ScoreBar } from '../../shared/score-bar';
         </div>
       </section>
 
-      <footer class="site-footer divider">
-        <span class="brand-faint">GEOSTRATEGY</span>
-        <span class="spacer"></span>
-        <a routerLink="/pricing">Pricing</a><a routerLink="/terms">Terms</a><a routerLink="/privacy">Privacy</a>
-      </footer>
+      <app-site-footer />
     </div>
   `,
   styles: `
@@ -73,9 +70,6 @@ import { ScoreBar } from '../../shared/score-bar';
     .semi { font-weight: 600; }
     .example-subs { gap: 20px; } .example-subs div { display: flex; flex-direction: column; } .example-subs strong { color: var(--ink); }
     .small { font-size: 13px; }
-    .site-footer { display: flex; align-items: center; gap: 24px; padding: 26px 0 0; margin-top: 46px; }
-    .site-footer a { color: var(--muted); font-size: 14px; }
-    .brand-faint { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: var(--faint-2); }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     @media (max-width: 760px) { .hero h1 { font-size: 36px; } .steps { flex-direction: column; } .steps > div + div { border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 24px; } .example { width: 100%; padding-left: 0; border-left: none; } }
   `,

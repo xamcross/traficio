@@ -123,6 +123,13 @@ describe('History', () => {
     expect(text).toContain('We could not read your site that day');
     expect(text).toContain('Your first check');
     expect(text).toContain('MAR – JUL 2026');
+
+    const svgText = (fixture.nativeElement as HTMLElement).querySelector('svg')?.textContent ?? '';
+    expect(svgText).toContain('62');
+    expect(svgText).toContain('34');
+    expect(svgText).toContain('28');
+    expect(svgText).toContain('MAR');
+    expect(svgText).toContain('JUL');
   });
 
   it('redirects to /pricing when listAssessments is rejected with upgrade_required', async () => {

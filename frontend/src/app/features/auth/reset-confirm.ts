@@ -8,23 +8,25 @@ import { ErrorNote } from '../../shared/error-note';
   selector: 'app-reset-confirm',
   imports: [ReactiveFormsModule, RouterLink, ErrorNote],
   template: `
-    @if (done()) {
-      <p>Your password is changed. Log in with the new password.</p>
-      <p><a routerLink="/login">Log in</a></p>
-    } @else if (!token) {
-      <app-error-note [error]="error()" />
-      <p><a routerLink="/reset-password">Send a new link</a></p>
-    } @else {
-      <form [formGroup]="form" (ngSubmit)="submit()">
-        <label>
-          New password
-          <input type="password" formControlName="password" autocomplete="new-password" />
-        </label>
-        <button type="submit" [disabled]="busy() || form.invalid">Change password</button>
-      </form>
+    <div class="page surface plain">
+      @if (done()) {
+        <p>Your password is changed. Log in with the new password.</p>
+        <p><a routerLink="/login">Log in</a></p>
+      } @else if (!token) {
+        <app-error-note [error]="error()" />
+        <p><a routerLink="/reset-password">Send a new link</a></p>
+      } @else {
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <label>
+            New password
+            <input type="password" formControlName="password" autocomplete="new-password" />
+          </label>
+          <button type="submit" class="btn btn-primary" [disabled]="busy() || form.invalid">Change password</button>
+        </form>
 
-      <app-error-note [error]="error()" />
-    }
+        <app-error-note [error]="error()" />
+      }
+    </div>
   `,
 })
 export class ResetConfirm {

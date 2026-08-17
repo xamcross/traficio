@@ -64,16 +64,19 @@ class FakeUpgradeFlow {
 
 const freeUser: UserDto = { id: 'u1', email: 'dana@rivertonbakery.com', emailVerified: true, tier: 'free' };
 
-async function setup(query: Record<string, string>, user: UserDto | null) {
+async function setup(query: Record<string, string>, user: UserDto | null, sites: SiteDto[] = [site()]) {
   const api = new FakeApiClient();
+  api.sites = sites;
   const flow = new FakeUpgradeFlow();
   await TestBed.configureTestingModule({
     imports: [Pricing],
     providers: [
       { provide: ApiClient, useValue: api },
       { provide: UpgradeFlow, useValue: flow },
-      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(query) } } },
+      // provideRouter() supplies its own ActivatedRoute. It must come before the override
+      // below, so the override is the last provider for that token and wins.
       provideRouter([{ path: 'sites/:siteId', component: BlankPage }, { path: 'signup', component: BlankPage }, { path: 'dashboard', component: BlankPage }]),
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(query) } } },
     ],
   }).compileComponents();
   const store = TestBed.inject(UserStore);
@@ -92,7 +95,10 @@ function button(el: HTMLElement, text: string): HTMLButtonElement {
 
 describe('Pricing', () => {
   it('shows the plan gate for a signed-in free user with a locked plan', async () => {
-    const { el } = await setup({ site: 'S1' }, freeUser);
+    // Two sites, S0 first with no ready check: proves the gate reads the live ?site= query
+    // param instead of always falling through to the first listed site.
+    const sites = [site({ id: 'S0', latestReadyAssessmentId: null, latestAssessment: null }), site({ id: 'S1' })];
+    const { el } = await setup({ site: 'S1' }, freeUser, sites);
     const text = el.textContent ?? '';
     expect(text).toContain('YOUR PLAN IS READY');
     expect(text).toContain('Eight things to fix, written for your site.');
@@ -101,6 +107,8 @@ describe('Pricing', () => {
     expect(text).toContain('4 steps · 20 minutes · biggest single win');
     expect(text).toContain('and five more');
     expect(text).toContain('Back to my result');
+    const backLink = Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Back to my result')) as HTMLAnchorElement;
+    expect(backLink.getAttribute('href')).toBe('/sites/S1');
   });
 
   it('shows the public pricing when signed out', async () => {

@@ -7,20 +7,22 @@ import { ErrorNote } from '../../shared/error-note';
   selector: 'app-verify-email',
   imports: [RouterLink, ErrorNote],
   template: `
-    @if (busy()) {
-      <p>Checking your link…</p>
-    } @else if (verified()) {
-      <p>Your email is confirmed. You can log in now.</p>
-      <p><a routerLink="/login">Log in</a></p>
-    } @else if (error(); as e) {
-      @if (e.code === 'invalid_token') {
-        <p class="error-note" role="alert">This link does not work. It may be old. Log in and send a new link.</p>
+    <div class="page surface plain">
+      @if (busy()) {
+        <p>Checking your link…</p>
+      } @else if (verified()) {
+        <p>Your email is confirmed. You can log in now.</p>
         <p><a routerLink="/login">Log in</a></p>
-      } @else {
-        <app-error-note [error]="e" />
-        <p><a routerLink="/login">Log in</a></p>
+      } @else if (error(); as e) {
+        @if (e.code === 'invalid_token') {
+          <p class="error-note" role="alert">This link does not work. It may be old. Log in and send a new link.</p>
+          <p><a routerLink="/login">Log in</a></p>
+        } @else {
+          <app-error-note [error]="e" />
+          <p><a routerLink="/login">Log in</a></p>
+        }
       }
-    }
+    </div>
   `,
 })
 export class VerifyEmail {

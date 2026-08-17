@@ -6,6 +6,7 @@ import { PlanDto, SiteDto } from '../../core/api/types';
 import { FREEMIUS_PORTAL_URL, PRO_PRICE_LABEL } from '../../core/config';
 import { numberWord } from '../../shared/copy';
 import { ImpactBadge } from '../../shared/impact-badge';
+import { SiteFooter } from '../../shared/site-footer';
 import { PlanCards } from './plan-cards';
 import { UpgradeFlow } from './upgrade-flow';
 
@@ -13,7 +14,7 @@ type Phase = 'idle' | 'opening' | 'unlocking' | 'timeout';
 
 @Component({
   selector: 'app-pricing',
-  imports: [RouterLink, PlanCards, ImpactBadge],
+  imports: [RouterLink, PlanCards, ImpactBadge, SiteFooter],
   template: `
     <div class="page surface pricing">
       @if (gate(); as g) {
@@ -71,6 +72,8 @@ type Phase = 'idle' | 'opening' | 'unlocking' | 'timeout';
           </div>
         </section>
       }
+
+      <app-site-footer />
     </div>
   `,
   styles: `
@@ -119,6 +122,7 @@ export class Pricing implements OnInit {
     if (!user || user.tier === 'pro') return;
     try {
       const sites = await this.api.listSites();
+      // No ?site= given: use the first site with a ready check.
       const site = (this.siteId ? sites.find((s) => s.id === this.siteId) : sites.find((s) => s.latestReadyAssessmentId)) ?? null;
       if (!site || !site.latestReadyAssessmentId) return;
       const plan = await this.api.getPlanForSite(site.id);

@@ -8,22 +8,24 @@ import { ErrorNote } from '../../shared/error-note';
   selector: 'app-reset-request',
   imports: [ReactiveFormsModule, RouterLink, ErrorNote],
   template: `
-    @if (sent()) {
-      <p>Check your email. If an account exists for that address, we sent a link to reset your password.</p>
-      <p><a routerLink="/login">Log in</a></p>
-    } @else {
-      <form [formGroup]="form" (ngSubmit)="submit()">
-        <label>
-          Email
-          <input type="email" formControlName="email" autocomplete="email" />
-        </label>
-        <button type="submit" [disabled]="busy() || form.invalid">Send reset link</button>
-      </form>
+    <div class="page surface plain">
+      @if (sent()) {
+        <p>Check your email. If an account exists for that address, we sent a link to reset your password.</p>
+        <p><a routerLink="/login">Log in</a></p>
+      } @else {
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <label>
+            Email
+            <input type="email" formControlName="email" autocomplete="email" />
+          </label>
+          <button type="submit" class="btn btn-primary" [disabled]="busy() || form.invalid">Send reset link</button>
+        </form>
 
-      <app-error-note [error]="error()" />
+        <app-error-note [error]="error()" />
 
-      <p>Remembered your password? <a routerLink="/login">Log in</a></p>
-    }
+        <p>Remembered your password? <a routerLink="/login">Log in</a></p>
+      }
+    </div>
   `,
 })
 export class ResetRequest {

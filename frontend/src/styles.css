@@ -77,3 +77,18 @@ table.data .num { text-align: right; }
   .two-col { flex-direction: column; gap: 24px; }
   .card { padding: 24px 20px; }
 }
+
+/* plain pages */
+.plain { max-width: 520px; margin: 0 auto; padding: 44px 20px 60px; display: flex; flex-direction: column; gap: 14px; }
+.plain h1 { font-size: 29px; }
+.plain p + p { margin-top: 4px; }
+.plain form { display: flex; flex-direction: column; gap: 12px; }
+.plain label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 14px; }
+.plain .btn { align-self: flex-start; }
+.prose { max-width: 720px; margin: 0 auto; padding: 44px 20px 60px; display: flex; flex-direction: column; gap: 14px; }
+.prose h1 { font-size: 32px; } .prose h2 { font-size: 20px; margin-top: 12px; }
+
+/* footer */
+.site-footer { display: flex; align-items: center; gap: 24px; padding: 26px 0 0; margin-top: 46px; }
+.site-footer a { color: var(--muted); font-size: 14px; }
+.brand-faint { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: var(--faint-2); }

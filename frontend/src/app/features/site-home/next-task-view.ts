@@ -1,6 +1,6 @@
 import { Component, computed, effect, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AssessmentDto, PlanDto, PlanTaskDto, SiteDto } from '../../core/api/types';
+import { AssessmentDto, PlanDto, PlanTaskDto } from '../../core/api/types';
 import { areaName, bandFor, effortText } from '../../shared/copy';
 import { openMinutes } from '../result/result-view';
 import { addSkip, clearSkips, readSkips } from './skips';
@@ -35,7 +35,7 @@ export function nextTaskFor(plan: PlanDto, skipped: Set<string>): PlanTaskDto | 
     <div class="body stack">
       <div class="row baseline">
         <h1 class="eyebrow-h">DO THIS NEXT</h1>
-        <span class="faint small">{{ doneCount() }} of {{ plan().tasks.length }} done · {{ effortLeft() }} left</span>
+        <span class="muted small">{{ doneCount() }} of {{ plan().tasks.length }} done · {{ effortLeft() }} left</span>
         <span class="spacer"></span>
         <a class="small" [routerLink]="['/assessments', assessment().id, 'plan']">See all {{ plan().tasks.length }}</a>
       </div>
@@ -63,7 +63,7 @@ export function nextTaskFor(plan: PlanDto, skipped: Set<string>): PlanTaskDto | 
         @if (then().length > 0) {
           <div class="then stack">
             <span class="eyebrow faint-3">THEN</span>
-            @for (n of then(); track n.taskId) {<div class="row item"><span class="muted">{{ n.title }}</span><span class="spacer"></span><span class="faint small">{{ n.effortMinutes }} min</span></div>}
+            @for (n of then(); track n.taskId) {<div class="row item"><span class="muted">{{ n.title }}</span><span class="spacer"></span><span class="muted small">{{ n.effortMinutes }} min</span></div>}
             @if (rest() > 0) {<div class="row item"><span class="faint">{{ rest() }} more</span></div>}
           </div>
         }
@@ -99,7 +99,6 @@ export function nextTaskFor(plan: PlanDto, skipped: Set<string>): PlanTaskDto | 
   `,
 })
 export class NextTaskView {
-  site = input.required<SiteDto>();
   assessment = input.required<AssessmentDto>();
   plan = input.required<PlanDto>();
   previousOverall = input<number | null>(null);

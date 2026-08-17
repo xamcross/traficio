@@ -9,35 +9,37 @@ import { ErrorNote } from '../../shared/error-note';
   selector: 'app-register',
   imports: [ReactiveFormsModule, RouterLink, ErrorNote],
   template: `
-    @if (sent()) {
-      <p>Check your email. We sent you a link. Click the link to confirm your address.</p>
-      <p><a routerLink="/login">Log in</a></p>
-    } @else {
-      <form [formGroup]="form" (ngSubmit)="submit()">
-        <label>
-          Email
-          <input type="email" formControlName="email" autocomplete="email" />
-        </label>
-        <label>
-          Password
-          <input type="password" formControlName="password" autocomplete="new-password" />
-        </label>
-        <button type="submit" [disabled]="busy() || form.invalid">Create account</button>
-      </form>
+    <div class="page surface plain">
+      @if (sent()) {
+        <p>Check your email. We sent you a link. Click the link to confirm your address.</p>
+        <p><a routerLink="/login">Log in</a></p>
+      } @else {
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <label>
+            Email
+            <input type="email" formControlName="email" autocomplete="email" />
+          </label>
+          <label>
+            Password
+            <input type="password" formControlName="password" autocomplete="new-password" />
+          </label>
+          <button type="submit" class="btn btn-primary" [disabled]="busy() || form.invalid">Create account</button>
+        </form>
 
-      @if (error(); as e) {
-        @if (e.code === 'email_taken') {
-          <p class="error-note" role="alert">
-            You already have an account. <a routerLink="/login">Log in instead.</a>
-          </p>
-        } @else {
-          <app-error-note [error]="e" />
+        @if (error(); as e) {
+          @if (e.code === 'email_taken') {
+            <p class="error-note" role="alert">
+              You already have an account. <a routerLink="/login">Log in instead.</a>
+            </p>
+          } @else {
+            <app-error-note [error]="e" />
+          }
         }
-      }
 
-      <p><a [href]="googleUrl">Continue with Google</a></p>
-      <p>Already have an account? <a routerLink="/login">Log in</a></p>
-    }
+        <p><a [href]="googleUrl">Continue with Google</a></p>
+        <p>Already have an account? <a routerLink="/login">Log in</a></p>
+      }
+    </div>
   `,
 })
 export class Register {

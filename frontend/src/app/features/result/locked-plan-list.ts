@@ -10,10 +10,10 @@ import { PlanDto } from '../../core/api/types';
         <div class="row item">
           <span class="box" aria-hidden="true"></span>
           <span class="title">{{ task.title }}</span>
-          @if (i > 0) {<span class="faint tiny">{{ task.effortMinutes }} min</span>}
+          @if (i > 0) {<span class="muted tiny">{{ task.effortMinutes }} min</span>}
         </div>
         @if (i === 0) {
-          <div class="row sub"><span class="badge badge-high">BIGGEST WIN</span><span class="faint tiny">{{ task.stepCount }} steps · {{ task.effortMinutes }} min</span></div>
+          <div class="row sub"><span class="badge badge-high">BIGGEST WIN</span><span class="muted tiny">{{ task.stepCount }} steps · {{ task.effortMinutes }} min</span></div>
         }
       }
       @if (plan().tasks.length > 3) {
