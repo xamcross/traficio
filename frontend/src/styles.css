@@ -1,1 +1,79 @@
-/* You can add global styles to this file, and also import other style files */
+@import '@fontsource/libre-franklin/400.css';
+@import '@fontsource/libre-franklin/500.css';
+@import '@fontsource/libre-franklin/600.css';
+@import '@fontsource/libre-franklin/700.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+
+:root {
+  --bg: #efe7db; --surface: #fdf7ee; --card: #ffffff; --card-soft: #fdfaf5; --strip: #fbf2e5; --note: #fbf6ee;
+  --line: #f0e5d4; --line-strong: #ecdfcc; --line-input: #e0cdb2;
+  --ink: #221c15; --body: #4c4237; --body-long: #5c4f40; --muted: #7a6a58;
+  --faint: #a89478; --faint-2: #b09a7e; --faint-3: #cbb79a;
+  --accent: #b4552f; --accent-hover: #8e3f20; --accent-tint: #fbeae1;
+  --olive: #6b7d4f; --olive-text: #5c7040; --olive-tint: #eaf0e0;
+  --amber: #8a6a2f; --amber-tint: #f7eed8; --pill: #f3e9da;
+  --sans: 'Libre Franklin', system-ui, sans-serif; --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --r-btn: 9px; --r-card: 14px; --r-small: 10px; --r-badge: 4px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--body); font-family: var(--sans); font-size: 16px; line-height: 1.5; }
+h1, h2, h3, h4 { margin: 0; color: var(--ink); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+p { margin: 0; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); }
+input, button, select, textarea { font: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.page { max-width: 1080px; margin: 0 auto; padding: 44px; }
+.surface { background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-small); }
+.card { background: var(--card); border: 1.5px solid var(--line-strong); border-radius: var(--r-card); padding: 34px 40px; }
+.card-soft { background: var(--card-soft); border: 1px solid var(--line); border-radius: var(--r-small); }
+.note-box { background: var(--note); border-radius: var(--r-small); padding: 18px 20px; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.row { display: flex; align-items: center; gap: 14px; }
+.two-col { display: flex; gap: 48px; align-items: flex-start; }
+.spacer { flex: 1; }
+.muted { color: var(--muted); }
+.faint { color: var(--faint); }
+.mono { font-family: var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
+.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: var(--r-btn); padding: 14px 24px; font-weight: 600; font-size: 15px; cursor: pointer; border: 1.5px solid transparent; }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-outline { background: transparent; color: var(--ink); border-color: var(--line-input); font-weight: 500; }
+.btn-text { background: transparent; color: var(--muted); border: none; padding: 0; font-weight: 500; }
+.btn-dark { background: var(--ink); color: #fff; }
+
+input[type=text], input[type=email], input[type=password] { width: 100%; padding: 15px 18px; background: #fff; border: 1.5px solid var(--line-input); border-radius: var(--r-btn); color: var(--ink); }
+
+.pill { display: inline-block; border-radius: 999px; padding: 5px 11px; font-size: 13px; }
+.pill-free { background: var(--pill); color: #8a7a66; }
+.pill-pro { background: var(--accent-tint); color: var(--accent); font-weight: 500; }
+.badge { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; padding: 4px 9px; border-radius: var(--r-badge); text-align: center; }
+.badge-high { color: var(--accent); background: var(--accent-tint); }
+.badge-mid { color: var(--amber); background: var(--amber-tint); }
+.badge-low { color: var(--muted); background: var(--pill); }
+.badge-good { color: var(--olive-text); background: var(--olive-tint); }
+
+.tone-low { color: var(--accent); } .tone-mid { color: var(--amber); } .tone-high { color: var(--olive); }
+.bar { height: 7px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.bar-fill { height: 100%; }
+.bar-fill.tone-low { background: var(--accent); } .bar-fill.tone-mid { background: var(--amber); } .bar-fill.tone-high { background: var(--olive); }
+
+.error-note { background: var(--accent-tint); color: var(--accent-hover); padding: 12px 16px; border-radius: var(--r-small); }
+.divider { border-top: 1px solid var(--line); }
+table.data { width: 100%; border-collapse: collapse; }
+table.data th { text-align: left; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--faint); padding: 0 0 12px; border-bottom: 1px solid var(--line-input); }
+table.data td { padding: 17px 0; border-bottom: 1px solid var(--line); }
+table.data .num { text-align: right; }
+.table-scroll { overflow-x: auto; }
+
+@media (max-width: 760px) {
+  .page { padding: 20px; }
+  .two-col { flex-direction: column; gap: 24px; }
+  .card { padding: 24px 20px; }
+}

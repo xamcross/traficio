@@ -1,10 +1,11 @@
-import { fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
 import { UserStore } from './core/auth/user-store';
 import { UserDto } from './core/api/types';
+import { SiteContext } from './core/site-context';
 
 describe('App', () => {
   let httpMock: HttpTestingController;
@@ -43,37 +44,29 @@ describe('App', () => {
     expect(compiled.textContent).not.toContain('Log out');
   });
 
-  it('shows Log out when a user is set', () => {
+  it('shows the tier pill, the site domain and Account when logged in', () => {
     const fixture = TestBed.createComponent(App);
     const store = TestBed.inject(UserStore);
-    const user: UserDto = { id: 'u1', email: 'a@b.com', emailVerified: true, tier: 'free' };
     store.loaded.set(true);
-    store.user.set(user);
+    store.user.set({ id: 'u1', email: 'a@example.com', emailVerified: true, tier: 'pro' } as UserDto);
+    TestBed.inject(SiteContext).set('rivertonbakery.com');
     fixture.detectChanges();
-
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Log out');
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('rivertonbakery.com');
+    expect(text).toContain('Pro');
+    expect(text).toContain('Account');
+    expect(text).not.toContain('Log in');
   });
 
-  it('clears local state even when the logout call fails', fakeAsync(() => {
+  it('shows Pricing, Log in and Check my site when logged out', () => {
     const fixture = TestBed.createComponent(App);
     const store = TestBed.inject(UserStore);
-    const user: UserDto = { id: 'u1', email: 'a@b.com', emailVerified: true, tier: 'free' };
     store.loaded.set(true);
-    store.user.set(user);
+    store.user.set(null);
     fixture.detectChanges();
-
-    const compiled = fixture.nativeElement as HTMLElement;
-    const logoutButton = Array.from(compiled.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Log out')
-    );
-    expect(logoutButton).toBeTruthy();
-    logoutButton!.click();
-
-    const req = httpMock.expectOne('/v1/auth/logout');
-    req.flush('Internal Server Error', { status: 500, statusText: 'Server Error' });
-    tick();
-
-    expect(store.user()).toBeNull();
-  }));
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Pricing');
+    expect(text).toContain('Log in');
+    expect(text).toContain('Check my site');
+  });
 });

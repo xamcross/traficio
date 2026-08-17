@@ -1,17 +1,23 @@
 <header class="site-header">
-  <nav class="site-nav">
-    <a routerLink="/" class="brand">GeoStrategy</a>
-    <a routerLink="/pricing">Pricing</a>
+  <nav class="site-nav" aria-label="Main">
+    <a [routerLink]="userStore.user() ? '/dashboard' : '/'" class="brand">GEOSTRATEGY</a>
     <span class="spacer"></span>
     @if (userStore.user(); as user) {
-      <a routerLink="/dashboard">Dashboard</a>
-      <a routerLink="/account">Account</a>
-      <button type="button" (click)="logout()">Log out</button>
+      @if (siteContext.domain(); as domain) {
+        <a routerLink="/dashboard" class="site-domain">{{ domain }}</a>
+      }
+      <span class="pill" [class.pill-pro]="user.tier === 'pro'" [class.pill-free]="user.tier !== 'pro'">
+        {{ user.tier === 'pro' ? 'Pro' : 'Free plan' }}
+      </span>
+      <a routerLink="/account" routerLinkActive="active">Account</a>
     } @else {
+      <a routerLink="/pricing">Pricing</a>
       <a routerLink="/login">Log in</a>
-      <a routerLink="/signup">Sign up</a>
+      <a routerLink="/" class="btn btn-dark btn-small">Check my site</a>
     }
   </nav>
 </header>
 
-<router-outlet />
+<main>
+  <router-outlet />
+</main>
