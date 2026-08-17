@@ -16,6 +16,7 @@ export const routes: Routes = [
   { path: 'assessments/:id/progress', canActivate: [authGuard], loadComponent: () => import('./features/progress/progress').then(m => m.Progress) },
   { path: 'assessments/:id/report', canActivate: [authGuard], loadComponent: () => import('./features/report/report').then(m => m.Report) },
   { path: 'assessments/:id/plan', canActivate: [authGuard], loadComponent: () => import('./features/plan/plan').then(m => m.Plan) },
+  { path: 'sites/:siteId', canActivate: [authGuard], loadComponent: () => import('./features/site-home/site-home').then(m => m.SiteHome) },
   { path: 'sites/:siteId/history', canActivate: [authGuard], loadComponent: () => import('./features/history/history').then(m => m.History) },
   { path: 'account', canActivate: [authGuard], loadComponent: () => import('./features/account/account').then(m => m.Account) },
   { path: '**', redirectTo: '' },
