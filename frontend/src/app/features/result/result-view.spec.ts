@@ -1,7 +1,12 @@
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { ResultView } from './result-view';
 import { AssessmentDto, PlanDto } from '../../core/api/types';
+
+/** No-op routed target so provideRouter() has a real 'pricing' route to resolve hrefs against. */
+@Component({ selector: 'result-view-spec-blank', template: '' })
+class BlankPage {}
 
 function assessment(): AssessmentDto {
   return {
@@ -31,19 +36,23 @@ function plan(locked: boolean): PlanDto {
 }
 
 async function render(tier: 'free' | 'pro', p: PlanDto | null) {
-  await TestBed.configureTestingModule({ imports: [ResultView], providers: [provideRouter([])] }).compileComponents();
+  await TestBed.configureTestingModule({
+    imports: [ResultView],
+    providers: [provideRouter([{ path: 'pricing', component: BlankPage }])],
+  }).compileComponents();
   const fixture = TestBed.createComponent(ResultView);
   fixture.componentRef.setInput('assessment', assessment());
   fixture.componentRef.setInput('plan', p);
   fixture.componentRef.setInput('tier', tier);
   fixture.componentRef.setInput('siteId', 'S1');
   fixture.detectChanges();
-  return (fixture.nativeElement as HTMLElement).textContent ?? '';
+  const compiled = fixture.nativeElement as HTMLElement;
+  return { text: compiled.textContent ?? '', compiled };
 }
 
 describe('ResultView', () => {
   it('shows the checked date, overall, band, summary, sub-scores and notes', async () => {
-    const text = await render('free', plan(true));
+    const { text } = await render('free', plan(true));
     expect(text).toContain('CHECKED 28 JULY 2026');
     expect(text).toContain('41');
     expect(text).toContain('Needs work');
@@ -55,7 +64,7 @@ describe('ResultView', () => {
   });
 
   it('sorts findings high, medium, low, good and captions the pages', async () => {
-    const text = await render('free', plan(true));
+    const { text } = await render('free', plan(true));
     expect(text).toContain('4 things, across 3 areas');
     const hi = text.indexOf('No page states your address.');
     const med = text.indexOf('14 of your 18 product pages');
@@ -69,7 +78,7 @@ describe('ResultView', () => {
   });
 
   it('shows the NEXT teaser with the locked list for a free user', async () => {
-    const text = await render('free', plan(true));
+    const { text, compiled } = await render('free', plan(true));
     expect(text).toContain('We wrote you eight things to fix, in order.');
     expect(text).toContain('About 3 hours of work in total.');
     expect(text).toContain('Read my plan');
@@ -78,10 +87,13 @@ describe('ResultView', () => {
     expect(text).toContain('BIGGEST WIN');
     expect(text).toContain('4 steps · 20 min');
     expect(text).toContain('5 more');
+
+    const readMyPlan = Array.from(compiled.querySelectorAll('a')).find((a) => a.textContent?.includes('Read my plan'));
+    expect(readMyPlan?.getAttribute('href')).toBe('/pricing?site=S1');
   });
 
   it('shows the pro links instead of the teaser for a pro user', async () => {
-    const text = await render('pro', plan(false));
+    const { text } = await render('pro', plan(false));
     expect(text).not.toContain('Read my plan');
     expect(text).toContain('Do this next →');
     expect(text).toContain('See all 8 tasks');

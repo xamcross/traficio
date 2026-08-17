@@ -3,7 +3,6 @@ import { RouterLink } from '@angular/router';
 import { AssessmentDto, Finding, PlanDto, Tier } from '../../core/api/types';
 import { PRO_PRICE_LABEL } from '../../core/config';
 import { areaCode, areaName, bandFor, effortText, formatDate, numberWord, pagesCaption, severityOrder } from '../../shared/copy';
-import { pricingUrlFor } from '../../shared/upgrade-redirect';
 import { ScoreBar } from '../../shared/score-bar';
 import { SeverityBadge } from '../../shared/severity-badge';
 import { LockedPlanList } from './locked-plan-list';
@@ -75,7 +74,7 @@ const AREAS: Array<{ key: 'seo' | 'aeo' | 'geo' }> = [{ key: 'seo' }, { key: 'ae
             <span class="eyebrow">NEXT</span>
             <h2 class="teaser-h">We wrote you {{ word(p.tasks.length) }} things to fix, in order.</h2>
             <p class="lead">Each one is a short set of steps you can follow yourself, with a way to check it worked. {{ effortSentence(p) }} The first one alone should move your score the most.</p>
-            <div class="row"><a class="btn btn-primary" [routerLink]="pricingUrlFor(siteId())">Read my plan</a><span class="faint">Included with Pro, from {{ price }} a month</span></div>
+            <div class="row"><a class="btn btn-primary" [routerLink]="['/pricing']" [queryParams]="{ site: siteId() }">Read my plan</a><span class="faint">Included with Pro, from {{ price }} a month</span></div>
           </div>
           <app-locked-plan-list [plan]="p" />
         </section>
@@ -123,7 +122,6 @@ export class ResultView {
   protected readonly areaName = areaName;
   protected readonly areaCode = areaCode;
   protected readonly word = numberWord;
-  protected readonly pricingUrlFor = pricingUrlFor;
   protected readonly scores = computed(() => this.assessment().scores ?? { seo: 0, aeo: 0, geo: 0, overall: 0 });
   protected readonly band = computed(() => bandFor(this.scores().overall));
   protected readonly checked = computed(() => formatDate(this.assessment().completedAt ?? this.assessment().createdAt).toUpperCase());
