@@ -17,7 +17,8 @@ import { pricingUrlFor } from '../../shared/upgrade-redirect';
   templateUrl: './dashboard.html',
   styles: `
     .dash { padding-top: 48px; display: flex; flex-direction: column; gap: 34px; max-width: 760px; }
-    .site-card { display: flex; align-items: center; gap: 14px; padding: 16px 20px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-small); color: inherit; }
+    .site-card { display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-small); }
+    .site-link { display: flex; align-items: center; gap: 14px; color: inherit; }
     .site-card .domain { font-size: 16px; font-weight: 600; color: var(--ink); }
     .site-card .score { font-size: 20px; font-weight: 700; color: var(--ink); }
     .add { max-width: 480px; }

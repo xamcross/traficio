@@ -175,6 +175,36 @@ describe('Dashboard', () => {
     expect(findButtonByText(fixture.nativeElement, 'Send the email again')).not.toBeNull();
   });
 
+  it('with a pending url: shows the add-site error when site creation fails, without starting a check', async () => {
+    sessionStorage.setItem(PENDING_URL_KEY, 'not a url');
+    api.createSiteResult = Promise.reject(new ApiError('invalid_url', 'Bad url.', 400));
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(addSiteInput(el)!.value).toBe('not a url');
+    expect(el.textContent).toContain('That address does not look right. Enter it like example.com.');
+    expect(api.submitAssessmentCalls).toEqual([]);
+    expect(TestBed.inject(Location).path()).toBe('');
+  });
+
+  it('with a pending url and one site already listed: a check error blocks the one-site redirect', async () => {
+    sessionStorage.setItem(PENDING_URL_KEY, 'rivertonbakery.com');
+    api.createSiteResult = Promise.resolve(makeSite({ id: 'S1' }));
+    api.submitAssessmentResult = Promise.reject(new ApiError('email_not_verified', 'Confirm first.', 403));
+    api.listSitesResult = Promise.resolve([makeSite({ id: 'S1' })]);
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(TestBed.inject(Location).path()).not.toBe('/sites/S1');
+    expect(el.textContent).toContain('Confirm your email first.');
+  });
+
   it('with no sites shows the add form only', async () => {
     const fixture = TestBed.createComponent(Dashboard);
     fixture.detectChanges();
@@ -213,6 +243,23 @@ describe('Dashboard', () => {
     expect(text).toContain('Read-only');
     expect(text).toContain('Upgrade to work with this site');
     expect(addSiteInput(el)).toBeNull();
+  });
+
+  it('clicking "Upgrade to work with this site" opens the pricing page for that site, not the site home', async () => {
+    api.listSitesResult = Promise.resolve([
+      makeSite({ id: 'S1', domain: 'one.com' }),
+      makeSite({ id: 'S2', domain: 'two.com', readOnly: true }),
+    ]);
+    api.usageResult = Promise.resolve({ assessmentsUsed: 0, assessmentsLimit: 1, sitesUsed: 2, sitesLimit: 2, nextCheckAt: null });
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const upgradeLink = Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Upgrade to work with this site')) as HTMLAnchorElement;
+    upgradeLink.click();
+    await fixture.whenStable();
+    expect(TestBed.inject(Location).path()).toBe('/pricing?site=S2');
   });
 
   it('adding a site from the form navigates to the new site home', async () => {

@@ -21,14 +21,16 @@
       <section class="stack">
         <span class="eyebrow">YOUR SITES</span>
         @for (site of sites(); track site.id) {
-          <a class="site-card" [routerLink]="['/sites', site.id]">
-            <div class="stack tight" style="flex:1; gap:4px">
-              <span class="domain">{{ site.domain }}</span>
-              <span class="faint small">{{ lastChecked(site) }}</span>
-              @if (site.readOnly) {<span class="row small"><span class="pill pill-free">Read-only</span><a [routerLink]="pricingUrl(site.id)">Upgrade to work with this site</a></span>}
-            </div>
-            @if (site.latestScores; as s) {<span class="score">{{ s.overall }}</span>}
-          </a>
+          <div class="site-card">
+            <a class="site-link" [routerLink]="['/sites', site.id]">
+              <div class="stack tight" style="flex:1; gap:4px">
+                <span class="domain">{{ site.domain }}</span>
+                <span class="faint small">{{ lastChecked(site) }}</span>
+              </div>
+              @if (site.latestScores; as s) {<span class="score">{{ s.overall }}</span>}
+            </a>
+            @if (site.readOnly) {<span class="row small"><span class="pill pill-free">Read-only</span><a [routerLink]="['/pricing']" [queryParams]="{ site: site.id }">Upgrade to work with this site</a></span>}
+          </div>
         }
       </section>
     }
