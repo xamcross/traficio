@@ -73,10 +73,8 @@ describe('NextTaskView', () => {
     let emitted: string | null = null;
     fixture.componentInstance.done.subscribe((id) => (emitted = id));
     buttons().find((b) => b.textContent?.includes('I did this'))!.click();
-    // `emitted` is reassigned inside the subscribe callback above; TypeScript's control-flow
-    // analysis does not track writes made inside a nested closure, so it still narrows the read
-    // below to the declaration-time literal `null`. The cast restores the true `string | null`
-    // type so this compiles under the project's strict Jasmine typings.
+    // TypeScript does not track a `let` that a closure reassigns.
+    // The cast only widens the compile-time type. The runtime check is unchanged.
     expect(emitted as string | null).toBe('T2');
   });
 

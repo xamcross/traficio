@@ -97,10 +97,9 @@ export class SiteHome implements OnInit {
   protected readonly isPro = computed(() => this.store.user()?.tier === 'pro');
   protected readonly emailVerified = computed(() => this.store.user()?.emailVerified === true);
 
-  /** Set once, in cleanup(), when the component is torn down. Guards every async continuation
-   *  below so a promise that outlives the component (SiteContext is a root singleton the header
-   *  reads from, so a late write here would leak a stale domain onto whatever page is now shown)
-   *  can never touch a signal, SiteContext, or navigate after the fact. */
+  /** Set once on destroy. Every async continuation checks it first.
+   *  SiteContext is a root singleton and the header reads it.
+   *  A late write would show a stale domain on another page. */
   private destroyed = false;
 
   ngOnInit(): void {

@@ -44,9 +44,9 @@ async function setup(api: FakeApiClient, tier: 'free' | 'pro' = 'free', emailVer
     imports: [SiteHome],
     providers: [
       { provide: ApiClient, useValue: api },
-      // provideRouter() supplies its own root ActivatedRoute; the useValue mock below must come
-      // after it in this array so ours wins (Angular DI resolves same-token providers to the
-      // last one registered). See features/report/report.spec.ts for the same ordering.
+      // provideRouter registers its own ActivatedRoute.
+      // The override must come after it. The last provider wins.
+      // See features/report/report.spec.ts for the same ordering.
       provideRouter([{ path: 'assessments/:id/progress', component: BlankPage }, { path: 'assessments/:id/plan', component: BlankPage }, { path: 'assessments/:id/report', component: BlankPage }, { path: 'pricing', component: BlankPage }, { path: 'dashboard', component: BlankPage }]),
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ siteId: 'S1' }) } } },
     ],
@@ -118,8 +118,8 @@ describe('SiteHome', () => {
   it('shows the earlier result with a note when the latest failed after a ready check', async () => {
     const api = new FakeApiClient();
     api.sites = [site({ latestAssessment: { id: 'A2', status: 'failed', createdAt: '2026-08-01T00:00:00Z', completedAt: '2026-08-01T00:01:00Z' }, latestReadyAssessmentId: 'A1' })];
-    // completedAt matches site.latestAssessment above: the note's date comes from the fetched
-    // failed assessment itself, not from the site's summary record.
+    // The note reads the date from the fetched failed assessment.
+    // Set it here so the assertion below matches.
     const failed = assessment({ id: 'A2', status: 'failed', errorCode: 'site_unreachable', errorMessage: 'We could not reach it.', createdAt: '2026-08-01T00:00:00Z', completedAt: '2026-08-01T00:01:00Z' });
     const ready = assessment();
     api.getAssessment = (id: string) => Promise.resolve(id === 'A2' ? failed : ready);
