@@ -14,7 +14,7 @@ Conventions:
 
 ---
 
-## Step 1 — Anthropic API key (real assessments)
+## Step 1 — Anthropic API key (DONE 2026-08-18)
 
 Why: without `ANTHROPIC_API_KEY` the API uses a canned Claude client. Scores and plans
 are deterministic sample data.
@@ -35,10 +35,18 @@ Note: the key you pasted into the chat on 2026-08-18 is exposed. Set it now if y
 want, then revoke it in the console and create a fresh one. Set the fresh one with
 the same command.
 
-## Step 2 — Resend (transactional email)
+## Step 2 — Email sending (DEFERRED on 2026-08-18)
 
-Why: without `RESEND_API_KEY` the API writes each email to `fly logs` instead of
-sending it. Users cannot verify an address or reset a password.
+What this is: the API sends two kinds of email — the "verify your address" link at
+signup and the "reset your password" link. A web app cannot send email by itself; it
+hands the message to an email API. The code supports **Resend** (an email API like
+SendGrid or Mailgun; free for 3,000 emails a month). Any other provider works with
+one small `EmailSender` implementation in the backend.
+
+Decision 2026-08-18: skip for now. Effect: no email leaves the system. Each email is
+written to `fly logs` as one line `EMAIL (not sent, no RESEND_API_KEY) to=... html=...`
+with the link inside. To verify a test account, copy that link from the log.
+Do this step before you accept real users. The Resend path, when you want it:
 
 1. Create an account at https://resend.com (free tier: 3,000 emails a month).
 2. **Domains** → **Add Domain** → `traficio.com`. Region: EU (Ireland). Resend shows
