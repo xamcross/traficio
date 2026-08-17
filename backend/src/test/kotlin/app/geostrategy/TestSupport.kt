@@ -25,11 +25,19 @@ import kotlinx.coroutines.runBlocking
 import org.testcontainers.containers.MongoDBContainer
 import java.util.UUID
 
+/**
+ * Test database. Local runs start one shared Testcontainers Mongo. CI sets
+ * MONGODB_TEST_URI to the workflow's Mongo service container. Each test class
+ * gets its own database name, so the two modes isolate tests the same way.
+ */
 object TestMongo {
     private val container: MongoDBContainer by lazy {
         MongoDBContainer("mongo:7.0").also { it.start() }
     }
-    private val client: MongoClient by lazy { MongoClient.create(container.connectionString) }
+    private val connectionString: String by lazy {
+        System.getenv("MONGODB_TEST_URI")?.takeIf { it.isNotBlank() } ?: container.connectionString
+    }
+    private val client: MongoClient by lazy { MongoClient.create(connectionString) }
 
     fun freshDb(): MongoDatabase {
         val db = client.getDatabase("t" + UUID.randomUUID().toString().replace("-", ""))
