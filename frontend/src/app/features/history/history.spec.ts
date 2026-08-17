@@ -4,7 +4,8 @@ import { Location } from '@angular/common';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { History } from './history';
 import { ApiClient, ApiError } from '../../core/api/api-client';
-import { AssessmentDto } from '../../core/api/types';
+import { AssessmentDto, SiteDto } from '../../core/api/types';
+import { SiteContext } from '../../core/site-context';
 
 /** No-op routed targets so provideRouter() has something real to navigate to. */
 @Component({ selector: 'history-spec-blank', template: '' })
@@ -33,13 +34,39 @@ function makeAssessment(overrides: Partial<AssessmentDto> = {}): AssessmentDto {
   };
 }
 
+function makeSite(overrides: Partial<SiteDto> = {}): SiteDto {
+  return {
+    id: 's1',
+    domain: 'example.com',
+    url: 'https://example.com',
+    platform: null,
+    latestScores: null,
+    readOnly: false,
+    latestAssessment: null,
+    latestReadyAssessmentId: null,
+    ...overrides,
+  };
+}
+
+/** A promise whose resolution is controlled from the test, to simulate an in-flight request. */
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
 /** Hand-rolled fake with controllable, per-call-configurable promises. No jasmine.createSpy. */
 class FakeApiClient {
   listAssessmentsResult: Promise<AssessmentDto[]> = Promise.resolve([]);
   submitAssessmentResult: Promise<AssessmentDto> = Promise.resolve(makeAssessment());
+  listSitesResult: Promise<SiteDto[]> = Promise.resolve([]);
+  resendVerificationResult: Promise<void> = Promise.resolve();
 
   listAssessmentsCalls: string[] = [];
   submitAssessmentCalls: string[] = [];
+  resendVerificationCalls = 0;
 
   listAssessments(siteId: string): Promise<AssessmentDto[]> {
     this.listAssessmentsCalls.push(siteId);
@@ -48,6 +75,13 @@ class FakeApiClient {
   submitAssessment(siteId: string): Promise<AssessmentDto> {
     this.submitAssessmentCalls.push(siteId);
     return this.submitAssessmentResult;
+  }
+  listSites(): Promise<SiteDto[]> {
+    return this.listSitesResult;
+  }
+  resendVerification(): Promise<void> {
+    this.resendVerificationCalls++;
+    return this.resendVerificationResult;
   }
 }
 
@@ -69,62 +103,38 @@ describe('History', () => {
     }).compileComponents();
   });
 
-  it('renders an SVG trend chart with three polylines and a table row per assessment, newest first', async () => {
-    const older = makeAssessment({
-      id: 'A1',
-      scores: { seo: 40, aeo: 45, geo: 50, overall: 45 },
-      createdAt: '2026-01-01T00:00:00.000Z',
-    });
-    const newer = makeAssessment({
-      id: 'A2',
-      scores: { seo: 60, aeo: 65, geo: 70, overall: 65 },
-      createdAt: '2026-02-01T00:00:00.000Z',
-    });
-    // API returns newest first.
-    api.listAssessmentsResult = Promise.resolve([newer, older]);
-
+  it('renders the headline, the legend, and the table with what changed', async () => {
+    api.listAssessmentsResult = Promise.resolve([
+      makeAssessment({ id: 'A2', status: 'ready', scores: { seo: 62, aeo: 34, geo: 28, overall: 41 }, createdAt: '2026-07-28T10:00:00Z', completedAt: '2026-07-28T10:03:00Z', changes: [{ title: 'a', kind: 'verified' }, { title: 'b', kind: 'verified' }] }),
+      makeAssessment({ id: 'F1', status: 'failed', scores: null, createdAt: '2026-06-16T10:00:00Z', completedAt: '2026-06-16T10:01:00Z' }),
+      makeAssessment({ id: 'A1', status: 'ready', scores: { seo: 55, aeo: 26, geo: 13, overall: 31 }, createdAt: '2026-03-02T10:00:00Z', completedAt: '2026-03-02T10:03:00Z' }),
+    ]);
     const fixture = TestBed.createComponent(History);
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-
-    const compiled = fixture.nativeElement as HTMLElement;
-
-    const svg = compiled.querySelector('svg[viewBox="0 0 400 160"]');
-    expect(svg).toBeTruthy();
-    const polylines = svg!.querySelectorAll('polyline');
-    expect(polylines.length).toBe(3);
-    polylines.forEach((p) => expect(p.getAttribute('fill')).toBe('none'));
-
-    // seo polyline: oldest (40) at x=0, newest (60) at x=400. y = 150 - score*1.4.
-    const seoPoints = Array.from(polylines).map((p) => p.getAttribute('points')).find((pts) => pts?.includes('94') && pts?.includes('66'));
-    expect(seoPoints).toBe('0,94 400,66');
-
-    const rows = compiled.querySelectorAll('table tbody tr');
-    expect(rows.length).toBe(2);
-    // Newest first in the table.
-    expect(rows[0].textContent).toContain('60');
-    expect(rows[0].textContent).toContain('65');
-    expect(rows[0].textContent).toContain('70');
-    expect(rows[1].textContent).toContain('40');
-    expect(rows[1].textContent).toContain('45');
-    expect(rows[1].textContent).toContain('50');
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('It is working.');
+    expect(text).toContain('You have gone from 31 to 41 since March.');
+    expect(text).toContain('Google search');
+    expect(text).toContain('WHAT CHANGED');
+    expect(text).toContain('28 July 2026');
+    expect(text).toContain('Two tasks confirmed fixed');
+    expect(text).toContain('We could not read your site that day');
+    expect(text).toContain('Your first check');
+    expect(text).toContain('MAR – JUL 2026');
   });
 
-  it('renders the upsell panel with a /pricing link when listAssessments is rejected with upgrade_required, without crashing', async () => {
+  it('redirects to /pricing when listAssessments is rejected with upgrade_required', async () => {
     api.listAssessmentsResult = Promise.reject(new ApiError('upgrade_required', 'Score history needs the Pro plan.', 403));
 
     const fixture = TestBed.createComponent(History);
+    const location = TestBed.inject(Location);
     expect(() => fixture.detectChanges()).not.toThrow();
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Score history needs the Pro plan.');
-    const upgradeLink = Array.from(compiled.querySelectorAll('a')).find((a) => a.getAttribute('href') === '/pricing');
-    expect(upgradeLink).toBeTruthy();
-    expect(compiled.querySelector('table')).toBeNull();
-    expect(compiled.querySelector('svg')).toBeNull();
+    expect(location.path()).toBe('/pricing?site=s1');
   });
 
   it('calls submitAssessment for the routed site and navigates to the progress route on "Check again"', async () => {
@@ -147,40 +157,55 @@ describe('History', () => {
     expect(location.path()).toBe('/assessments/A9/progress');
   });
 
-  it('renders a "Failed" row with no scores for a failed assessment and excludes it from the chart', async () => {
-    const ready1 = makeAssessment({ id: 'A1', scores: { seo: 40, aeo: 45, geo: 50, overall: 45 }, createdAt: '2026-01-01T00:00:00.000Z' });
-    const ready2 = makeAssessment({ id: 'A2', scores: { seo: 60, aeo: 65, geo: 70, overall: 65 }, createdAt: '2026-02-01T00:00:00.000Z' });
-    const failed = makeAssessment({
-      id: 'A3',
-      status: 'failed',
-      scores: null,
-      errorCode: 'crawl_failed',
-      errorMessage: 'We could not read this site.',
-      createdAt: '2026-03-01T00:00:00.000Z',
-      completedAt: null,
-    });
-    api.listAssessmentsResult = Promise.resolve([failed, ready2, ready1]);
+  it('resends the verification email and shows a confirmation', async () => {
+    api.listAssessmentsResult = Promise.resolve([]);
+    api.submitAssessmentResult = Promise.reject(new ApiError('email_not_verified', 'Confirm your email first.', 403));
 
     const fixture = TestBed.createComponent(History);
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-
     const compiled = fixture.nativeElement as HTMLElement;
-    const rows = compiled.querySelectorAll('table tbody tr');
-    expect(rows.length).toBe(3);
-    expect(rows[0].textContent).toContain('Failed');
-    expect(rows[0].textContent).not.toContain('40');
 
-    // Only the two ready assessments should feed the chart: still exactly 3 polylines
-    // (one per score series), each built from 2 points, not 3.
-    const svg = compiled.querySelector('svg[viewBox="0 0 400 160"]');
-    expect(svg).toBeTruthy();
-    const polylines = svg!.querySelectorAll('polyline');
-    expect(polylines.length).toBe(3);
-    polylines.forEach((p) => {
-      const points = p.getAttribute('points') ?? '';
-      expect(points.trim().split(' ').length).toBe(2);
-    });
+    const checkAgain = Array.from(compiled.querySelectorAll('button')).find((b) => b.textContent?.includes('Check again'));
+    checkAgain!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const resendButton = Array.from(compiled.querySelectorAll('button')).find((b) => b.textContent?.includes('Send the email again'));
+    expect(resendButton).toBeTruthy();
+    resendButton!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.resendVerificationCalls).toBe(1);
+    expect(compiled.textContent).toContain('Sent. Check your inbox.');
+  });
+
+  it('sets SiteContext to the site domain from listSites', async () => {
+    api.listAssessmentsResult = Promise.resolve([]);
+    api.listSitesResult = Promise.resolve([makeSite({ id: 's1', domain: 'example.com' })]);
+    const fixture = TestBed.createComponent(History);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(TestBed.inject(SiteContext).domain()).toBe('example.com');
+  });
+
+  it('does not let a listSites() that resolves after destroy overwrite SiteContext with a stale domain', async () => {
+    const sites = deferred<SiteDto[]>();
+    api.listAssessmentsResult = Promise.resolve([]);
+    api.listSitesResult = sites.promise;
+    const fixture = TestBed.createComponent(History);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    fixture.destroy();
+    sites.resolve([makeSite({ id: 's1', domain: 'late.example.com' })]);
+    await Promise.resolve();
+
+    expect(TestBed.inject(SiteContext).domain()).toBeNull();
   });
 });
