@@ -307,4 +307,55 @@ describe('Progress', () => {
     tick(1500);
     expect(TestBed.inject(Location).path()).toBe('/sites/S1');
   }));
+
+  it('navigates to the new progress page once a try-again submit resolves', fakeAsync(() => {
+    api.getAssessmentResult = Promise.resolve(makeAssessment({ status: 'failed', siteId: 'S1' }));
+    const fixture = TestBed.createComponent(Progress);
+    const location = TestBed.inject(Location);
+    fixture.detectChanges();
+    tick();
+    fixture.detectChanges();
+
+    let resolveSubmit!: (assessment: AssessmentDto) => void;
+    api.submitAssessmentResult = new Promise<AssessmentDto>((resolve) => {
+      resolveSubmit = resolve;
+    });
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const tryAgainButton = Array.from(compiled.querySelectorAll('button'))
+      .find((b) => b.textContent?.includes('Try again')) as HTMLButtonElement;
+    tryAgainButton.click();
+
+    resolveSubmit(makeAssessment({ id: 'A9', siteId: 'S1', status: 'queued' }));
+    tick();
+
+    expect(location.path()).toBe('/assessments/A9/progress');
+    expect(api.submitAssessmentCalls).toEqual(['S1']);
+  }));
+
+  it('does not navigate if the component is destroyed while a try-again submit is in flight', fakeAsync(() => {
+    api.getAssessmentResult = Promise.resolve(makeAssessment({ status: 'failed', siteId: 'S1' }));
+    const fixture = TestBed.createComponent(Progress);
+    const location = TestBed.inject(Location);
+    fixture.detectChanges();
+    tick();
+    fixture.detectChanges();
+
+    let resolveSubmit!: (assessment: AssessmentDto) => void;
+    api.submitAssessmentResult = new Promise<AssessmentDto>((resolve) => {
+      resolveSubmit = resolve;
+    });
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const tryAgainButton = Array.from(compiled.querySelectorAll('button'))
+      .find((b) => b.textContent?.includes('Try again')) as HTMLButtonElement;
+    tryAgainButton.click();
+
+    fixture.destroy();
+
+    resolveSubmit(makeAssessment({ id: 'A9', siteId: 'S1', status: 'queued' }));
+    tick();
+
+    expect(location.path()).not.toBe('/assessments/A9/progress');
+  }));
 });

@@ -45,7 +45,7 @@ function isTerminal(status: AssessmentStatus): boolean {
       @if (failed(); as f) {
         <div class="stack failure">
           <span class="eyebrow tone-low">WE COULD NOT FINISH</span>
-          <h1>{{ headline(f) }}</h1>
+          <h1 role="alert">{{ headline(f) }}</h1>
           @if (f.errorMessage) {<p class="lead">{{ f.errorMessage }}</p>}
           <div class="note-box stack tight">
             <span class="eyebrow">GOOD NEWS</span>
@@ -233,8 +233,20 @@ export class Progress implements OnInit {
     this.retryBusy.set(true);
     this.retryError.set(null);
     this.api.submitAssessment(a.siteId)
-      .then((next) => this.router.navigateByUrl(`/assessments/${next.id}/progress`), (e: unknown) => this.retryError.set(toApiError(e)))
-      .finally(() => this.retryBusy.set(false));
+      .then(
+        (next) => {
+          if (this.destroyed) return;
+          void this.router.navigateByUrl(`/assessments/${next.id}/progress`);
+        },
+        (e: unknown) => {
+          if (this.destroyed) return;
+          this.retryError.set(toApiError(e));
+        },
+      )
+      .finally(() => {
+        if (this.destroyed) return;
+        this.retryBusy.set(false);
+      });
   }
 
   private cleanup(): void {
