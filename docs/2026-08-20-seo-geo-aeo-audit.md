@@ -50,16 +50,46 @@ Rendered, the landing page holds only 186 words, which is thin by itself.
 | — | Already right | Delivery is fast and correct: TTFB 155-305 ms, 1.6 KB shell, HTTPS, security headers, a real 404. |
 | — | Already right | The site is empty, not blocked. No penalty, no accidental `noindex`. Every fix is additive. |
 
+## Status
+
+Steps 1, 2 and 3 are **done** and live (master 613b71e, deployed 2026-08-21).
+Measured on `https://app.traficio.com` after the deploy:
+
+| URL | Before | After |
+|---|---|---|
+| `/` | 0 words, title "GeoStrategy" | 186 words, "AI visibility check for your website" |
+| `/pricing` | 0 words, same title | 103 words, "Pricing: free score, $9 plan" |
+| `/terms` | 0 words, same title | 116 words, "Terms of service" |
+| `/privacy` | 0 words, same title | 96 words, "Privacy policy" |
+| `/sitemap.xml` | 404 | 200, four public URLs |
+| client routes | shell | shell, unchanged for users |
+
+Each public page now carries its own description, canonical link and Open Graph tags.
+`robots.txt` points at the sitemap. Submit the sitemap in Google Search Console next;
+that is the remaining half of step 3, and it needs an account, so an agent cannot do it.
+
+Two defects appeared during the work and both are fixed. A real preview deployment found
+each one; neither was visible from the build output.
+
+1. Pre-rendering writes `pricing/index.html`, so Pages answered `/pricing` with a 308 to
+   `/pricing/`, while the canonical and the sitemap asserted the non-slash form. A
+   post-build step now flattens the output to `pricing.html`, and `/pricing` answers 200.
+2. `_redirects` sent every client route to `/`. That was safe while `/` was an empty shell.
+   Pre-rendering made `/` a real page, so `/login`, `/verify-email` and the rest began to
+   paint the marketing page before the app booted, and hydration ran against the wrong DOM.
+   Every client row now points at the client-render shell that Angular emits for this case.
+   `scripts/check-redirects.mjs` fails the build if either rule breaks again.
+
 ## The plan, in dependency order
 
-1. **Pre-render the four public pages.** `ng add @angular/ssr`, `outputMode: 'static'`,
+1. ~~**Pre-render the four public pages.**~~ **Done 2026-08-21.** `ng add @angular/ssr`, `outputMode: 'static'`,
    `RenderMode.Prerender` on `/`, `/pricing`, `/terms`, `/privacy`. Move `window` and
    `document` access behind `afterNextRender()`. **Then delete those four rows from
    `public/_redirects`** — a rewrite row shadows a pre-rendered file. Half a day.
    This reverses plan decision D6 in `2026-08-16-platform-config.md`.
-2. **Per-page title, description, canonical, Open Graph.** Add a `TitleStrategy`.
+2. ~~**Per-page title, description, canonical, Open Graph.**~~ **Done 2026-08-21.** Add a `TitleStrategy`.
    Write for the search, not the brand. Add depth to the 186-word home page. 2 hours.
-3. **Sitemap and registration.** Generate `sitemap.xml` at build time, point
+3. ~~**Sitemap and registration.**~~ **Sitemap done 2026-08-21; registration in Search Console is still open.** Generate `sitemap.xml` at build time, point
    `robots.txt` at it, verify in Google Search Console and Bing Webmaster Tools. 1 hour.
 4. **AI crawler policy before 2026-09-15.** Name the search-facing bots, add a
    Content-Signal line, decide on the training crawlers. 1 hour.
