@@ -5,12 +5,8 @@
 # - A path with no row falls through to 404.html.
 # - Test only on a real preview deployment (--branch=preview). "wrangler pages dev"
 #   cannot parse these rules correctly.
-/pricing / 200
-/pricing/ / 200
-/terms / 200
-/terms/ / 200
-/privacy / 200
-/privacy/ / 200
+# - A pre-rendered route (/, /pricing, /terms, /privacy) must not have a row here.
+#   A row would rewrite its real HTML file back to "/" and undo pre-rendering.
 /login / 200
 /login/ / 200
 /signup / 200

@@ -1,4 +1,5 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { UserStore } from './core/auth/user-store';
 import { SiteContext } from './core/site-context';
@@ -15,6 +16,10 @@ export class App {
 
   constructor() {
     // Fire-and-forget: settles the header's auth state on load.
-    void this.userStore.refresh();
+    // Only the browser has a session cookie to send, and pre-rendering must
+    // not call the live API at build time, so this stays out of the server.
+    if (isPlatformBrowser(inject(PLATFORM_ID))) {
+      void this.userStore.refresh();
+    }
   }
 }
