@@ -33,4 +33,8 @@ suspend fun ensureIndexes(db: MongoDatabase) {
         .createIndex(Indexes.ascending("publicSlug"), IndexOptions().sparse(true))
     db.getCollection<Document>("plans")
         .createIndex(Indexes.ascending("siteId", "createdAt"))
+    // Each bucket counts one caller's anonymous previews for one hour window. The TTL
+    // index drops a bucket once its window ends, so old counters never build up.
+    db.getCollection<Document>("previewLimits")
+        .createIndex(Indexes.ascending("expiresAt"), IndexOptions().expireAfter(0, TimeUnit.SECONDS))
 }

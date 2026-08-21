@@ -7,11 +7,15 @@ import app.geostrategy.auth.OneTimeTokenService
 import app.geostrategy.auth.PasswordHasher
 import app.geostrategy.auth.SessionService
 import app.geostrategy.billing.BillingService
+import app.geostrategy.claude.CannedClaudeClient
+import app.geostrategy.claude.ClaudeClient
 import app.geostrategy.config.AppConfig
+import app.geostrategy.crawl.Crawler
 import app.geostrategy.email.EmailSender
 import app.geostrategy.jobs.JobQueue
 import app.geostrategy.persistence.ensureIndexes
 import app.geostrategy.plans.PlanRepository
+import app.geostrategy.preview.PreviewRateLimiter
 import app.geostrategy.sites.SiteRepository
 import app.geostrategy.users.UserRepository
 import com.mongodb.kotlin.client.coroutine.MongoClient
@@ -65,6 +69,12 @@ fun testDeps(
     env: Map<String, String> = emptyMap(),
     sites: SiteRepository = SiteRepository(db),
     assessments: AssessmentRepository = AssessmentRepository(db),
+    ssrf: SsrfGuard = SsrfGuard { listOf(java.net.InetAddress.getByName("93.184.216.34")) },
+    claude: ClaudeClient = CannedClaudeClient(),
+    // No pages by default: only a test that exercises the preview endpoint needs a
+    // crawler with real page content, and it supplies its own.
+    previewCrawler: Crawler = Crawler(MapFetcher(emptyMap()), pageCap = 5),
+    previewLimiter: PreviewRateLimiter = PreviewRateLimiter(db),
 ): AppDeps {
     val config = AppConfig.fromEnv(env)
     val users = UserRepository(db)
@@ -80,8 +90,11 @@ fun testDeps(
         jobs = JobQueue(db),
         assessments = assessments,
         plans = PlanRepository(db),
-        ssrf = SsrfGuard { listOf(java.net.InetAddress.getByName("93.184.216.34")) },
+        ssrf = ssrf,
         billing = config.freemiusSecretKey?.let { BillingService(users, config.freemiusProPlanId) },
+        claude = claude,
+        previewCrawler = previewCrawler,
+        previewLimiter = previewLimiter,
     )
 }
 
