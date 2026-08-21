@@ -73,6 +73,20 @@ type Phase = 'idle' | 'opening' | 'unlocking' | 'timeout';
         </section>
       }
 
+      <section class="detail stack divider">
+        <span class="eyebrow">WHAT CHANGES WHEN YOU UPGRADE</span>
+        <h2>We check your work, not just your intentions</h2>
+        <p>Free tells you what is wrong. Pro tells you how to fix it, one task at a time, in the order that helps most first. Fix the top task, then ask for a re-check. We look at the same page again and tell you whether it actually worked.</p>
+        <p>For example: if a finding says your hours are not readable, you add the text, then ask for a re-check. We read the page again and confirm the score moved, not just that the page changed. Your score history sits alongside it, so you can watch the number move instead of guessing.</p>
+      </section>
+
+      <section class="cost stack divider">
+        <span class="eyebrow">WHY {{ price }}, NOT $1,000</span>
+        <h2>You see everything before you pay</h2>
+        <p>Agencies commonly quote $1,000 to $5,000 a month for this kind of work, and most of it stays invisible until the invoice arrives. We show you the score and every finding free, first. You only pay once you have seen exactly what you are getting.</p>
+        <p>You do not need to decide today. Check your site free, read every finding, and see whether the fixes look like something you can act on. If your score is already solid, you may not need Pro at all.</p>
+      </section>
+
       <app-site-footer />
     </div>
   `,
@@ -90,6 +104,10 @@ type Phase = 'idle' | 'opening' | 'unlocking' | 'timeout';
     .tight { gap: 4px; }
     .title { font-size: 15px; font-weight: 600; color: var(--ink); }
     .small { font-size: 12px; }
+    .detail, .cost { width: 100%; max-width: 640px; padding-top: 26px; }
+    .detail h2, .cost h2 { font-size: 26px; letter-spacing: -0.03em; }
+    .detail p, .cost p { color: var(--body-long); line-height: 1.6; }
+    @media (max-width: 760px) { .detail h2, .cost h2 { font-size: 22px; } }
   `,
 })
 export class Pricing implements OnInit {
