@@ -52,7 +52,9 @@ Rendered, the landing page holds only 186 words, which is thin by itself.
 
 ## Status
 
-Steps 1, 2 and 3 are **done** and live (master 613b71e, deployed 2026-08-21).
+Steps 1, 2, 3, 6 and 7 are **done** and live (master 6c257e2, deployed 2026-08-21).
+The site went from 4 pages and 0 indexable words to **10 pages and about 5,000 words**.
+Steps 4, 5 and 8 remain.
 Measured on `https://app.traficio.com` after the deploy:
 
 | URL | Before | After |
@@ -95,9 +97,15 @@ each one; neither was visible from the build output.
    Content-Signal line, decide on the training crawlers. 1 hour.
 5. **Move the marketing pages to the apex.** Keep the signed-in app on `app.`.
    Cheapest before links exist. Half a day. This reverses plan decision D1.
-6. **Open the free check; give results a public address.** The largest lever:
-   lead magnet, link magnet and page production in one change. Multi-day.
-7. **Write five pages.** The diagnostic questions, not the category terms. Ongoing.
+6. ~~**Open the free check; give results a public address.**~~ **Done 2026-08-21.**
+   The landing page now runs an ungated preview: it crawls up to 5 pages and reports
+   deterministic checks, with no model call and no account. Rate limit 3 per IP per hour,
+   the SSRF guard reused, a semaphore of 3 so the free path cannot starve the job worker.
+   A finished result can be published by its owner at `/r/<slug>`, rendered as crawlable
+   HTML by a Cloudflare Pages Function scoped with `_routes.json`.
+7. ~~**Write five pages.**~~ **Done 2026-08-21.** `/guides` plus five guides of about 750
+   words each, on the diagnostic questions rather than the category terms. The landing page
+   also gained a seven-question FAQ, and both it and `/pricing` are no longer thin.
 8. **Organization and SoftwareApplication markup.** 1 hour, low expected return.
 
 Then run the assessment engine on `traficio.com` and compare its result with this
