@@ -1,14 +1,21 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { ApiClient, ApiError } from '../../core/api/api-client';
+import { PreviewDto } from '../../core/api/types';
 import { UserStore } from '../../core/auth/user-store';
 import { PENDING_URL_KEY, PRO_PRICE_LABEL } from '../../core/config';
+import { severityOrder } from '../../shared/copy';
 import { ScoreBar } from '../../shared/score-bar';
+import { SeverityBadge } from '../../shared/severity-badge';
 import { SiteFooter } from '../../shared/site-footer';
+
+/** State of the ungated preview that runs in place after the hero form submits. */
+type PreviewState = 'idle' | 'loading' | 'success' | 'rate_limited' | 'bad_url' | 'error';
 
 @Component({
   selector: 'app-landing',
-  imports: [ReactiveFormsModule, ScoreBar, SiteFooter],
+  imports: [ReactiveFormsModule, RouterLink, ScoreBar, SeverityBadge, SiteFooter],
   template: `
     <div class="page surface landing">
       <section class="hero">
@@ -18,10 +25,62 @@ import { SiteFooter } from '../../shared/site-footer';
         <form [formGroup]="form" (ngSubmit)="submit()" class="hero-form" id="check">
           <label class="sr-only" for="url">Your website</label>
           <input id="url" type="text" formControlName="url" placeholder="yourbusiness.com" autocomplete="url" />
-          <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Check my site free</button>
+          <button type="submit" class="btn btn-primary" [disabled]="form.invalid || previewState() === 'loading'">Check my site free</button>
           <span class="faint small">Two minutes. No card. Your score and every problem, free.</span>
         </form>
       </section>
+
+      @if (previewState() !== 'idle') {
+        <section class="preview stack divider" aria-live="polite">
+          @switch (previewState()) {
+            @case ('loading') {
+              <div class="stack tight">
+                <h2>Reading your pages…</h2>
+                <p class="muted">This takes a few seconds. We read your pages the way an AI crawler does.</p>
+              </div>
+            }
+            @case ('success') {
+              @if (previewResult(); as r) {
+                <div class="stack tight">
+                  <span class="eyebrow">QUICK LOOK</span>
+                  <h2>What we found on {{ r.domain }}</h2>
+                  <p class="muted">We read {{ r.pagesChecked }} {{ r.pagesChecked === 1 ? 'page' : 'pages' }}, the way an AI crawler does. This is not your score — the full check works that out.</p>
+                </div>
+                @if (sortedChecks().length === 0) {
+                  <p class="muted">We did not find anything to flag on the pages we read.</p>
+                } @else {
+                  <div class="divider preview-checks">
+                    @for (c of sortedChecks(); track c.id) {
+                      <div class="row check" [class.good]="c.severity === 'good'">
+                        <app-severity-badge [severity]="c.severity" />
+                        <p class="evidence">{{ c.description }}</p>
+                      </div>
+                    }
+                  </div>
+                }
+                <div class="card cta-card stack">
+                  <p class="promise">The full check adds your score, the rest of the findings, and your plan to fix them.</p>
+                  <p class="muted">It is free to start.</p>
+                  <a class="btn btn-primary" routerLink="/signup">Create my free account</a>
+                </div>
+              }
+            }
+            @case ('rate_limited') {
+              <div class="note-box stack tight">
+                <p>You have used your three free previews for this hour.</p>
+                <p class="muted">Create an account to keep checking your site.</p>
+                <a class="btn btn-primary" routerLink="/signup">Create my free account</a>
+              </div>
+            }
+            @case ('bad_url') {
+              <p class="error-note" role="alert">That address does not look right. Check it above and try again.</p>
+            }
+            @case ('error') {
+              <p class="error-note" role="alert">Something went wrong on our side. Try again.</p>
+            }
+          }
+        </section>
+      }
 
       <section class="steps divider">
         <div><span class="mono step-no">01</span><h3>You give us your web address</h3><p>Nothing to install, no password to your site, no plugin. We only read the pages anyone can see.</p></div>
@@ -117,22 +176,58 @@ import { SiteFooter } from '../../shared/site-footer';
     .faq-item { display: flex; flex-direction: column; gap: 6px; }
     .faq-item + .faq-item { margin-top: 22px; }
     .faq-item h3 { font-size: 17px; }
+    .preview { padding: 0 0 46px; max-width: 640px; margin: 0 auto; }
+    .preview h2 { font-size: 24px; letter-spacing: -0.02em; }
+    .tight { gap: 6px; }
+    .preview-checks .check { gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--line); align-items: flex-start; }
+    .preview-checks .check.good .evidence { color: var(--muted); }
+    .evidence { font-size: 16px; line-height: 1.55; color: var(--ink); margin: 0; }
+    .cta-card { margin-top: 8px; align-items: flex-start; gap: 10px; }
+    .cta-card .btn { margin-top: 6px; }
     @media (max-width: 760px) { .hero h1 { font-size: 36px; } .steps { flex-direction: column; } .steps > div + div { border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 24px; } .example { width: 100%; padding-left: 0; border-left: none; } .explainer h2, .faq h2 { font-size: 24px; } }
   `,
 })
 export class Landing {
   private store = inject(UserStore);
   private router = inject(Router);
+  private api = inject(ApiClient);
   protected readonly price = PRO_PRICE_LABEL;
 
   protected readonly form = new FormGroup({
     url: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
   });
 
+  protected readonly previewState = signal<PreviewState>('idle');
+  protected readonly previewResult = signal<PreviewDto | null>(null);
+  protected readonly sortedChecks = computed(() => {
+    const result = this.previewResult();
+    return result ? [...result.checks].sort((a, b) => severityOrder(a.severity) - severityOrder(b.severity)) : [];
+  });
+
   protected submit(): void {
     if (this.form.invalid) return;
     const { url } = this.form.getRawValue();
-    sessionStorage.setItem(PENDING_URL_KEY, url.trim());
-    void this.router.navigateByUrl(this.store.user() ? '/dashboard' : '/signup');
+    const trimmed = url.trim();
+    sessionStorage.setItem(PENDING_URL_KEY, trimmed);
+    if (this.store.user()) {
+      void this.router.navigateByUrl('/dashboard');
+      return;
+    }
+    void this.runPreview(trimmed);
+  }
+
+  private async runPreview(url: string): Promise<void> {
+    this.previewState.set('loading');
+    this.previewResult.set(null);
+    try {
+      const result = await this.api.preview(url);
+      this.previewResult.set(result);
+      this.previewState.set('success');
+    } catch (e) {
+      const status = e instanceof ApiError ? e.status : 0;
+      if (status === 429) this.previewState.set('rate_limited');
+      else if (status === 400) this.previewState.set('bad_url');
+      else this.previewState.set('error');
+    }
   }
 }

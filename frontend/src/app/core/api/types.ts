@@ -30,3 +30,7 @@ export interface PlanTaskDto {
 export interface PlanProgressDto { done: number; verified: number; total: number; }
 export interface PlanDto { id: string; assessmentId: string; siteId: string; locked: boolean; tasks: PlanTaskDto[]; progress: PlanProgressDto; }
 export interface UsageDto { assessmentsUsed: number; assessmentsLimit: number; sitesUsed: number; sitesLimit: number; nextCheckAt: string | null; }
+
+export type PreviewSeverity = 'critical' | 'high' | 'medium' | 'low' | 'good';
+export interface PreviewCheck { id: string; severity: PreviewSeverity | string; description: string; }
+export interface PreviewDto { domain: string; pagesChecked: number; checks: PreviewCheck[]; }
