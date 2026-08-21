@@ -6,3 +6,7 @@
   X-Robots-Tag: noindex
 /404.html
   X-Robots-Tag: noindex
+/app/*
+  X-Robots-Tag: noindex
+/index.csr.html
+  X-Robots-Tag: noindex

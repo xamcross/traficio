@@ -6,6 +6,8 @@ export const environment = {
   // Empty string = same origin. The dev server proxies /v1 and /healthz to
   // localhost:8080 (proxy.conf.json).
   apiBaseUrl: '',
+  // The origin this app is served from. Canonical links and the sitemap use it.
+  siteOrigin: 'http://localhost:4200',
   freemiusProductId: 'REPLACE_ME_FREEMIUS_PRODUCT_ID',
   freemiusPublicKey: 'REPLACE_ME_FREEMIUS_PUBLIC_KEY',
 };
