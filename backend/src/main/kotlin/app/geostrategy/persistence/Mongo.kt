@@ -27,6 +27,10 @@ suspend fun ensureIndexes(db: MongoDatabase) {
         .createIndex(Indexes.ascending("siteId", "createdAt"))
     db.getCollection<Document>("assessments")
         .createIndex(Indexes.ascending("userId", "createdAt"))
+    // The public result page looks an assessment up by its slug. A sparse index keeps
+    // that lookup off a collection scan, and it skips the documents that stay private.
+    db.getCollection<Document>("assessments")
+        .createIndex(Indexes.ascending("publicSlug"), IndexOptions().sparse(true))
     db.getCollection<Document>("plans")
         .createIndex(Indexes.ascending("siteId", "createdAt"))
 }

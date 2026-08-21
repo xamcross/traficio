@@ -43,6 +43,9 @@ data class AssessmentDto(
     val createdAt: String,
     val completedAt: String?,
     val changes: List<TaskChangeDto> = emptyList(),
+    // The slug when the owner publishes this result, else null. The report page reads it
+    // so the share control shows the true state after a reload.
+    val publicSlug: String? = null,
 )
 
 fun Assessment.toDto(changes: List<TaskChangeDto> = emptyList()) = AssessmentDto(
@@ -51,20 +54,24 @@ fun Assessment.toDto(changes: List<TaskChangeDto> = emptyList()) = AssessmentDto
     pageCount = crawlDigest?.pages?.size,
     errorCode = errorCode, errorMessage = errorMessage,
     createdAt = createdAt.toString(), completedAt = completedAt?.toString(),
-    changes = changes,
+    changes = changes, publicSlug = publicSlug,
 )
 
 @Serializable
 data class ShareResponseDto(val slug: String)
 
 /**
- * A finding as a public reader may see it. The list leaves out `affectedPages`: a public
- * page names the problem, not every URL where the crawler saw it.
+ * A finding as a public reader sees it.
+ *
+ * `evidence` carries the sentence a person reads, which is what the application itself
+ * shows. The finding id stays out: it is an internal key such as
+ * "missing-meta-description:/about". The list also leaves out `affectedPages`, because a
+ * public page names the problem and not every URL where the crawler saw it.
  */
 @Serializable
-data class PublicFindingDto(val title: String, val area: String, val severity: String, val description: String)
+data class PublicFindingDto(val area: String, val severity: String, val description: String)
 
-fun Finding.toPublicDto() = PublicFindingDto(title = id, area = category, severity = severity, description = evidence)
+fun Finding.toPublicDto() = PublicFindingDto(area = category, severity = severity, description = evidence)
 
 /**
  * The public result page. Build this DTO by hand and list only safe fields here. Never
