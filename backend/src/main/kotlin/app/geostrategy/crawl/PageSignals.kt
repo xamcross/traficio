@@ -18,6 +18,8 @@ data class PageDigest(
     val robotsMeta: String?,
     val imgCount: Int,
     val imgWithAltCount: Int,
+    /** An image with `alt=""` on purpose: a decorative image, correctly marked, not missing alt text. */
+    val imgDecorativeCount: Int = 0,
     val wordCount: Int,
     val internalLinkCount: Int,
     val externalLinkCount: Int,
@@ -49,6 +51,7 @@ fun extractPageSignals(url: String, html: String): PageDigest {
         robotsMeta = doc.selectFirst("meta[name=robots]")?.attr("content")?.takeIf { it.isNotBlank() },
         imgCount = doc.select("img").size,
         imgWithAltCount = doc.select("img[alt]").count { it.attr("alt").isNotBlank() },
+        imgDecorativeCount = doc.select("img[alt]").count { it.attr("alt").isBlank() },
         wordCount = wordCount,
         internalLinkCount = links.count { it == host },
         externalLinkCount = links.count { it != null && it != host },

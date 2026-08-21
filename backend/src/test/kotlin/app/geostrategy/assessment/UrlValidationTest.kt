@@ -22,6 +22,16 @@ class UrlValidationTest {
     }
 
     @Test
+    fun `normalizeUrl rejects a url over 2048 characters, as the first check`() {
+        val tooLong = "https://example.com/" + "a".repeat(2048)
+        assertEquals("invalid_url", assertFailsWith<AppException> { normalizeUrl(tooLong) }.code)
+        // A url at the limit still passes the length check and reaches normal parsing.
+        val atLimit = "https://example.com/" + "a".repeat(2048 - "https://example.com/".length)
+        assertEquals(2048, atLimit.length)
+        normalizeUrl(atLimit)
+    }
+
+    @Test
     fun `ssrf guard rejects private, loopback, link-local, unique-local, multicast and cgnat addresses`() {
         for (ip in listOf("127.0.0.1", "10.1.2.3", "192.168.1.1", "172.16.0.9", "169.254.1.1", "::1", "fc00::1", "100.64.1.1", "224.0.0.1")) {
             val guard = SsrfGuard { listOf(InetAddress.getByName(ip)) }

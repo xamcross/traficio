@@ -159,6 +159,42 @@ describe('Landing', () => {
     expect(input.disabled).toBe(false);
   });
 
+  it('names the real cause on a site_unreachable error, not a generic failure', async () => {
+    await configure(() => Promise.reject(new ApiError('site_unreachable', "We couldn't reach your site.", 502)));
+    const fixture = TestBed.createComponent(Landing);
+    fixture.detectChanges();
+    setUrl(fixture, 'rivertonbakery.com');
+    fixture.detectChanges();
+    submitForm(fixture);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const text = el.textContent ?? '';
+    expect(text).toContain('We could not reach that address.');
+    expect(text).not.toContain('Something went wrong on our side.');
+    const input = el.querySelector<HTMLInputElement>('input[type=text]')!;
+    expect(input.disabled).toBe(false);
+  });
+
+  it('names the real cause on a robots_blocked error, not a generic failure', async () => {
+    await configure(() => Promise.reject(new ApiError('robots_blocked', "Your robots.txt blocks us.", 422)));
+    const fixture = TestBed.createComponent(Landing);
+    fixture.detectChanges();
+    setUrl(fixture, 'rivertonbakery.com');
+    fixture.detectChanges();
+    submitForm(fixture);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const text = el.textContent ?? '';
+    expect(text).toContain('asks crawlers to stay out');
+    expect(text).not.toContain('Something went wrong on our side.');
+    const input = el.querySelector<HTMLInputElement>('input[type=text]')!;
+    expect(input.disabled).toBe(false);
+  });
+
   it('never leaves the page stuck loading when the preview fails for another reason', async () => {
     await configure(() => Promise.reject(new Error('boom')));
     const fixture = TestBed.createComponent(Landing);

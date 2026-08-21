@@ -55,6 +55,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
@@ -99,8 +100,17 @@ fun main() {
         // bounds the cost of abuse.
         // The preview runs while a visitor waits, so it gets a short budget as well as a
         // small page cap. A full assessment runs in the background and keeps the 90 s budget.
-        previewCrawler = Crawler(HttpFetcher(crawlClient, guard = SsrfGuard()), budgetMillis = 20_000, pageCap = 5),
+        // The preview also reads at most 512 KB per page, well under the 2 MB the
+        // authenticated crawler allows: a marketing page never needs that much.
+        previewCrawler = Crawler(
+            HttpFetcher(crawlClient, maxBytes = 512 * 1024, guard = SsrfGuard()),
+            budgetMillis = 20_000,
+            pageCap = 5,
+        ),
         previewLimiter = PreviewRateLimiter(db),
+        // The same machine also runs JobWorker for paying customers. Three permits let a
+        // handful of visitors preview at once without letting the free path starve it.
+        previewSemaphore = Semaphore(3),
     )
 
     val crawler = Crawler(HttpFetcher(crawlClient, guard = SsrfGuard()))

@@ -11,7 +11,15 @@ import { SeverityBadge } from '../../shared/severity-badge';
 import { SiteFooter } from '../../shared/site-footer';
 
 /** State of the ungated preview that runs in place after the hero form submits. */
-type PreviewState = 'idle' | 'loading' | 'success' | 'rate_limited' | 'bad_url' | 'error';
+type PreviewState =
+  | 'idle'
+  | 'loading'
+  | 'success'
+  | 'rate_limited'
+  | 'bad_url'
+  | 'site_unreachable'
+  | 'robots_blocked'
+  | 'error';
 
 @Component({
   selector: 'app-landing',
@@ -74,6 +82,12 @@ type PreviewState = 'idle' | 'loading' | 'success' | 'rate_limited' | 'bad_url' 
             }
             @case ('bad_url') {
               <p class="error-note" role="alert">That address does not look right. Check it above and try again.</p>
+            }
+            @case ('site_unreachable') {
+              <p class="error-note" role="alert">We could not reach that address. Check it and try again.</p>
+            }
+            @case ('robots_blocked') {
+              <p class="error-note" role="alert">That site asks crawlers to stay out, so we can't read it.</p>
             }
             @case ('error') {
               <p class="error-note" role="alert">Something went wrong on our side. Try again.</p>
@@ -224,10 +238,21 @@ export class Landing {
       this.previewResult.set(result);
       this.previewState.set('success');
     } catch (e) {
-      const status = e instanceof ApiError ? e.status : 0;
-      if (status === 429) this.previewState.set('rate_limited');
-      else if (status === 400) this.previewState.set('bad_url');
-      else this.previewState.set('error');
+      this.previewState.set(Landing.stateForError(e));
     }
+  }
+
+  /**
+   * Picks the preview state for a failed check. The backend's error code names the real
+   * cause for the two most likely failures, so we branch on the code first and fall back to
+   * the status only for the cases the code does not cover.
+   */
+  private static stateForError(e: unknown): PreviewState {
+    if (!(e instanceof ApiError)) return 'error';
+    if (e.code === 'site_unreachable') return 'site_unreachable';
+    if (e.code === 'robots_blocked') return 'robots_blocked';
+    if (e.status === 429) return 'rate_limited';
+    if (e.status === 400) return 'bad_url';
+    return 'error';
   }
 }

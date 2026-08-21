@@ -16,6 +16,7 @@ import app.geostrategy.plans.PlanRepository
 import app.geostrategy.preview.PreviewRateLimiter
 import app.geostrategy.sites.SiteRepository
 import app.geostrategy.users.UserRepository
+import kotlinx.coroutines.sync.Semaphore
 
 class AppDeps(
     val config: AppConfig,
@@ -36,4 +37,9 @@ class AppDeps(
     /** A crawler with a small page cap, for the anonymous preview only. */
     val previewCrawler: Crawler,
     val previewLimiter: PreviewRateLimiter,
+    /**
+     * Bounds concurrent preview crawls on this machine. The same machine runs JobWorker for
+     * paying customers, so the free, unauthenticated preview must not be able to starve it.
+     */
+    val previewSemaphore: Semaphore = Semaphore(3),
 )

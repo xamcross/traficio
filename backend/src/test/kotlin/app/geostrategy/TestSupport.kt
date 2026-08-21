@@ -26,6 +26,7 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Semaphore
 import org.testcontainers.containers.MongoDBContainer
 import java.util.UUID
 
@@ -75,6 +76,7 @@ fun testDeps(
     // crawler with real page content, and it supplies its own.
     previewCrawler: Crawler = Crawler(MapFetcher(emptyMap()), pageCap = 5),
     previewLimiter: PreviewRateLimiter = PreviewRateLimiter(db),
+    previewSemaphore: Semaphore = Semaphore(3),
 ): AppDeps {
     val config = AppConfig.fromEnv(env)
     val users = UserRepository(db)
@@ -95,6 +97,7 @@ fun testDeps(
         claude = claude,
         previewCrawler = previewCrawler,
         previewLimiter = previewLimiter,
+        previewSemaphore = previewSemaphore,
     )
 }
 

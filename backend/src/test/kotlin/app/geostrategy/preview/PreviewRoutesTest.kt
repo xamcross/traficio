@@ -20,6 +20,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -87,7 +88,7 @@ class PreviewRoutesTest {
     }
 
     @Test
-    fun `a javascript-only site produces the ai_readability check at high severity`() = testApplication {
+    fun `a single javascript-only page produces the ai_readability check at medium severity`() = testApplication {
         val db = TestMongo.freshDb()
         val html = """<html><head><title>App</title></head><body><div id="root"></div><script src="bundle.js"></script></body></html>"""
         val deps = testDeps(db, previewCrawler = Crawler(MapFetcher(mapOf("https://example.com" to html)), pageCap = 5))
@@ -99,6 +100,35 @@ class PreviewRoutesTest {
             setBody("""{"url":"example.com"}""")
         }
         assertEquals(HttpStatusCode.OK, res.status)
+        val checks = checksById(res.bodyAsText())
+        // One js-only page out of a small sample is a weak signal (a hero-image landing
+        // page can trip it), so it stays at medium rather than high.
+        assertEquals("medium", checks.getValue("ai_readability")["severity"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `two or more javascript-only pages raise ai_readability to high severity`() = testApplication {
+        val db = TestMongo.freshDb()
+        val shell = """<html><head><title>App</title></head><body><div id="root"></div><script src="bundle.js"></script></body></html>"""
+        val home = """
+            <html><head><title>App</title></head>
+            <body><div id="root"></div><script src="bundle.js"></script><a href="/pricing">Pricing</a></body>
+            </html>
+        """.trimIndent()
+        val pages = mapOf(
+            "https://example.com" to home,
+            "https://example.com/pricing" to shell,
+        )
+        val deps = testDeps(db, previewCrawler = Crawler(MapFetcher(pages), pageCap = 5))
+        application { appModule(deps) }
+
+        val res = client.post("/v1/preview") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.XForwardedFor, "203.0.113.41")
+            setBody("""{"url":"example.com"}""")
+        }
+        assertEquals(HttpStatusCode.OK, res.status)
+        assertEquals(2, Json.parseToJsonElement(res.bodyAsText()).jsonObject["pagesChecked"]!!.jsonPrimitive.content.toInt())
         val checks = checksById(res.bodyAsText())
         assertEquals("high", checks.getValue("ai_readability")["severity"]!!.jsonPrimitive.content)
     }
@@ -118,7 +148,9 @@ class PreviewRoutesTest {
         assertEquals(HttpStatusCode.OK, res.status)
         val checks = checksById(res.bodyAsText())
         assertEquals("high", checks.getValue("page_titles")["severity"]!!.jsonPrimitive.content)
-        assertEquals("high", checks.getValue("meta_descriptions")["severity"]!!.jsonPrimitive.content)
+        // A missing meta description does not stop a search engine or an AI from reading the
+        // page, so it stays at medium rather than high.
+        assertEquals("medium", checks.getValue("meta_descriptions")["severity"]!!.jsonPrimitive.content)
         assertEquals("medium", checks.getValue("thin_content")["severity"]!!.jsonPrimitive.content)
         assertEquals("medium", checks.getValue("sitemap")["severity"]!!.jsonPrimitive.content)
         assertEquals("low", checks.getValue("image_alt_text")["severity"]!!.jsonPrimitive.content)
@@ -213,5 +245,121 @@ class PreviewRoutesTest {
             setBody("""{"url":"example.com"}""")
         }
         assertEquals(HttpStatusCode.OK, res.status)
+    }
+
+    @Test
+    fun `CF-Connecting-IP outranks Fly-Client-IP for the rate limit key`() = testApplication {
+        val db = TestMongo.freshDb()
+        val html = """<html><head><title>T</title></head><body><h1>H</h1><p>${"w ".repeat(60)}</p></body></html>"""
+        val deps = testDeps(db, previewCrawler = Crawler(MapFetcher(mapOf("https://example.com" to html)), pageCap = 5))
+        application { appModule(deps) }
+
+        suspend fun attempt(cfIp: String, flyIp: String) = client.post("/v1/preview") {
+            contentType(ContentType.Application.Json)
+            header("CF-Connecting-IP", cfIp)
+            header("Fly-Client-IP", flyIp)
+            setBody("""{"url":"example.com"}""")
+        }
+
+        // Three visitors share one Cloudflare edge, so they share one Fly-Client-IP. If the
+        // route trusted Fly-Client-IP first, the second visitor's first request would
+        // already look like a repeat, and the third visitor would be blocked outright.
+        repeat(3) { assertEquals(HttpStatusCode.OK, attempt("203.0.113.20", "198.51.100.9").status) }
+        assertEquals(HttpStatusCode.TooManyRequests, attempt("203.0.113.20", "198.51.100.9").status)
+
+        // A different visitor's own CF-Connecting-IP, behind that very same edge, still has
+        // a full quota.
+        assertEquals(HttpStatusCode.OK, attempt("203.0.113.21", "198.51.100.9").status)
+    }
+
+    @Test
+    fun `two IPv6 addresses in the same slash-64 share one rate limit bucket`() = testApplication {
+        val db = TestMongo.freshDb()
+        val html = """<html><head><title>T</title></head><body><h1>H</h1><p>${"w ".repeat(60)}</p></body></html>"""
+        val deps = testDeps(db, previewCrawler = Crawler(MapFetcher(mapOf("https://example.com" to html)), pageCap = 5))
+        application { appModule(deps) }
+
+        suspend fun attempt(ip: String) = client.post("/v1/preview") {
+            contentType(ContentType.Application.Json)
+            header("CF-Connecting-IP", ip)
+            setBody("""{"url":"example.com"}""")
+        }
+
+        // A caller who bypasses Cloudflare can pick any address in their own /64, so two
+        // different addresses in 2001:db8:abcd:1234::/64 must count as the same caller.
+        assertEquals(HttpStatusCode.OK, attempt("2001:db8:abcd:1234::1").status)
+        assertEquals(HttpStatusCode.OK, attempt("2001:db8:abcd:1234::2").status)
+        assertEquals(HttpStatusCode.OK, attempt("2001:db8:abcd:1234::3").status)
+        assertEquals(HttpStatusCode.TooManyRequests, attempt("2001:db8:abcd:1234::4").status)
+
+        // A different /64 is a different bucket, with its own full quota.
+        assertEquals(HttpStatusCode.OK, attempt("2001:db8:abcd:9999::1").status)
+    }
+
+    @Test
+    fun `a url over 2048 characters is rejected with 400`() = testApplication {
+        val db = TestMongo.freshDb()
+        val deps = testDeps(db)
+        application { appModule(deps) }
+
+        val longUrl = "https://example.com/" + "a".repeat(2100)
+        val res = client.post("/v1/preview") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.XForwardedFor, "203.0.113.30")
+            setBody("""{"url":"$longUrl"}""")
+        }
+        assertEquals(HttpStatusCode.BadRequest, res.status)
+        assertTrue(res.bodyAsText().contains("invalid_url"))
+    }
+
+    @Test
+    fun `a request body over the size cap is rejected with 400`() = testApplication {
+        val db = TestMongo.freshDb()
+        val deps = testDeps(db)
+        application { appModule(deps) }
+
+        // Well past the few-kilobyte cap, and well past 2048 characters too, so this proves
+        // the body cap itself rejects the request rather than the url-length check.
+        val hugeUrl = "a".repeat(10_000)
+        val res = client.post("/v1/preview") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.XForwardedFor, "203.0.113.31")
+            setBody("""{"url":"$hugeUrl"}""")
+        }
+        assertEquals(HttpStatusCode.BadRequest, res.status)
+        assertTrue(res.bodyAsText().contains("invalid_request"))
+    }
+
+    @Test
+    fun `a full preview semaphore answers 503 with retry-after, and recovers once a permit frees up`() = testApplication {
+        val db = TestMongo.freshDb()
+        val semaphore = Semaphore(3)
+        repeat(3) { assertTrue(semaphore.tryAcquire()) }
+        val html = """<html><head><title>T</title></head><body><h1>H</h1><p>${"w ".repeat(60)}</p></body></html>"""
+        val deps = testDeps(
+            db,
+            previewCrawler = Crawler(MapFetcher(mapOf("https://example.com" to html)), pageCap = 5),
+            previewSemaphore = semaphore,
+        )
+        application { appModule(deps) }
+
+        val busy = client.post("/v1/preview") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.XForwardedFor, "203.0.113.32")
+            setBody("""{"url":"example.com"}""")
+        }
+        assertEquals(HttpStatusCode.ServiceUnavailable, busy.status)
+        val retryAfter = busy.headers[HttpHeaders.RetryAfter]
+        assertNotNull(retryAfter)
+        assertTrue(retryAfter!!.toInt() > 0)
+        assertTrue(busy.bodyAsText().contains("preview_busy"))
+
+        semaphore.release()
+        val recovered = client.post("/v1/preview") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.XForwardedFor, "203.0.113.33")
+            setBody("""{"url":"example.com"}""")
+        }
+        assertEquals(HttpStatusCode.OK, recovered.status)
     }
 }
