@@ -17,7 +17,7 @@ class PageSignalsTest {
           <script type="application/ld+json">{"@type":"LocalBusiness","name":"Ada's"}</script>
         </head><body>
           <h1>Welcome</h1><h2>Our bread</h2><h2>Visit us</h2>
-          <img src="a.jpg" alt="sourdough loaf"><img src="b.jpg">
+          <img src="a.jpg" alt="sourdough loaf"><img src="b.jpg"><img src="c.jpg" alt="">
           <a href="/menu">Menu</a><a href="https://instagram.com/ada">IG</a>
           <p>${"fresh bread ".repeat(40)}</p>
         </body></html>
@@ -35,8 +35,9 @@ class PageSignalsTest {
         assertTrue(d.hasOgTags)
         assertEquals(listOf("LocalBusiness"), d.jsonLdTypes)
         assertEquals("noindex, follow", d.robotsMeta)
-        assertEquals(2, d.imgCount)
+        assertEquals(3, d.imgCount)
         assertEquals(1, d.imgWithAltCount)
+        assertEquals(1, d.imgDecorativeCount)
         assertTrue(d.wordCount > 50)
         assertEquals(1, d.internalLinkCount)
         assertEquals(1, d.externalLinkCount)

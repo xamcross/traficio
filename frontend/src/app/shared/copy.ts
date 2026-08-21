@@ -13,9 +13,10 @@ const AREA_NAMES: Record<string, string> = { seo: 'Google search', aeo: 'Answer 
 export function areaName(category: string): string { return AREA_NAMES[category] ?? category; }
 export function areaCode(category: string): string { return category.toUpperCase(); }
 
-const SEVERITY_LABELS: Record<string, string> = { high: 'HIGH', medium: 'MED', low: 'LOW', good: 'FINE' };
+const SEVERITY_LABELS: Record<string, string> = { critical: 'CRITICAL', high: 'HIGH', medium: 'MED', low: 'LOW', good: 'FINE' };
 export function severityLabel(severity: string): string { return SEVERITY_LABELS[severity] ?? severity.toUpperCase(); }
-const SEVERITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2, good: 3 };
+/** Worst first. `critical` only comes from the ungated preview check; the full assessment never sends it. */
+const SEVERITY_ORDER: Record<string, number> = { critical: -1, high: 0, medium: 1, low: 2, good: 3 };
 export function severityOrder(severity: string): number { return SEVERITY_ORDER[severity] ?? 4; }
 
 const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];

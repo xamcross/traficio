@@ -91,6 +91,25 @@ test('signup, the dashboard hand-off runs a check, and the free result leads to 
     });
   });
 
+  await page.route(/\/v1\/preview$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        domain: 'example.com',
+        pagesChecked: 5,
+        checks: [
+          {
+            id: 'ai-readable',
+            severity: 'critical',
+            description: 'An AI assistant cannot read your pages. Your content only appears after a script runs.',
+          },
+          { id: 'https', severity: 'good', description: 'Your site uses HTTPS.' },
+        ],
+      }),
+    });
+  });
+
   await page.route(/\/v1\/auth\/register$/, async (route) => {
     await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({}) });
   });
@@ -184,10 +203,16 @@ test('signup, the dashboard hand-off runs a check, and the free result leads to 
     }
   });
 
-  // --- 1. Landing: type a URL and start the journey ---
+  // --- 1. Landing: type a URL, see the ungated preview run in place, then continue to signup.
+  // The preview no longer sends the visitor straight to signup — it shows a quick, honest
+  // look at their site first, worst finding first, with no invented score. Only the "Create my
+  // free account" call to action below the checks moves on to signup. ---
   await page.goto('/');
   await page.getByLabel('Your website').fill('example.com');
   await page.getByRole('button', { name: 'Check my site free' }).click();
+  await expect(page.getByRole('heading', { name: 'What we found on example.com' })).toBeVisible();
+  await expect(page.getByText('An AI assistant cannot read your pages.')).toBeVisible();
+  await page.getByRole('link', { name: 'Create my free account' }).click();
   await expect(page).toHaveURL(/\/signup$/);
 
   // --- 2. Register ---

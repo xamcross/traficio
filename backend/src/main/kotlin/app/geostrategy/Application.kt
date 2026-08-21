@@ -29,6 +29,8 @@ import app.geostrategy.jobs.JobWorker
 import app.geostrategy.persistence.ensureIndexes
 import app.geostrategy.plans.PlanRepository
 import app.geostrategy.plans.planRoutes
+import app.geostrategy.preview.PreviewRateLimiter
+import app.geostrategy.preview.previewRoutes
 import app.geostrategy.sites.SiteRepository
 import app.geostrategy.sites.siteRoutes
 import app.geostrategy.users.UserRepository
@@ -53,6 +55,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
@@ -68,6 +71,14 @@ fun main() {
     }
     val crawlClient = HttpClient(CIO) { followRedirects = false }
     val users = UserRepository(db)
+
+    val claudeLog = LoggerFactory.getLogger("app.geostrategy.claude")
+    val claude: ClaudeClient = config.anthropicApiKey
+        ?.let { RealClaudeClient(it, config.claudeModel) }
+        ?: CannedClaudeClient().also {
+            claudeLog.warn("ANTHROPIC_API_KEY is not set. Assessments use the canned Claude client.")
+        }
+
     val deps = AppDeps(
         config = config,
         users = users,
@@ -84,14 +95,24 @@ fun main() {
         plans = PlanRepository(db),
         ssrf = SsrfGuard(),
         billing = config.freemiusSecretKey?.let { BillingService(users, config.freemiusProPlanId) },
+        claude = claude,
+        // A smaller page cap than a full assessment: a preview is a taste, and the cap
+        // bounds the cost of abuse.
+        // The preview runs while a visitor waits, so it gets a short budget as well as a
+        // small page cap. A full assessment runs in the background and keeps the 90 s budget.
+        // The preview also reads at most 512 KB per page, well under the 2 MB the
+        // authenticated crawler allows: a marketing page never needs that much.
+        previewCrawler = Crawler(
+            HttpFetcher(crawlClient, maxBytes = 512 * 1024, guard = SsrfGuard()),
+            budgetMillis = 20_000,
+            pageCap = 5,
+        ),
+        previewLimiter = PreviewRateLimiter(db),
+        // The same machine also runs JobWorker for paying customers. Three permits let a
+        // handful of visitors preview at once without letting the free path starve it.
+        previewSemaphore = Semaphore(3),
     )
 
-    val claudeLog = LoggerFactory.getLogger("app.geostrategy.claude")
-    val claude: ClaudeClient = config.anthropicApiKey
-        ?.let { RealClaudeClient(it, config.claudeModel) }
-        ?: CannedClaudeClient().also {
-            claudeLog.warn("ANTHROPIC_API_KEY is not set. Assessments use the canned Claude client.")
-        }
     val crawler = Crawler(HttpFetcher(crawlClient, guard = SsrfGuard()))
     val pipeline = AssessmentPipeline(
         deps.assessments, deps.sites, deps.plans, crawler, claude,
@@ -128,6 +149,7 @@ fun Application.appModule(deps: AppDeps) {
         googleAuthRoutes(deps)
         siteRoutes(deps)
         assessmentRoutes(deps)
+        previewRoutes(deps)
         planRoutes(deps)
         billingRoutes(deps)
     }

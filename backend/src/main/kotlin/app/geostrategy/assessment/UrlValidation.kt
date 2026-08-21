@@ -8,7 +8,13 @@ import java.net.URI
 
 private val INVALID = { AppException(HttpStatusCode.BadRequest, "invalid_url", "That doesn't look like a website address. Try something like example.com.") }
 
+/** The longest url this app accepts. An unbounded url is a memory and CPU cost with no benefit. */
+private const val MAX_URL_LENGTH = 2048
+
 fun normalizeUrl(raw: String): String {
+    if (raw.length > MAX_URL_LENGTH) {
+        throw AppException(HttpStatusCode.BadRequest, "invalid_url", "That address is too long. Use a web address under $MAX_URL_LENGTH characters.")
+    }
     var s = raw.trim()
     if (s.isEmpty() || s.any { it.isWhitespace() }) throw INVALID()
     if (!s.startsWith("http://", ignoreCase = true) && !s.startsWith("https://", ignoreCase = true)) {

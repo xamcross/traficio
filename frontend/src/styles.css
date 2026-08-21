@@ -54,6 +54,7 @@ input[type=text], input[type=email], input[type=password] { width: 100%; padding
 .pill-free { background: var(--pill); color: #8a7a66; }
 .pill-pro { background: var(--accent-tint); color: var(--accent); font-weight: 500; }
 .badge { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; padding: 4px 9px; border-radius: var(--r-badge); text-align: center; }
+.badge-critical { color: #fff; background: var(--accent); }
 .badge-high { color: var(--accent); background: var(--accent-tint); }
 .badge-mid { color: var(--amber); background: var(--amber-tint); }
 .badge-low { color: var(--muted); background: var(--pill); }

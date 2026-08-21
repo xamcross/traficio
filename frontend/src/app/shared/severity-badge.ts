@@ -1,7 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 import { severityLabel } from './copy';
 
-const CLASS: Record<string, string> = { high: 'badge-high', medium: 'badge-mid', low: 'badge-low', good: 'badge-good' };
+const CLASS: Record<string, string> = { critical: 'badge-critical', high: 'badge-high', medium: 'badge-mid', low: 'badge-low', good: 'badge-good' };
 
 @Component({
   selector: 'app-severity-badge',
