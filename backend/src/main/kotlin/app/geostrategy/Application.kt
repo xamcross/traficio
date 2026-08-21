@@ -97,7 +97,9 @@ fun main() {
         claude = claude,
         // A smaller page cap than a full assessment: a preview is a taste, and the cap
         // bounds the cost of abuse.
-        previewCrawler = Crawler(HttpFetcher(crawlClient, guard = SsrfGuard()), pageCap = 5),
+        // The preview runs while a visitor waits, so it gets a short budget as well as a
+        // small page cap. A full assessment runs in the background and keeps the 90 s budget.
+        previewCrawler = Crawler(HttpFetcher(crawlClient, guard = SsrfGuard()), budgetMillis = 20_000, pageCap = 5),
         previewLimiter = PreviewRateLimiter(db),
     )
 

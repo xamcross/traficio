@@ -41,7 +41,18 @@ data class PreviewResponseDto(
  * front of this app, and falls back to the raw socket address when the header is absent.
  */
 fun ApplicationCall.previewClientAddress(): String {
-    val forwarded = request.header(HttpHeaders.XForwardedFor)?.substringBefore(',')?.trim()
+    // Fly sets Fly-Client-IP itself, so a caller cannot forge it. Trust it first.
+    val flyClientIp = request.header("Fly-Client-IP")?.trim()
+    if (!flyClientIp.isNullOrEmpty()) return flyClientIp
+
+    // Fall back to the LAST entry of X-Forwarded-For, not the first. A caller controls the
+    // entries on the left; each proxy appends on the right, so the right-most entry is the
+    // one this app's own proxy wrote. Reading the left-most value lets anyone spoof an
+    // address and reset their own rate limit.
+    val forwarded = request.header(HttpHeaders.XForwardedFor)
+        ?.split(',')
+        ?.lastOrNull()
+        ?.trim()
     return forwarded?.takeIf { it.isNotEmpty() } ?: request.local.remoteAddress
 }
 
