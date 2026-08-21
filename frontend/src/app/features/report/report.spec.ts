@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Location } from '@angular/common';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { Report } from './report';
+import { environment } from '../../../environments/environment';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { AssessmentDto, PlanDto, SiteDto } from '../../core/api/types';
 import { SiteContext } from '../../core/site-context';
@@ -85,6 +86,10 @@ class FakeApiClient {
   getAssessmentCalls: string[] = [];
   listSitesResult: Promise<SiteDto[]> = Promise.resolve([]);
   getPlanForAssessmentResult: Promise<PlanDto> = Promise.resolve(makePlan());
+  shareAssessmentResult: Promise<{ slug: string }> = Promise.resolve({ slug: 'abc123' });
+  shareAssessmentCalls: string[] = [];
+  unshareAssessmentResult: Promise<void> = Promise.resolve();
+  unshareAssessmentCalls: string[] = [];
 
   getAssessment(id: string): Promise<AssessmentDto> {
     this.getAssessmentCalls.push(id);
@@ -95,6 +100,14 @@ class FakeApiClient {
   }
   getPlanForAssessment(_assessmentId: string): Promise<PlanDto> {
     return this.getPlanForAssessmentResult;
+  }
+  shareAssessment(id: string): Promise<{ slug: string }> {
+    this.shareAssessmentCalls.push(id);
+    return this.shareAssessmentResult;
+  }
+  unshareAssessment(id: string): Promise<void> {
+    this.unshareAssessmentCalls.push(id);
+    return this.unshareAssessmentResult;
   }
 }
 
@@ -168,5 +181,96 @@ describe('Report', () => {
     await Promise.resolve();
 
     expect(TestBed.inject(SiteContext).domain()).toBeNull();
+  });
+
+  it('shows the share URL once the owner turns sharing on', async () => {
+    api.getAssessmentResult = Promise.resolve(makeAssessment());
+    api.shareAssessmentResult = Promise.resolve({ slug: 'abc123' });
+    const fixture = TestBed.createComponent(Report);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const shareButton = compiled.querySelector('.share-control button') as HTMLButtonElement;
+    expect(shareButton.textContent).toContain('Share this result');
+    expect(compiled.querySelector('.share-url-input')).toBeNull();
+
+    shareButton.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.shareAssessmentCalls).toEqual(['A1']);
+    const input = compiled.querySelector('.share-url-input') as HTMLInputElement;
+    expect(input.value).toBe(`${environment.siteOrigin}/r/abc123`);
+    expect(shareButton.textContent).toContain('Stop sharing');
+  });
+
+  it('hides the share URL once the owner turns sharing off', async () => {
+    api.getAssessmentResult = Promise.resolve(makeAssessment());
+    api.shareAssessmentResult = Promise.resolve({ slug: 'abc123' });
+    const fixture = TestBed.createComponent(Report);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const shareButton = compiled.querySelector('.share-control button') as HTMLButtonElement;
+    shareButton.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(compiled.querySelector('.share-url-input')).not.toBeNull();
+
+    api.unshareAssessmentResult = Promise.resolve();
+    shareButton.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.unshareAssessmentCalls).toEqual(['A1']);
+    expect(compiled.querySelector('.share-url-input')).toBeNull();
+    expect(shareButton.textContent).toContain('Share this result');
+  });
+
+  it('shows an error and does not claim success when the share call fails', async () => {
+    api.getAssessmentResult = Promise.resolve(makeAssessment());
+    api.shareAssessmentResult = Promise.reject(new ApiError('server_error', 'Something went wrong. Please try again.', 500));
+    const fixture = TestBed.createComponent(Report);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const shareButton = compiled.querySelector('.share-control button') as HTMLButtonElement;
+    shareButton.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.share-control .error-note')?.textContent).toContain('Something went wrong');
+    expect(compiled.querySelector('.share-url-input')).toBeNull();
+    expect(shareButton.textContent).toContain('Share this result');
+  });
+
+  it('shows an error and keeps the URL visible when the unshare call fails', async () => {
+    api.getAssessmentResult = Promise.resolve(makeAssessment());
+    api.shareAssessmentResult = Promise.resolve({ slug: 'abc123' });
+    const fixture = TestBed.createComponent(Report);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const shareButton = compiled.querySelector('.share-control button') as HTMLButtonElement;
+    shareButton.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    api.unshareAssessmentResult = Promise.reject(new ApiError('server_error', 'Something went wrong. Please try again.', 500));
+    shareButton.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.share-control .error-note')?.textContent).toContain('Something went wrong');
+    expect(compiled.querySelector('.share-url-input')).not.toBeNull();
+    expect(shareButton.textContent).toContain('Stop sharing');
   });
 });

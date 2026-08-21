@@ -47,4 +47,6 @@ export class ApiClient {
     return unwrap(this.http.patch<PlanDto>(this.url(`/v1/plans/${planId}/tasks/${taskId}`), { status }));
   }
   usage() { return unwrap(this.http.get<UsageDto>(this.url('/v1/me/usage'))); }
+  shareAssessment(id: string) { return unwrap(this.http.post<{ slug: string }>(this.url(`/v1/assessments/${id}/share`), null)); }
+  unshareAssessment(id: string) { return unwrap(this.http.delete(this.url(`/v1/assessments/${id}/share`))); }
 }

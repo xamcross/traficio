@@ -1,5 +1,6 @@
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { environment } from '../../../environments/environment';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { AssessmentDto, PlanDto } from '../../core/api/types';
 import { UserStore } from '../../core/auth/user-store';
@@ -17,11 +18,44 @@ import { ResultView } from '../result/result-view';
         <app-error-note [error]="e" />
         <p><a routerLink="/dashboard">Back to my sites</a></p>
       } @else if (assessment(); as a) {
+        <section class="card stack share-control">
+          <div class="stack" style="gap:4px">
+            <strong>Share this result</strong>
+            <span class="muted small">Anyone with the link can see your score and findings. Your plan stays private.</span>
+          </div>
+          <div class="row">
+            <button
+              type="button"
+              class="btn"
+              [class.btn-primary]="!shared()"
+              [class.btn-outline]="shared()"
+              [disabled]="shareBusy()"
+              [attr.aria-pressed]="shared()"
+              (click)="toggleShare()"
+            >
+              {{ shared() ? 'Stop sharing' : 'Share this result' }}
+            </button>
+            @if (shareBusy()) {<span class="muted small">Working…</span>}
+          </div>
+          @if (shared() && shareUrl(); as url) {
+            <div class="row share-url-row">
+              <input type="text" readonly [value]="url" class="share-url-input" aria-label="Shareable link" />
+              <button type="button" class="btn btn-outline" (click)="copyShareUrl(url)">Copy link</button>
+            </div>
+            @if (copied()) {<span class="muted small" role="status">Copied to clipboard.</span>}
+          }
+          @if (shareError(); as e) {<app-error-note [error]="e" />}
+        </section>
         <app-result-view [assessment]="a" [plan]="plan()" [tier]="store.user()?.tier ?? 'free'" [siteId]="a.siteId" />
       } @else {
         <p class="muted">Loading…</p>
       }
     </div>
+  `,
+  styles: `
+    .share-control { gap: 16px; margin-bottom: 32px; }
+    .share-url-row { gap: 12px; }
+    .share-url-input { flex: 1; padding: 12px 16px; background: var(--card-soft); border: 1.5px solid var(--line-input); border-radius: var(--r-btn); color: var(--ink); font-size: 14px; }
   `,
 })
 export class Report implements OnInit {
@@ -36,6 +70,16 @@ export class Report implements OnInit {
   protected readonly assessment = signal<AssessmentDto | null>(null);
   protected readonly plan = signal<PlanDto | null>(null);
   protected readonly error = signal<ApiError | null>(null);
+
+  /** True once the share endpoint confirms the result is public.
+   *  The value starts false on every page load. The API has no read for the
+   *  current share state. A reload does not show a prior share. The share
+   *  call is idempotent, so a second press still shows the correct URL. */
+  protected readonly shared = signal(false);
+  protected readonly shareUrl = signal<string | null>(null);
+  protected readonly shareBusy = signal(false);
+  protected readonly shareError = signal<ApiError | null>(null);
+  protected readonly copied = signal(false);
 
   /** True after cleanup() runs, when the component is torn down.
    *  Every async step below checks this flag first.
@@ -78,5 +122,62 @@ export class Report implements OnInit {
   private cleanup(): void {
     this.destroyed = true;
     this.siteContext.clear();
+  }
+
+  /** Turns sharing on or off. The `shared` flag changes only after the server
+   *  confirms the call. A failed call leaves `shared` exactly as it was. The
+   *  control never claims a state the server has not confirmed. */
+  protected toggleShare(): void {
+    if (this.shareBusy()) return;
+    this.shareError.set(null);
+    this.copied.set(false);
+    this.shareBusy.set(true);
+    const call = this.shared() ? this.turnSharingOff() : this.turnSharingOn();
+    call.finally(() => {
+      if (this.destroyed) return;
+      this.shareBusy.set(false);
+    });
+  }
+
+  private async turnSharingOn(): Promise<void> {
+    try {
+      const { slug } = await this.api.shareAssessment(this.id);
+      if (this.destroyed) return;
+      this.shareUrl.set(`${environment.siteOrigin}/r/${slug}`);
+      this.shared.set(true);
+    } catch (e) {
+      if (this.destroyed) return;
+      this.shareError.set(toApiError(e));
+    }
+  }
+
+  private async turnSharingOff(): Promise<void> {
+    try {
+      await this.api.unshareAssessment(this.id);
+      if (this.destroyed) return;
+      this.shared.set(false);
+      this.shareUrl.set(null);
+    } catch (e) {
+      if (this.destroyed) return;
+      this.shareError.set(toApiError(e));
+    }
+  }
+
+  /** Copies the share URL with the async clipboard API.
+   *  The check below guards a browser with no clipboard API. It also guards a
+   *  denied permission. Either way, the URL stays visible in the read-only
+   *  field, so the reader can still copy it by hand. */
+  protected async copyShareUrl(url: string): Promise<void> {
+    this.copied.set(false);
+    const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : undefined;
+    if (!clipboard?.writeText) return;
+    try {
+      await clipboard.writeText(url);
+      if (this.destroyed) return;
+      this.copied.set(true);
+    } catch {
+      // The clipboard write failed, for example on a denied permission. The
+      // URL stays visible and selectable. This is not an error for the reader.
+    }
   }
 }
