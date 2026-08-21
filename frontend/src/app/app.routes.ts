@@ -2,7 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/auth/guards';
 
 // The title and the data.description on each route feed the PageTitleStrategy
-// (see core/seo/page-title-strategy.ts). The four public routes below also
+// (see core/seo/page-title-strategy.ts). The ten public routes below also
 // render at build time (see app.routes.server.ts), so this exact copy is
 // baked into the pre-rendered HTML — keep it in sync with any copy change.
 export const routes: Routes = [
@@ -40,6 +40,65 @@ export const routes: Routes = [
         'How GeoStrategy handles your data: what we collect, why we collect it, how long we keep it, and how to ask us to delete it.',
     },
     loadComponent: () => import('./features/legal/privacy').then(m => m.Privacy),
+  },
+  {
+    path: 'guides',
+    title: 'Guides | GeoStrategy',
+    data: {
+      description:
+        'Plain-language guides on SEO, AI visibility and being found by Google and AI assistants like ChatGPT, written for people who run one website.',
+    },
+    loadComponent: () => import('./features/guides/guides-index').then(m => m.GuidesIndex),
+  },
+  {
+    path: 'guides/why-ai-cannot-find-your-website',
+    title: 'Why AI cannot find your website | GeoStrategy',
+    data: {
+      description:
+        'AI assistants read raw HTML, not your JavaScript. See why ChatGPT, Claude and Perplexity can miss your business, and what to check first.',
+    },
+    loadComponent: () =>
+      import('./features/guides/why-ai-cannot-find-your-website').then(m => m.WhyAiCannotFindYourWebsite),
+  },
+  {
+    path: 'guides/what-seo-costs-a-small-business',
+    title: 'What SEO costs a small business | GeoStrategy',
+    data: {
+      description:
+        'Agencies commonly quote $1,000 to $5,000 a month for SEO. What that buys, what you can do free, and where a $9 tool fits.',
+    },
+    loadComponent: () =>
+      import('./features/guides/what-seo-costs-a-small-business').then(m => m.WhatSeoCostsASmallBusiness),
+  },
+  {
+    path: 'guides/geo-aeo-and-ai-visibility-explained',
+    title: 'GEO, AEO and AI visibility explained | GeoStrategy',
+    data: {
+      description:
+        'SEO, AEO and GEO explained in plain language: being found, being the answer, and being mentioned by AI. What each term really means.',
+    },
+    loadComponent: () =>
+      import('./features/guides/geo-aeo-and-ai-visibility-explained').then(m => m.GeoAeoAndAiVisibilityExplained),
+  },
+  {
+    path: 'guides/is-your-site-readable-by-chatgpt',
+    title: 'Is your site readable by ChatGPT? | GeoStrategy',
+    data: {
+      description:
+        'A step-by-step way to see your site the way ChatGPT sees it, plus what GPTBot, ClaudeBot and PerplexityBot each do.',
+    },
+    loadComponent: () =>
+      import('./features/guides/is-your-site-readable-by-chatgpt').then(m => m.IsYourSiteReadableByChatgpt),
+  },
+  {
+    path: 'guides/the-beginners-seo-checklist',
+    title: "The beginner's SEO checklist | GeoStrategy",
+    data: {
+      description:
+        'A start-to-finish SEO checklist for a small business website: titles, descriptions, content, contact details, sitemap and images.',
+    },
+    loadComponent: () =>
+      import('./features/guides/the-beginners-seo-checklist').then(m => m.TheBeginnersSeoChecklist),
   },
   {
     path: 'login',
