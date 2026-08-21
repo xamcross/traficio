@@ -71,10 +71,9 @@ export class Report implements OnInit {
   protected readonly plan = signal<PlanDto | null>(null);
   protected readonly error = signal<ApiError | null>(null);
 
-  /** True once the share endpoint confirms the result is public.
-   *  The value starts false on every page load. The API has no read for the
-   *  current share state. A reload does not show a prior share. The share
-   *  call is idempotent, so a second press still shows the correct URL. */
+  /** True when the result is public. init() sets this from
+   *  `assessment.publicSlug`, so a reload shows the true state. After that,
+   *  the value changes only once the share or the unshare call confirms it. */
   protected readonly shared = signal(false);
   protected readonly shareUrl = signal<string | null>(null);
   protected readonly shareBusy = signal(false);
@@ -107,6 +106,10 @@ export class Report implements OnInit {
       return;
     }
     this.assessment.set(assessment);
+    if (assessment.publicSlug) {
+      this.shared.set(true);
+      this.shareUrl.set(`${environment.siteOrigin}/r/${assessment.publicSlug}`);
+    }
     try {
       const sites = await this.api.listSites();
       if (this.destroyed) return;

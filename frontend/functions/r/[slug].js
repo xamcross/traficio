@@ -86,14 +86,15 @@ function notFoundHtml(slug) {
   `);
 }
 
+// A public finding carries area, severity, and description only. description
+// is the sentence a person reads; there is no separate title field.
 function findingHtml(finding) {
   const tone = severityTone(finding.severity);
   return `<li class="finding">
     <span class="badge" style="color:${tone.fg};background:${tone.bg}">${escapeHtml(severityLabel(finding.severity))}</span>
     <div class="finding-body">
-      <strong>${escapeHtml(finding.title)}</strong>
-      <span class="area">${escapeHtml(finding.area)}</span>
       <p>${escapeHtml(finding.description)}</p>
+      <span class="area">${escapeHtml(finding.area)}</span>
     </div>
   </li>`;
 }
@@ -140,9 +141,8 @@ function resultHtml(data, canonicalUrl) {
   ul.findings { list-style: none; margin: 0; padding: 0; }
   .finding { display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid ${PALETTE.line}; align-items: flex-start; }
   .badge { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; padding: 4px 9px; border-radius: 4px; white-space: nowrap; }
-  .finding-body strong { display: block; color: ${PALETTE.ink}; }
+  .finding-body p { margin: 0 0 6px; font-size: 15px; color: ${PALETTE.ink}; }
   .finding-body .area { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: ${PALETTE.faint}; }
-  .finding-body p { margin: 6px 0 0; font-size: 14px; }
   footer { margin-top: 40px; font-size: 13px; color: ${PALETTE.faint}; }
 </style>`;
 

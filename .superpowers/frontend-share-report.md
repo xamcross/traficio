@@ -6,6 +6,41 @@ The task adds a share control to the report page and a Cloudflare Pages Function
 that renders a shared result as plain HTML. The Function makes the shared link
 readable by a crawler that does not run JavaScript.
 
+## Follow-up: the share control now reads the true state on reload
+
+Backend commit `fe62f2f` adds `publicSlug` to `GET /v1/assessments/{id}`. This
+closes the "Known limitation" below. The changes:
+
+- `frontend/src/app/core/api/types.ts`: `AssessmentDto` gets `publicSlug: string | null`,
+  in the file's existing style (no `?`, an explicit `| null`, like `summary` and
+  `scoreNotes` beside it).
+- `frontend/src/app/features/report/report.ts`: `init()` now reads
+  `assessment.publicSlug` right after `this.assessment.set(assessment)`. A set
+  slug turns `shared` on and fills `shareUrl` with
+  `${environment.siteOrigin}/r/${assessment.publicSlug}`, before any click.
+  Turning sharing on and off still works exactly as before; only the starting
+  state changed.
+- Every test file that builds an `AssessmentDto` object by hand now sets
+  `publicSlug: null` (or passes it through `overrides`), since the field is
+  required. Touched: `dashboard.spec.ts`, `history.spec.ts`,
+  `history-copy.spec.ts`, `progress.spec.ts`, `result-view.spec.ts`,
+  `next-task-view.spec.ts`, `site-home.spec.ts`, plus `report.spec.ts`'s own
+  `makeAssessment()`.
+- Two new tests in `report.spec.ts`: an assessment with a `publicSlug` renders
+  the control on, with the URL visible and no share call made; an assessment
+  with `publicSlug: null` renders it off, with no URL element in the page.
+- The public finding DTO also changed in the same backend commit: `title` is
+  gone, `description` now carries the sentence a person reads. `findingHtml()`
+  in `frontend/functions/r/[slug].js` dropped the `<strong>${finding.title}</strong>`
+  line. The description now shows first, as the finding's primary text; the
+  area shows below it as a small caption, matching how `result-view.ts`
+  already orders evidence text over the area caption. The local Node harness
+  ran again against a payload with `<`, `&`, `"`, `'` in the description; the
+  escaping stayed single and correct.
+
+The "Known limitation" note below is now historical: it described the gap
+this follow-up closes.
+
 ## Part 1 — the share control
 
 - `frontend/src/app/core/api/api-client.ts` gets two one-line methods:
@@ -31,13 +66,11 @@ readable by a crawler that does not run JavaScript.
   `btn-outline`, `muted`, `small`) plus a small local style block, the same
   pattern `account.ts` and `result-view.ts` already use.
 
-**Known limitation.** The API contract has no "am I shared" read endpoint. The
-control starts in the "off" state on every page load, even for an assessment
-that is already shared. Pressing "Share this result" again is safe: the POST
-is idempotent and returns the same slug, so the owner sees the correct URL
-after one click. A future task could add a `shareSlug` field to
-`AssessmentDto` to restore this state on load; this task does not add one,
-since the given contract does not include it.
+**Known limitation, now closed.** The first version of the API contract had
+no "am I shared" read. The control started in the "off" state on every page
+load, even for an assessment that was already shared. Backend commit
+`fe62f2f` added `publicSlug` to `GET /v1/assessments/{id}`; see "Follow-up"
+above for the frontend change that reads it.
 
 ## Part 2 — the Pages Function
 
@@ -45,8 +78,8 @@ since the given contract does not include it.
   `https://api.traficio.com/v1/public/results/<slug>` with no cookie and no
   auth header, then returns server-rendered HTML with the domain, the overall
   score, the three sub-scores, the summary, and every finding with its
-  severity, title, area, and short description — all as real text in the
-  markup.
+  severity, area, and description — all as real text in the markup. (The
+  public finding DTO has no `title` field; see "Follow-up" above.)
 - One `escapeHtml` helper. Every interpolated value passes through it exactly
   once, at the point it is written into the HTML string. An early draft
   escaped `domain` and `summary` once when building the `<title>` and the
@@ -103,11 +136,13 @@ checks confirm it directly.
 
 Command: `npx ng test --watch=false --browsers=ChromeHeadless`.
 
-    Chrome Headless 151.0.0.0 (Windows 10): Executed 130 of 130 SUCCESS (1.184 secs / 1.064 secs)
-    TOTAL: 130 SUCCESS
+    Chrome Headless 151.0.0.0 (Windows 10): Executed 132 of 132 SUCCESS (1.436 secs / 1.331 secs)
+    TOTAL: 132 SUCCESS
 
-Baseline was 126. The 4 new tests, all in `report.spec.ts`, all pass:
+Baseline was 126. Six new tests, all in `report.spec.ts`, all pass:
 
+- `renders the share control as on, with the URL, when the assessment arrives with a publicSlug`
+- `renders the share control as off, with no URL, when the assessment arrives with publicSlug null`
 - `shows the share URL once the owner turns sharing on`
 - `hides the share URL once the owner turns sharing off`
 - `shows an error and does not claim success when the share call fails`
@@ -121,14 +156,16 @@ Baseline was 126. The 4 new tests, all in `report.spec.ts`, all pass:
 
 ### 3 & 4. Preview deploy and the status table
 
-Three preview deploys went out under branch `share-test`, all with
+Four preview deploys went out under branch `share-test`, all with
 `--commit-dirty=true`, since local changes were still uncommitted at deploy
 time. The first deploy carried the double-escaping fault described above; a
 local check caught it before any real traffic depended on it. The second
 deploy carried the fix. The third deploy carried only the ASD-STE100 comment
-cleanup, no behaviour change, confirmed by the same local harness before the
-deploy. The table below is the final deployment (id
-`dcf0dacd`, `https://dcf0dacd.geostrategy.pages.dev`, alias
+cleanup, no behaviour change. The fourth deploy carried the finding-shape
+follow-up (`title` dropped, `description` shown first). Each deploy after the
+first was checked with the local Node harness before it went out. The table
+below is the final deployment (id `321854bd`,
+`https://321854bd.geostrategy.pages.dev`, alias
 `https://share-test.geostrategy.pages.dev`), fetched with:
 
     curl -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151.0 Safari/537.36" <url>
@@ -176,8 +213,16 @@ the backend change before a real slug can be created and fetched through
 ## Files touched
 
 - `frontend/src/app/core/api/api-client.ts`
+- `frontend/src/app/core/api/types.ts`
 - `frontend/src/app/features/report/report.ts`
 - `frontend/src/app/features/report/report.spec.ts`
+- `frontend/src/app/features/dashboard/dashboard.spec.ts`
+- `frontend/src/app/features/history/history.spec.ts`
+- `frontend/src/app/features/history/history-copy.spec.ts`
+- `frontend/src/app/features/progress/progress.spec.ts`
+- `frontend/src/app/features/result/result-view.spec.ts`
+- `frontend/src/app/features/site-home/next-task-view.spec.ts`
+- `frontend/src/app/features/site-home/site-home.spec.ts`
 - `frontend/functions/r/[slug].js` (new)
 - `frontend/_routes.json` (new)
 - `frontend/public/robots.txt`
@@ -185,11 +230,12 @@ the backend change before a real slug can be created and fetched through
 ## Concerns
 
 - The end-to-end check (share a real result, fetch its `/r/<slug>` page) is
-  outstanding until the backend deploy ships. The Pages Function's rendering
-  path is verified locally against the exact DTO shape
-  `backend-share-report.md` documents (`domain`, `createdAt`, `completedAt`,
-  `scores`, `scoreNotes`, `summary`, and `findings` with `title`, `area`,
-  `severity`, `description`), so the risk left is deploy-timing only, not
-  contract mismatch.
-- The share control cannot show "already shared" on a fresh page load, since
-  the API has no read for that. See "Known limitation" above.
+  outstanding until the backend deploy ships. Re-checked after commit
+  `fe62f2f`: `GET /v1/public/results/does-not-exist` still answers with the
+  same generic, empty-body 404 as a made-up route, so the deploy has not
+  shipped yet. The Pages Function's rendering path is verified locally
+  against the exact DTO shape `backend-share-report.md` and commit
+  `fe62f2f` document (`domain`, `createdAt`, `completedAt`, `scores`,
+  `scoreNotes`, `summary`, and `findings` with `area`, `severity`,
+  `description`), so the risk left is deploy-timing only, not contract
+  mismatch.

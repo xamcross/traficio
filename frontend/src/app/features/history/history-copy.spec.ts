@@ -2,7 +2,7 @@ import { changesText, chartPoints, headlineFor } from './history-copy';
 import { AssessmentDto } from '../../core/api/types';
 
 function a(id: string, overall: number, seo: number, aeo: number, geo: number, completedAt: string, changes: AssessmentDto['changes'] = []): AssessmentDto {
-  return { id, siteId: 'S1', status: 'ready', scores: { seo, aeo, geo, overall }, summary: null, scoreNotes: null, findings: [], pageCount: null, errorCode: null, errorMessage: null, createdAt: completedAt, completedAt, changes };
+  return { id, siteId: 'S1', status: 'ready', scores: { seo, aeo, geo, overall }, summary: null, scoreNotes: null, findings: [], pageCount: null, errorCode: null, errorMessage: null, createdAt: completedAt, completedAt, changes, publicSlug: null };
 }
 
 describe('history copy', () => {

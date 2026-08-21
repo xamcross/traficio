@@ -35,6 +35,7 @@ function makeAssessment(overrides: Partial<AssessmentDto> = {}): AssessmentDto {
     createdAt: '2026-07-01T00:00:00Z',
     completedAt: '2026-07-01T01:00:00Z',
     changes: [],
+    publicSlug: null,
     ...overrides,
   };
 }
@@ -181,6 +182,34 @@ describe('Report', () => {
     await Promise.resolve();
 
     expect(TestBed.inject(SiteContext).domain()).toBeNull();
+  });
+
+  it('renders the share control as on, with the URL, when the assessment arrives with a publicSlug', async () => {
+    api.getAssessmentResult = Promise.resolve(makeAssessment({ publicSlug: 'abc123' }));
+    const fixture = TestBed.createComponent(Report);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const shareButton = compiled.querySelector('.share-control button') as HTMLButtonElement;
+    expect(shareButton.textContent).toContain('Stop sharing');
+    const input = compiled.querySelector('.share-url-input') as HTMLInputElement;
+    expect(input.value).toBe(`${environment.siteOrigin}/r/abc123`);
+    expect(api.shareAssessmentCalls).toEqual([]);
+  });
+
+  it('renders the share control as off, with no URL, when the assessment arrives with publicSlug null', async () => {
+    api.getAssessmentResult = Promise.resolve(makeAssessment({ publicSlug: null }));
+    const fixture = TestBed.createComponent(Report);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const shareButton = compiled.querySelector('.share-control button') as HTMLButtonElement;
+    expect(shareButton.textContent).toContain('Share this result');
+    expect(compiled.querySelector('.share-url-input')).toBeNull();
   });
 
   it('shows the share URL once the owner turns sharing on', async () => {

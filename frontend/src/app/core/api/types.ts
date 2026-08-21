@@ -21,6 +21,7 @@ export interface AssessmentDto {
   errorCode: string | null; errorMessage: string | null;
   createdAt: string; completedAt: string | null;
   changes: TaskChangeDto[];
+  publicSlug: string | null;
 }
 export interface PlanTaskDto {
   taskId: string; title: string; category: string; impact: Impact; effortMinutes: number; stepCount: number;
