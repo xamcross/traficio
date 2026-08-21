@@ -17,6 +17,7 @@
 
 import {
   readFileSync,
+  readdirSync,
   existsSync,
   renameSync,
   rmdirSync,
@@ -78,7 +79,13 @@ function flattenRoute(route) {
   }
 
   renameSync(sourceFile, targetFile);
-  rmdirSync(routeDir);
+
+  // Remove the directory only when it is empty. A route with children keeps its
+  // directory: "/guides" becomes guides.html, and its children stay in guides/.
+  // Cloudflare Pages serves both shapes, so the two live side by side.
+  if (readdirSync(routeDir).length === 0) {
+    rmdirSync(routeDir);
+  }
   console.log(`flatten-prerendered-routes.mjs: ${sourceFile} -> ${targetFile}`);
 }
 
@@ -102,7 +109,11 @@ function main() {
     );
   }
 
-  const routes = readRoutes().filter((route) => route !== '/');
+  // Flatten the deepest route first. A parent directory is then already empty
+  // when it holds no children, and the check above can remove it.
+  const routes = readRoutes()
+    .filter((route) => route !== '/')
+    .sort((a, b) => b.split('/').length - a.split('/').length);
   for (const route of routes) {
     flattenRoute(route);
   }
