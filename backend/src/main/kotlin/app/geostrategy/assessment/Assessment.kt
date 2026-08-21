@@ -39,6 +39,8 @@ data class Assessment(
     val createdAt: Instant,
     val updatedAt: Instant,
     val completedAt: Instant? = null,
+    /** Null means the result is private. A non-null value is the slug of its public page. */
+    val publicSlug: String? = null,
 )
 
 val TERMINAL_STATUSES = setOf("ready", "failed")
@@ -54,6 +56,8 @@ open class AssessmentRepository(db: MongoDatabase) {
     }
 
     suspend fun findById(id: ObjectId): Assessment? = col.find(eq("_id", id)).firstOrNull()
+
+    suspend fun findByPublicSlug(slug: String): Assessment? = col.find(eq("publicSlug", slug)).firstOrNull()
 
     suspend fun listFor(siteId: ObjectId): List<Assessment> =
         col.find(eq("siteId", siteId)).sort(Sorts.descending("createdAt")).toList()
@@ -78,6 +82,16 @@ open class AssessmentRepository(db: MongoDatabase) {
 
     suspend fun setStatus(id: ObjectId, status: String) {
         col.updateOne(eq("_id", id), combine(set("status", status), set("updatedAt", Instant.now())))
+    }
+
+    /** Stores the slug that makes a ready assessment public. Call is idempotent by slug value. */
+    suspend fun setPublicSlug(id: ObjectId, slug: String) {
+        col.updateOne(eq("_id", id), combine(set("publicSlug", slug), set("updatedAt", Instant.now())))
+    }
+
+    /** Clears the public slug, so the result goes private again. Safe to call more than once. */
+    suspend fun clearPublicSlug(id: ObjectId) {
+        col.updateOne(eq("_id", id), combine(set("publicSlug", null), set("updatedAt", Instant.now())))
     }
 
     suspend fun saveCrawl(id: ObjectId, digest: CrawlDigest) {

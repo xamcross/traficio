@@ -14,12 +14,14 @@ import io.ktor.server.response.cacheControl
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondTextWriter
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 import org.bson.Document
 import org.bson.types.ObjectId
+import java.security.SecureRandom
 import java.time.Duration
 import java.time.Instant
 
@@ -41,6 +43,9 @@ data class AssessmentDto(
     val createdAt: String,
     val completedAt: String?,
     val changes: List<TaskChangeDto> = emptyList(),
+    // The slug when the owner publishes this result, else null. The report page reads it
+    // so the share control shows the true state after a reload.
+    val publicSlug: String? = null,
 )
 
 fun Assessment.toDto(changes: List<TaskChangeDto> = emptyList()) = AssessmentDto(
@@ -49,8 +54,48 @@ fun Assessment.toDto(changes: List<TaskChangeDto> = emptyList()) = AssessmentDto
     pageCount = crawlDigest?.pages?.size,
     errorCode = errorCode, errorMessage = errorMessage,
     createdAt = createdAt.toString(), completedAt = completedAt?.toString(),
-    changes = changes,
+    changes = changes, publicSlug = publicSlug,
 )
+
+@Serializable
+data class ShareResponseDto(val slug: String)
+
+/**
+ * A finding as a public reader sees it.
+ *
+ * `evidence` carries the sentence a person reads, which is what the application itself
+ * shows. The finding id stays out: it is an internal key such as
+ * "missing-meta-description:/about". The list also leaves out `affectedPages`, because a
+ * public page names the problem and not every URL where the crawler saw it.
+ */
+@Serializable
+data class PublicFindingDto(val area: String, val severity: String, val description: String)
+
+fun Finding.toPublicDto() = PublicFindingDto(area = category, severity = severity, description = evidence)
+
+/**
+ * The public result page. Build this DTO by hand and list only safe fields here. Never
+ * serialise `Assessment` directly: a private field added there must not leak by accident.
+ */
+@Serializable
+data class PublicResultDto(
+    val domain: String,
+    val createdAt: String,
+    val completedAt: String?,
+    val scores: Scores?,
+    val scoreNotes: ScoreNotes?,
+    val findings: List<PublicFindingDto>,
+    val summary: String?,
+)
+
+private val secureRandom = SecureRandom()
+
+/** A slug with 128 bits of entropy from a secure source. Lowercase hex, so it is URL-safe. */
+fun randomPublicSlug(): String {
+    val bytes = ByteArray(16)
+    secureRandom.nextBytes(bytes)
+    return bytes.joinToString("") { "%02x".format(it) }
+}
 
 fun Route.assessmentRoutes(deps: AppDeps) {
     post("/v1/sites/{siteId}/assessments") {
@@ -137,5 +182,45 @@ fun Route.assessmentRoutes(deps: AppDeps) {
                 delay(1000)
             }
         }
+    }
+
+    post("/v1/assessments/{id}/share") {
+        val user = call.requireUser(deps)
+        val a = deps.assessments.findById(call.parameters["id"]!!.toObjectIdOr404())
+            ?.takeIf { it.userId == user.id }
+            ?: throw AppException(HttpStatusCode.NotFound, "not_found", "We couldn't find that assessment.")
+        if (a.status != "ready") {
+            throw AppException(HttpStatusCode.Conflict, "not_ready", "Only a finished result can be shared.")
+        }
+        val slug = a.publicSlug ?: randomPublicSlug().also { deps.assessments.setPublicSlug(a.id, it) }
+        call.respond(ShareResponseDto(slug))
+    }
+
+    delete("/v1/assessments/{id}/share") {
+        val user = call.requireUser(deps)
+        val id = call.parameters["id"]!!.toObjectIdOr404()
+        deps.assessments.findById(id)
+            ?.takeIf { it.userId == user.id }
+            ?: throw AppException(HttpStatusCode.NotFound, "not_found", "We couldn't find that assessment.")
+        deps.assessments.clearPublicSlug(id)
+        call.respond(HttpStatusCode.NoContent)
+    }
+
+    get("/v1/public/results/{slug}") {
+        val notFound = AppException(HttpStatusCode.NotFound, "not_found", "We couldn't find that result.")
+        val slug = call.parameters["slug"]!!
+        val a = deps.assessments.findByPublicSlug(slug) ?: throw notFound
+        val site = deps.sites.findById(a.siteId) ?: throw notFound
+        call.respond(
+            PublicResultDto(
+                domain = site.domain,
+                createdAt = a.createdAt.toString(),
+                completedAt = a.completedAt?.toString(),
+                scores = a.scores,
+                scoreNotes = a.scoreNotes,
+                findings = a.findings.map { it.toPublicDto() },
+                summary = a.summary,
+            ),
+        )
     }
 }

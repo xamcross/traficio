@@ -27,6 +27,7 @@ function makeAssessment(overrides: Partial<AssessmentDto> = {}): AssessmentDto {
     createdAt: '',
     completedAt: null,
     changes: [],
+    publicSlug: null,
     ...overrides,
   };
 }

@@ -21,7 +21,7 @@ function assessment(): AssessmentDto {
       { id: 'f-high', category: 'geo', severity: 'high', evidence: 'No page states your address.', affectedPages: [] },
       { id: 'f-one', category: 'seo', severity: 'low', evidence: 'One page has no title.', affectedPages: ['https://x/a'] },
     ],
-    errorCode: null, errorMessage: null, createdAt: '2026-07-28T09:00:00Z', completedAt: '2026-07-28T10:00:00Z', changes: [],
+    errorCode: null, errorMessage: null, createdAt: '2026-07-28T09:00:00Z', completedAt: '2026-07-28T10:00:00Z', changes: [], publicSlug: null,
   };
 }
 function plan(locked: boolean): PlanDto {

@@ -4,7 +4,7 @@ import { NextTaskView, nextTaskFor } from './next-task-view';
 import { AssessmentDto, PlanDto } from '../../core/api/types';
 import { clearSkips } from './skips';
 
-const assessment: AssessmentDto = { id: 'A1', siteId: 'S1', status: 'ready', scores: { seo: 62, aeo: 34, geo: 28, overall: 41 }, summary: null, scoreNotes: null, findings: [], pageCount: 18, errorCode: null, errorMessage: null, createdAt: '2026-07-28T09:00:00Z', completedAt: '2026-07-28T10:00:00Z', changes: [] };
+const assessment: AssessmentDto = { id: 'A1', siteId: 'S1', status: 'ready', scores: { seo: 62, aeo: 34, geo: 28, overall: 41 }, summary: null, scoreNotes: null, findings: [], pageCount: 18, errorCode: null, errorMessage: null, createdAt: '2026-07-28T09:00:00Z', completedAt: '2026-07-28T10:00:00Z', changes: [], publicSlug: null };
 function plan(): PlanDto {
   const t = (i: number, title: string, minutes: number, status: 'todo' | 'done' | 'verified' = 'todo') => ({
     taskId: `T${i}`, title, category: 'geo', impact: (i === 1 ? 'high' : 'medium') as 'high' | 'medium', effortMinutes: minutes, stepCount: 4,
