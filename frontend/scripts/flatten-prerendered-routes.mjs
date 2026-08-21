@@ -7,8 +7,22 @@
 // The script reads the route list from prerendered-routes.json, the same
 // file that scripts/sitemap.mjs reads. The two scripts never disagree
 // about which routes exist.
+//
+// The script also copies the client-render shell to a stable directory
+// index at "app/index.html". Cloudflare Pages turns a destination like
+// "/index.csr.html" into a clean-URL 308 to "/index.csr", because a name
+// that contains "index" gets the same normalisation as a real directory
+// index. "/app/" is already a directory index, so Pages leaves it alone.
+// public/_redirects points every client route at "/app/" for this reason.
 
-import { readFileSync, existsSync, renameSync, rmdirSync } from 'node:fs';
+import {
+  readFileSync,
+  existsSync,
+  renameSync,
+  rmdirSync,
+  copyFileSync,
+  mkdirSync,
+} from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -17,6 +31,9 @@ const frontendRoot = path.resolve(scriptDir, '..');
 const distDir = path.join(frontendRoot, 'dist/frontend');
 const browserDir = path.join(distDir, 'browser');
 const routesFile = path.join(distDir, 'prerendered-routes.json');
+const csrShellFile = path.join(browserDir, 'index.csr.html');
+const csrShellCopyDir = path.join(browserDir, 'app');
+const csrShellCopyFile = path.join(csrShellCopyDir, 'index.html');
 
 function fail(message) {
   console.error(`flatten-prerendered-routes.mjs: ${message}`);
@@ -65,6 +82,18 @@ function flattenRoute(route) {
   console.log(`flatten-prerendered-routes.mjs: ${sourceFile} -> ${targetFile}`);
 }
 
+function copyClientRenderShell() {
+  if (!existsSync(csrShellFile)) {
+    fail(
+      `The file "${csrShellFile}" does not exist. Angular did not emit the client-render ` +
+        'shell. Check the "outputMode" build option in angular.json.',
+    );
+  }
+  mkdirSync(csrShellCopyDir, { recursive: true });
+  copyFileSync(csrShellFile, csrShellCopyFile);
+  console.log(`flatten-prerendered-routes.mjs: ${csrShellFile} -> ${csrShellCopyFile}`);
+}
+
 function main() {
   if (!existsSync(browserDir)) {
     fail(
@@ -77,6 +106,7 @@ function main() {
   for (const route of routes) {
     flattenRoute(route);
   }
+  copyClientRenderShell();
 }
 
 main();

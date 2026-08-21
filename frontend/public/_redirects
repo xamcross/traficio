@@ -1,27 +1,40 @@
 # Cloudflare Pages rewrite rules. Read docs/2026-08-16-platform-config-playbook.md §2.1
 # before you change this file.
-# - The destination is "/", never "/index.html". Pages turns "/index.html" into a 308.
+# - "/" is now a real pre-rendered landing page, not an empty shell.
+# - A client route never rewrites to "/". That would serve the landing
+#   page and its content, then swap to the real page after the bundle
+#   boots. Users open /verify-email and /auth/complete from an email
+#   link, so this failure is visible on first paint.
+# - A client route rewrites to "/app/" instead. That directory holds a
+#   copy of the client-render shell Angular emits as index.csr.html. The
+#   "ngcm" body attribute in the shell tells Angular to switch hydration
+#   off, so it never fights a DOM that does not match the booted route.
+# - The destination is "/app/", never "/index.csr.html". Pages turns a
+#   destination that contains "index" into a clean-URL 308, the same way
+#   it does for "/index.html". "/app/" is already a directory index, so
+#   Pages has nothing to normalise.
 # - Every client route needs a row, plus its trailing-slash twin.
 # - A path with no row falls through to 404.html.
 # - Test only on a real preview deployment (--branch=preview). "wrangler pages dev"
 #   cannot parse these rules correctly.
 # - A pre-rendered route (/, /pricing, /terms, /privacy) must not have a row here.
-#   A row would rewrite its real HTML file back to "/" and undo pre-rendering.
-/login / 200
-/login/ / 200
-/signup / 200
-/signup/ / 200
-/verify-email / 200
-/verify-email/ / 200
-/auth/complete / 200
-/auth/complete/ / 200
-/reset-password / 200
-/reset-password/ / 200
-/reset-password/confirm / 200
-/reset-password/confirm/ / 200
-/dashboard / 200
-/dashboard/ / 200
-/assessments/* / 200
-/sites/* / 200
-/account / 200
-/account/ / 200
+#   A row would rewrite its real HTML file back to the shell and undo pre-rendering.
+# - scripts/check-redirects.mjs enforces both rules above at build time.
+/login /app/ 200
+/login/ /app/ 200
+/signup /app/ 200
+/signup/ /app/ 200
+/verify-email /app/ 200
+/verify-email/ /app/ 200
+/auth/complete /app/ 200
+/auth/complete/ /app/ 200
+/reset-password /app/ 200
+/reset-password/ /app/ 200
+/reset-password/confirm /app/ 200
+/reset-password/confirm/ /app/ 200
+/dashboard /app/ 200
+/dashboard/ /app/ 200
+/assessments/* /app/ 200
+/sites/* /app/ 200
+/account /app/ 200
+/account/ /app/ 200
