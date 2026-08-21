@@ -7,3 +7,5 @@ Disallow: /account
 Disallow: /auth/
 Disallow: /verify-email
 Disallow: /reset-password
+
+Sitemap: https://app.traficio.com/sitemap.xml
