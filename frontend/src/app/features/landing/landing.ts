@@ -29,6 +29,13 @@ import { SiteFooter } from '../../shared/site-footer';
         <div><span class="mono step-no">03</span><h3>You fix one thing at a time</h3><p>We show you the single biggest win, with steps you can follow yourself, then confirm it worked at your next check.</p></div>
       </section>
 
+      <section class="explainer stack divider">
+        <span class="eyebrow">YOUR SCORE</span>
+        <h2>One score, three parts</h2>
+        <p>Your score is one number out of 100, made from three checks: Google, for how well search engines can find and rank you; Answers, for whether the answer box above the results can quote you directly; and AI, for whether ChatGPT, Claude and the rest can read your page at all.</p>
+        <p>Most AI crawlers read the plain HTML of a page and do not run JavaScript. Google can run it, but only on a separate, later pass. If your address or your hours only appear after a script runs, an AI assistant never sees them.</p>
+      </section>
+
       <section class="card free-card two-col">
         <div class="stack">
           <span class="eyebrow">WHAT YOU GET FREE</span>
@@ -44,6 +51,39 @@ import { SiteFooter } from '../../shared/site-footer';
             <div><span class="faint small">AI</span><strong>28</strong></div>
           </div>
           <span class="mono faint small">EXAMPLE RESULT, FREE TIER</span>
+        </div>
+      </section>
+
+      <section class="faq stack divider">
+        <span class="eyebrow">FAQ</span>
+        <h2>Questions people ask</h2>
+        <div class="faq-item">
+          <h3>Why doesn't my website show up when someone asks ChatGPT?</h3>
+          <p>Most AI assistants use a crawler — GPTBot for ChatGPT, ClaudeBot for Claude, PerplexityBot for Perplexity — that reads the plain HTML of your page and does not run JavaScript. If your address or your hours only appear after a script runs, that crawler never sees them.</p>
+        </div>
+        <div class="faq-item">
+          <h3>Is this the same as SEO?</h3>
+          <p>Not quite. SEO is mostly about ranking in Google's list of links. Answer boxes and AI assistants care more about plain facts on the page, written as text a machine can read. We check both.</p>
+        </div>
+        <div class="faq-item">
+          <h3>What do you actually look at?</h3>
+          <p>Your public pages, read the way a crawler reads them: whether your address, hours and prices are there in text, and whether a page answers a real question near the top.</p>
+        </div>
+        <div class="faq-item">
+          <h3>Do I have to install anything, or give you my password?</h3>
+          <p>No. Type your web address and we check the pages anyone can already see — no login, no plugin, nothing added to your site. That is the same access an AI crawler has.</p>
+        </div>
+        <div class="faq-item">
+          <h3>How is this different from hiring an agency?</h3>
+          <p>Agencies commonly quote $1,000 to $5,000 a month and hand you a strategy document. We give you the score and every finding free, and a step-by-step plan for {{ price }} a month — plain steps, not a strategy meeting.</p>
+        </div>
+        <div class="faq-item">
+          <h3>What do I get without paying?</h3>
+          <p>Your score, split into Google, Answers and AI, and every problem we find, explained in plain words. That is free. You only pay if you want the step-by-step plan, the re-check, and your score history.</p>
+        </div>
+        <div class="faq-item">
+          <h3>How long does a check take?</h3>
+          <p>About two minutes, from typing your address to seeing your score.</p>
         </div>
       </section>
 
@@ -71,7 +111,13 @@ import { SiteFooter } from '../../shared/site-footer';
     .example-subs { gap: 20px; } .example-subs div { display: flex; flex-direction: column; } .example-subs strong { color: var(--ink); }
     .small { font-size: 13px; }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-    @media (max-width: 760px) { .hero h1 { font-size: 36px; } .steps { flex-direction: column; } .steps > div + div { border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 24px; } .example { width: 100%; padding-left: 0; border-left: none; } }
+    .explainer, .faq { padding: 38px 0 46px; }
+    .explainer h2, .faq h2 { font-size: 30px; letter-spacing: -0.03em; }
+    .explainer p, .faq-item p { color: var(--body-long); line-height: 1.6; max-width: 68ch; }
+    .faq-item { display: flex; flex-direction: column; gap: 6px; }
+    .faq-item + .faq-item { margin-top: 22px; }
+    .faq-item h3 { font-size: 17px; }
+    @media (max-width: 760px) { .hero h1 { font-size: 36px; } .steps { flex-direction: column; } .steps > div + div { border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 24px; } .example { width: 100%; padding-left: 0; border-left: none; } .explainer h2, .faq h2 { font-size: 24px; } }
   `,
 })
 export class Landing {
