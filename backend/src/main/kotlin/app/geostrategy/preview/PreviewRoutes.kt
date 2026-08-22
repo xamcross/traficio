@@ -20,6 +20,7 @@ import io.ktor.utils.io.readRemaining
 import kotlinx.io.readString
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
 import java.net.URI
 
 @Serializable
@@ -50,6 +51,26 @@ private val UNREADABLE_BODY = { AppException(HttpStatusCode.BadRequest, "invalid
 
 /** How long we ask a caller to wait when the preview semaphore is full. */
 private const val PREVIEW_BUSY_RETRY_SECONDS = "5"
+
+private val previewLog = LoggerFactory.getLogger("app.geostrategy.preview.PreviewRoutes")
+
+/**
+ * True when this request may reach the preview route.
+ *
+ * Fly's own proxy sets `Fly-Client-IP` to the address of the peer it sees. It overwrites
+ * whatever the caller sent. Through Cloudflare, that peer is a Cloudflare edge server. So
+ * the header holds a Cloudflare address. A caller who instead reaches the Fly hostname
+ * directly is Fly's own peer. So the header holds the caller's own address, and
+ * [CloudflareIpRanges.contains] returns false for it.
+ *
+ * A request with no `Fly-Client-IP` header is not behind Fly's proxy. That is local
+ * development and the test suite. This function allows that case: there is no Cloudflare
+ * boundary to check there.
+ */
+private fun ApplicationCall.arrivedThroughCloudflare(): Boolean {
+    val flyClientIp = request.header("Fly-Client-IP") ?: return true
+    return CloudflareIpRanges.contains(flyClientIp.trim())
+}
 
 /**
  * Reads the preview request body with a small size cap. This route sits behind no login, so
@@ -206,15 +227,27 @@ fun buildPreviewChecks(digest: CrawlDigest): List<PreviewCheckDto> {
 }
 
 /**
- * The anonymous, zero-model-cost preview. It parses and validates the url first, with no
- * network call, then records the rate-limit attempt, then runs the SSRF check and the
- * crawl. That order keeps a typo from costing a visitor one of their three free previews,
- * while still recording the attempt before any network call, so the rate limit stays closed
- * against a burst. It never calls the model, and it stores nothing: no site, no assessment,
- * no user.
+ * The anonymous, zero-model-cost preview.
+ *
+ * The route checks [arrivedThroughCloudflare] first, ahead of every other step. The Fly
+ * hostname is public. A caller who reaches it directly can forge every other header,
+ * including the one the rate limit reads. So that check must reject the request before the
+ * limiter counts an attempt.
+ *
+ * The route then parses and validates the url, with no network call. It then records the
+ * rate-limit attempt, then runs the SSRF check and the crawl. That order keeps a typo from
+ * costing a visitor one of their three free previews. It still records the attempt before
+ * any network call, so the rate limit stays closed against a burst. The route never calls
+ * the model, and it stores nothing: no site, no assessment, no user.
  */
 fun Route.previewRoutes(deps: AppDeps) {
     post("/v1/preview") {
+        if (!call.arrivedThroughCloudflare()) {
+            previewLog.info("Rejected a preview request: Fly-Client-IP {} is outside Cloudflare's ranges", call.request.header("Fly-Client-IP"))
+            call.respond(HttpStatusCode.Forbidden, ApiError("forbidden", "This endpoint is not available on this host."))
+            return@post
+        }
+
         val body = call.receivePreviewRequest()
         val normalized = normalizeUrl(body.url)
         val domain = hostOf(normalized)
