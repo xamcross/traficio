@@ -44,6 +44,12 @@ private class FailingClaudeClient : ClaudeClient {
         fail("the preview endpoint must not call ClaudeClient.plan")
 }
 
+/** A fetcher that fails the test the instant it is asked to fetch anything. */
+private class FailingFetcher : app.geostrategy.crawl.Fetcher {
+    override suspend fun fetch(url: String): app.geostrategy.crawl.FetchResult? =
+        fail("a request the Cloudflare-only guard rejects must never reach the crawler")
+}
+
 private fun checksById(body: String): Map<String, JsonObject> =
     Json.parseToJsonElement(body).jsonObject["checks"]!!.jsonArray
         .associate { it.jsonObject["id"]!!.jsonPrimitive.content to it.jsonObject }
@@ -261,15 +267,18 @@ class PreviewRoutesTest {
             setBody("""{"url":"example.com"}""")
         }
 
-        // Three visitors share one Cloudflare edge, so they share one Fly-Client-IP. If the
-        // route trusted Fly-Client-IP first, the second visitor's first request would
-        // already look like a repeat, and the third visitor would be blocked outright.
-        repeat(3) { assertEquals(HttpStatusCode.OK, attempt("203.0.113.20", "198.51.100.9").status) }
-        assertEquals(HttpStatusCode.TooManyRequests, attempt("203.0.113.20", "198.51.100.9").status)
+        // Three visitors share one Cloudflare edge, so they share one Fly-Client-IP. The
+        // shared address must itself be a real Cloudflare address. Otherwise the
+        // Cloudflare-only guard on the route would reject every one of these requests
+        // before the rate limit is even reached. If the route trusted Fly-Client-IP first,
+        // the second visitor's first request would already look like a repeat, and the
+        // third visitor would be blocked outright.
+        repeat(3) { assertEquals(HttpStatusCode.OK, attempt("203.0.113.20", "173.245.48.9").status) }
+        assertEquals(HttpStatusCode.TooManyRequests, attempt("203.0.113.20", "173.245.48.9").status)
 
         // A different visitor's own CF-Connecting-IP, behind that very same edge, still has
         // a full quota.
-        assertEquals(HttpStatusCode.OK, attempt("203.0.113.21", "198.51.100.9").status)
+        assertEquals(HttpStatusCode.OK, attempt("203.0.113.21", "173.245.48.9").status)
     }
 
     @Test
@@ -361,5 +370,103 @@ class PreviewRoutesTest {
             setBody("""{"url":"example.com"}""")
         }
         assertEquals(HttpStatusCode.OK, recovered.status)
+    }
+
+    @Test
+    fun `no Fly-Client-IP header lets the preview through, as in local development and the test suite`() = testApplication {
+        val db = TestMongo.freshDb()
+        val html = """<html><head><title>T</title></head><body><h1>H</h1><p>${"w ".repeat(60)}</p></body></html>"""
+        val deps = testDeps(db, previewCrawler = Crawler(MapFetcher(mapOf("https://example.com" to html)), pageCap = 5))
+        application { appModule(deps) }
+
+        val res = client.post("/v1/preview") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.XForwardedFor, "203.0.113.60")
+            setBody("""{"url":"example.com"}""")
+        }
+        assertEquals(HttpStatusCode.OK, res.status)
+    }
+
+    @Test
+    fun `a Fly-Client-IP inside a Cloudflare range lets the preview through`() = testApplication {
+        val db = TestMongo.freshDb()
+        val html = """<html><head><title>T</title></head><body><h1>H</h1><p>${"w ".repeat(60)}</p></body></html>"""
+        val deps = testDeps(db, previewCrawler = Crawler(MapFetcher(mapOf("https://example.com" to html)), pageCap = 5))
+        application { appModule(deps) }
+
+        val res = client.post("/v1/preview") {
+            contentType(ContentType.Application.Json)
+            header("Fly-Client-IP", "104.16.1.1") // inside 104.16.0.0/13
+            setBody("""{"url":"example.com"}""")
+        }
+        assertEquals(HttpStatusCode.OK, res.status)
+    }
+
+    @Test
+    fun `a Fly-Client-IP outside every Cloudflare range is rejected with 403, and the crawl never runs`() = testApplication {
+        val db = TestMongo.freshDb()
+        val deps = testDeps(db, previewCrawler = Crawler(FailingFetcher(), pageCap = 5))
+        application { appModule(deps) }
+
+        val res = client.post("/v1/preview") {
+            contentType(ContentType.Application.Json)
+            header("Fly-Client-IP", "8.8.8.8") // a real address, but not a Cloudflare one
+            setBody("""{"url":"example.com"}""")
+        }
+        assertEquals(HttpStatusCode.Forbidden, res.status)
+        val bodyText = res.bodyAsText()
+        assertTrue(bodyText.contains("not available"))
+        // The rejection message must not teach an attacker the mechanism it is enforcing.
+        assertTrue(!bodyText.contains("Cloudflare", ignoreCase = true))
+        assertTrue(!bodyText.contains("Fly-Client-IP", ignoreCase = true))
+    }
+
+    @Test
+    fun `a malformed Fly-Client-IP is rejected with 403 and never throws`() = testApplication {
+        val db = TestMongo.freshDb()
+        val deps = testDeps(db, previewCrawler = Crawler(FailingFetcher(), pageCap = 5))
+        application { appModule(deps) }
+
+        val res = client.post("/v1/preview") {
+            contentType(ContentType.Application.Json)
+            header("Fly-Client-IP", "not-an-ip")
+            setBody("""{"url":"example.com"}""")
+        }
+        assertEquals(HttpStatusCode.Forbidden, res.status)
+    }
+
+    @Test
+    fun `a rejected Fly-Client-IP never increments the rate limit counter, and never crawls`() = testApplication {
+        val db = TestMongo.freshDb()
+        // A rejected request must never reach the crawler. So this fetcher would fail the
+        // test if the guard let one through. The three legitimate requests later in this
+        // test carry no Fly-Client-IP header. They pass the guard and do need real page
+        // content. MapFetcher supplies that content, and this test never asks it for more.
+        val html = """<html><head><title>T</title></head><body><h1>H</h1><p>${"w ".repeat(60)}</p></body></html>"""
+        val fetcher = MapFetcher(mapOf("https://example.com" to html))
+        val deps = testDeps(db, previewCrawler = Crawler(fetcher, pageCap = 5))
+        application { appModule(deps) }
+
+        suspend fun forbiddenAttempt() = client.post("/v1/preview") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.XForwardedFor, "203.0.113.61")
+            header("Fly-Client-IP", "8.8.8.8") // not a Cloudflare address
+            setBody("""{"url":"example.com"}""")
+        }
+
+        // Five rejected attempts, well past the limit of three per hour, from the same
+        // caller address. None of them may count against that address's quota.
+        repeat(5) { assertEquals(HttpStatusCode.Forbidden, forbiddenAttempt().status) }
+
+        // A legitimate follow-up request from the very same X-Forwarded-For address, this
+        // time with no Fly-Client-IP header, still has its full quota of three: the five
+        // rejected attempts above never touched the counter.
+        suspend fun allowedAttempt() = client.post("/v1/preview") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.XForwardedFor, "203.0.113.61")
+            setBody("""{"url":"example.com"}""")
+        }
+        repeat(3) { assertEquals(HttpStatusCode.OK, allowedAttempt().status) }
+        assertEquals(HttpStatusCode.TooManyRequests, allowedAttempt().status)
     }
 }
