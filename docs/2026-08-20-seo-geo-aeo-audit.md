@@ -52,9 +52,11 @@ Rendered, the landing page holds only 186 words, which is thin by itself.
 
 ## Status
 
-Steps 1, 2, 3, 6 and 7 are **done** and live (master 6c257e2, deployed 2026-08-21).
+Steps 1, 2, 3, 4, 6, 7 and 8 are **done** and live (master c8dcebe, deployed 2026-08-22).
+Only **step 5** (move the marketing pages to the apex) remains, and it is a decision:
+see `docs/2026-08-22-manual-steps.md` item 8.
 The site went from 4 pages and 0 indexable words to **10 pages and about 5,000 words**.
-Steps 4, 5 and 8 remain.
+
 Measured on `https://app.traficio.com` after the deploy:
 
 | URL | Before | After |
@@ -93,8 +95,11 @@ each one; neither was visible from the build output.
    Write for the search, not the brand. Add depth to the 186-word home page. 2 hours.
 3. ~~**Sitemap and registration.**~~ **Sitemap done 2026-08-21; registration in Search Console is still open.** Generate `sitemap.xml` at build time, point
    `robots.txt` at it, verify in Google Search Console and Bing Webmaster Tools. 1 hour.
-4. **AI crawler policy before 2026-09-15.** Name the search-facing bots, add a
-   Content-Signal line, decide on the training crawlers. 1 hour.
+4. ~~**AI crawler policy before 2026-09-15.**~~ **Done 2026-08-22.** `robots.txt` names
+   `OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot` and `Google-Extended` and allows
+   each. A `Content-signal` line states: `search=yes, ai-input=yes, use=reference,
+   ai-train=no`. The training crawlers stay in a commented-out block — that is the
+   owner's decision, and it is item 3 of `docs/2026-08-22-manual-steps.md`.
 5. **Move the marketing pages to the apex.** Keep the signed-in app on `app.`.
    Cheapest before links exist. Half a day. This reverses plan decision D1.
 6. ~~**Open the free check; give results a public address.**~~ **Done 2026-08-21.**
@@ -106,7 +111,9 @@ each one; neither was visible from the build output.
 7. ~~**Write five pages.**~~ **Done 2026-08-21.** `/guides` plus five guides of about 750
    words each, on the diagnostic questions rather than the category terms. The landing page
    also gained a seven-question FAQ, and both it and `/pricing` are no longer thin.
-8. **Organization and SoftwareApplication markup.** 1 hour, low expected return.
+8. ~~**Organization and SoftwareApplication markup.**~~ **Done 2026-08-22.** On the landing
+   page, written into the pre-rendered HTML. Only true facts: no logo, no address, no
+   rating. Expect brand attribution, not a ranking gain.
 
 Then run the assessment engine on `traficio.com` and compare its result with this
 report. Agreement is evidence the engine works. Disagreement finds a gap in the
