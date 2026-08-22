@@ -1,4 +1,18 @@
+# AI crawler policy for GeoStrategy. This product helps a site appear in AI
+# search and AI answers, so this file names and welcomes the crawlers that
+# do that. It does not yet state a preference for the crawlers that train
+# AI models — see the commented-out block near the end of this file.
+
 User-agent: *
+# Content-Signal states our preference for how a crawler may use content it
+# is already allowed to fetch, per Cloudflare's Content Signals Policy.
+# search=yes allows search indexing. use=reference allows an excerpt with a
+# link back. ai-input=yes allows a model to read a page to answer a live
+# question, which is exactly how this site wants to be found. ai-train=no
+# declines use as AI model training data, which is a separate thing.
+# Exact syntax confirmed from Cloudflare's own docs:
+# https://developers.cloudflare.com/bots/additional-configurations/managed-robots-txt/
+Content-signal: search=yes, ai-input=yes, use=reference, ai-train=no
 Allow: /
 Allow: /r/
 Disallow: /dashboard
@@ -8,5 +22,69 @@ Disallow: /account
 Disallow: /auth/
 Disallow: /verify-email
 Disallow: /reset-password
+
+# The four crawlers below put a site into AI answers. We name each one and
+# allow it, so Cloudflare's new default on 2026-09-15 does not block it by
+# accident. Each rule repeats the same private-route list as the block above.
+
+# OAI-SearchBot crawls pages for OpenAI's search feature inside ChatGPT.
+User-agent: OAI-SearchBot
+Allow: /
+Allow: /r/
+Disallow: /dashboard
+Disallow: /assessments/
+Disallow: /sites/
+Disallow: /account
+Disallow: /auth/
+Disallow: /verify-email
+Disallow: /reset-password
+
+# Claude-SearchBot crawls pages for Anthropic's search feature inside Claude.
+User-agent: Claude-SearchBot
+Allow: /
+Allow: /r/
+Disallow: /dashboard
+Disallow: /assessments/
+Disallow: /sites/
+Disallow: /account
+Disallow: /auth/
+Disallow: /verify-email
+Disallow: /reset-password
+
+# PerplexityBot crawls pages for the Perplexity answer engine.
+User-agent: PerplexityBot
+Allow: /
+Allow: /r/
+Disallow: /dashboard
+Disallow: /assessments/
+Disallow: /sites/
+Disallow: /account
+Disallow: /auth/
+Disallow: /verify-email
+Disallow: /reset-password
+
+# Google-Extended controls use by Google's Gemini apps and Vertex AI
+# grounding. It is separate from the main Googlebot rule above.
+User-agent: Google-Extended
+Allow: /
+Allow: /r/
+Disallow: /dashboard
+Disallow: /assessments/
+Disallow: /sites/
+Disallow: /account
+Disallow: /auth/
+Disallow: /verify-email
+Disallow: /reset-password
+
+# GPTBot (OpenAI) and ClaudeBot (Anthropic) train AI models on crawled
+# content. Neither bot powers a search answer, so this policy does not name
+# them above. Blocking them is a business decision, and the owner has not
+# made it yet. To block them, remove the "#" from the four lines below.
+#
+# User-agent: GPTBot
+# Disallow: /
+#
+# User-agent: ClaudeBot
+# Disallow: /
 
 Sitemap: https://app.traficio.com/sitemap.xml
