@@ -129,10 +129,13 @@ Work from the `backend/` directory.
         `https://app.traficio.com/<path>` (301, query string kept). Verified.
 - [x] 5.3 `https://api.traficio.com/healthz` returns `ok` through the Cloudflare proxy
       with Full (strict) TLS (2026-08-18).
-- [ ] 5.4 Add a WAF rate-limiting rule for `api.traficio.com` (Security → WAF →
-      Rate limiting rules; the Free plan allows one rule). Cover at minimum:
-      `POST /v1/auth/*` and `POST /v1/sites/*/assessments`. These endpoints are
-      the abuse targets. An agent cannot do this: the setup token has no WAF scope.
+- [x] 5.4 **WAF rate-limiting rule added 2026-08-22.** Name `api-abuse-endpoints`, the one
+      rule the Free plan allows. It matches a POST to `api.traficio.com` on `/v1/auth/*`,
+      `/v1/preview`, or `/v1/sites/*/assessments`. Over 20 requests in 10 seconds from one
+      IP, it blocks for 10 seconds. The Free plan offers no longer period or duration.
+      Verified: a burst of 26 requests answered 401 and then 429.
+
+
 - [ ] 5.5 Enable **Email Routing** for the zone (Email → Email Routing). Add the
       address `support@traficio.com` → your personal inbox. Verify the destination
       address from the email Cloudflare sends. The legal pages already show
