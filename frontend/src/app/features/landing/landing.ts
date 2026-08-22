@@ -5,6 +5,7 @@ import { ApiClient, ApiError } from '../../core/api/api-client';
 import { PreviewDto } from '../../core/api/types';
 import { UserStore } from '../../core/auth/user-store';
 import { PENDING_URL_KEY, PRO_PRICE_LABEL } from '../../core/config';
+import { StructuredData } from '../../core/seo/structured-data';
 import { severityOrder } from '../../shared/copy';
 import { ScoreBar } from '../../shared/score-bar';
 import { SeverityBadge } from '../../shared/severity-badge';
@@ -206,6 +207,12 @@ export class Landing {
   private router = inject(Router);
   private api = inject(ApiClient);
   protected readonly price = PRO_PRICE_LABEL;
+
+  constructor() {
+    // Runs during the pre-render as well as in the browser, so the JSON-LD block
+    // lands in the static HTML that a crawler reads without JavaScript.
+    inject(StructuredData).writeLandingBlock();
+  }
 
   protected readonly form = new FormGroup({
     url: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
