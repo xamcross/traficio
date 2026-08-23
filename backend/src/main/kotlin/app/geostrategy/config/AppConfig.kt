@@ -16,6 +16,9 @@ data class AppConfig(
     val mongoDatabase: String,
     val baseUrl: String,          // public API origin, e.g. https://api.geostrategy.app
     val appUrl: String,           // SPA origin, e.g. https://app.geostrategy.app
+    // Further origins that may call the API with a cookie. Used while the site moves
+    // between origins, so the old and the new origin both answer. Empty at rest.
+    val extraCorsOrigins: List<String>,
     val cookieDomain: String?,    // e.g. geostrategy.app, with no leading dot; null in dev
     val secureCookies: Boolean,
     val resendApiKey: String?,
@@ -39,6 +42,11 @@ data class AppConfig(
                 mongoDatabase = env["MONGODB_DB"] ?: "geostrategy",
                 baseUrl = baseUrl,
                 appUrl = env["APP_URL"] ?: "http://localhost:4200",
+                extraCorsOrigins = env["EXTRA_CORS_ORIGINS"]
+                    ?.split(",")
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotEmpty() }
+                    ?: emptyList(),
                 cookieDomain = env["COOKIE_DOMAIN"],
                 secureCookies = baseUrl.startsWith("https://"),
                 resendApiKey = env["RESEND_API_KEY"],

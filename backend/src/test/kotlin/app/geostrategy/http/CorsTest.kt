@@ -26,4 +26,34 @@ class CorsTest {
         val wrongScheme = client.get("/healthz") { header(HttpHeaders.Origin, "https://localhost:4200") }
         assertNull(wrongScheme.headers[HttpHeaders.AccessControlAllowOrigin])
     }
+
+    @Test
+    fun `an extra origin is allowed while the site moves between origins`() = testApplication {
+        val env = mapOf(
+            "APP_URL" to "https://traficio.com",
+            "EXTRA_CORS_ORIGINS" to "https://app.traficio.com",
+        )
+        application { appModule(testDeps(TestMongo.freshDb(), env = env)) }
+
+        val newOrigin = client.get("/healthz") { header(HttpHeaders.Origin, "https://traficio.com") }
+        assertEquals("https://traficio.com", newOrigin.headers[HttpHeaders.AccessControlAllowOrigin])
+
+        val oldOrigin = client.get("/healthz") { header(HttpHeaders.Origin, "https://app.traficio.com") }
+        assertEquals("https://app.traficio.com", oldOrigin.headers[HttpHeaders.AccessControlAllowOrigin])
+
+        val other = client.get("/healthz") { header(HttpHeaders.Origin, "https://evil.example") }
+        assertNull(other.headers[HttpHeaders.AccessControlAllowOrigin])
+    }
+
+    @Test
+    fun `an empty extra list leaves only the app origin allowed`() = testApplication {
+        val env = mapOf("APP_URL" to "https://traficio.com", "EXTRA_CORS_ORIGINS" to "")
+        application { appModule(testDeps(TestMongo.freshDb(), env = env)) }
+
+        val appOrigin = client.get("/healthz") { header(HttpHeaders.Origin, "https://traficio.com") }
+        assertEquals("https://traficio.com", appOrigin.headers[HttpHeaders.AccessControlAllowOrigin])
+
+        val oldOrigin = client.get("/healthz") { header(HttpHeaders.Origin, "https://app.traficio.com") }
+        assertNull(oldOrigin.headers[HttpHeaders.AccessControlAllowOrigin])
+    }
 }
