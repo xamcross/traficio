@@ -43,7 +43,7 @@ fun Route.authRoutes(deps: AppDeps) {
             User(email = email, passwordHash = deps.passwordHasher.hash(body.password), createdAt = now, updatedAt = now),
         )
         val token = deps.tokens.issue(user.id, TokenPurpose.VERIFY_EMAIL, Duration.ofHours(24))
-        deps.emailSender.send(email, "Confirm your GeoStrategy email", verifyEmailHtml(deps.config.appUrl, token))
+        deps.emailSender.send(email, "Confirm your Traficio email", verifyEmailHtml(deps.config.appUrl, token))
         call.respond(HttpStatusCode.Created, OkResponse())
     }
 
@@ -96,7 +96,7 @@ fun Route.authRoutes(deps: AppDeps) {
         val user = call.requireUser(deps)
         if (!user.emailVerified) {
             val token = deps.tokens.issue(user.id, TokenPurpose.VERIFY_EMAIL, Duration.ofHours(24))
-            deps.emailSender.send(user.email, "Confirm your GeoStrategy email", verifyEmailHtml(deps.config.appUrl, token))
+            deps.emailSender.send(user.email, "Confirm your Traficio email", verifyEmailHtml(deps.config.appUrl, token))
         }
         call.respond(HttpStatusCode.Accepted, OkResponse())
     }
@@ -106,7 +106,7 @@ fun Route.authRoutes(deps: AppDeps) {
         val user = deps.users.findByEmail(body.email.trim().lowercase())
         if (user != null) {
             val token = deps.tokens.issue(user.id, TokenPurpose.PASSWORD_RESET, Duration.ofHours(1))
-            deps.emailSender.send(user.email, "Reset your GeoStrategy password", resetEmailHtml(deps.config.appUrl, token))
+            deps.emailSender.send(user.email, "Reset your Traficio password", resetEmailHtml(deps.config.appUrl, token))
         }
         call.respond(HttpStatusCode.Accepted, OkResponse())
     }

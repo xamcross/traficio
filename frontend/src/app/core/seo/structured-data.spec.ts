@@ -45,6 +45,13 @@ describe('StructuredData', () => {
     expect(graph[1]['url']).toBe(`${environment.siteOrigin}/`);
   });
 
+  it('names the product as Traficio', () => {
+    TestBed.inject(StructuredData).writeLandingBlock();
+    const graph = block()['@graph'] as Array<Record<string, string>>;
+    expect(graph[0]['name']).toBe('Traficio');
+    expect(graph[1]['name']).toBe('Traficio');
+  });
+
   it('names the real logo on the Organization', () => {
     TestBed.inject(StructuredData).writeLandingBlock();
     const graph = block()['@graph'] as Array<Record<string, string>>;

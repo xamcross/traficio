@@ -14,12 +14,12 @@ data class AppConfig(
     val port: Int,
     val mongoUri: String,
     val mongoDatabase: String,
-    val baseUrl: String,          // public API origin, e.g. https://api.geostrategy.app
-    val appUrl: String,           // SPA origin, e.g. https://app.geostrategy.app
+    val baseUrl: String,          // public API origin, e.g. https://api.traficio.com
+    val appUrl: String,           // SPA origin, e.g. https://traficio.com
     // Further origins that may call the API with a cookie. Used while the site moves
     // between origins, so the old and the new origin both answer. Empty at rest.
     val extraCorsOrigins: List<String>,
-    val cookieDomain: String?,    // e.g. geostrategy.app, with no leading dot; null in dev
+    val cookieDomain: String?,    // e.g. traficio.com, with no leading dot; null in dev
     val secureCookies: Boolean,
     val resendApiKey: String?,
     val emailFrom: String,
@@ -50,7 +50,7 @@ data class AppConfig(
                 cookieDomain = env["COOKIE_DOMAIN"],
                 secureCookies = baseUrl.startsWith("https://"),
                 resendApiKey = env["RESEND_API_KEY"],
-                emailFrom = env["EMAIL_FROM"] ?: "GeoStrategy <noreply@geostrategy.app>",
+                emailFrom = env["EMAIL_FROM"] ?: "Traficio <noreply@traficio.com>",
                 googleClientId = env["GOOGLE_CLIENT_ID"],
                 googleClientSecret = env["GOOGLE_CLIENT_SECRET"],
                 anthropicApiKey = env["ANTHROPIC_API_KEY"],

@@ -60,7 +60,7 @@ import { GuideLayout } from './guide-layout';
 
       <h2>Where a {{ price }} tool fits</h2>
       <p>
-        This is where a tool like ours fits, and where it does not. GeoStrategy checks your site
+        This is where a tool like ours fits, and where it does not. Traficio checks your site
         the way a search engine and an AI assistant read it, and gives you a plain list of what to
         fix, in order of what matters most. Your score and every problem we find are free. The
         step-by-step plan, the re-check that confirms a fix worked, and your score history are

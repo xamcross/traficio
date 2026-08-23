@@ -84,21 +84,21 @@ class CrawlerTest {
     }
 
     @Test
-    fun `a GeoStrategyBot allow overrides a star disallow and the crawl proceeds`() = runBlocking {
+    fun `a TraficioBot allow overrides a star disallow and the crawl proceeds`() = runBlocking {
         val fetcher = MapFetcher(mapOf(
             "https://example.com" to home,
             "https://example.com/menu" to menu,
-            "https://example.com/robots.txt" to "User-agent: *\nDisallow: /\nUser-agent: GeoStrategyBot\nAllow: /",
+            "https://example.com/robots.txt" to "User-agent: *\nDisallow: /\nUser-agent: TraficioBot\nAllow: /",
         ))
         val digest = Crawler(fetcher, pacingMillis = 0).crawl("https://example.com")
         assertEquals(listOf("https://example.com", "https://example.com/menu"), digest.pages.map { it.url })
     }
 
     @Test
-    fun `a GeoStrategyBot disallow overrides a star allow and blocks the crawl`() = runBlocking {
+    fun `a TraficioBot disallow overrides a star allow and blocks the crawl`() = runBlocking {
         val fetcher = MapFetcher(mapOf(
             "https://example.com" to home,
-            "https://example.com/robots.txt" to "User-agent: GeoStrategyBot\nDisallow: /\nUser-agent: *\nAllow: /",
+            "https://example.com/robots.txt" to "User-agent: TraficioBot\nDisallow: /\nUser-agent: *\nAllow: /",
         ))
         val e = assertFailsWith<AppException> { Crawler(fetcher).crawl("https://example.com") }
         assertEquals("robots_blocked", e.code)

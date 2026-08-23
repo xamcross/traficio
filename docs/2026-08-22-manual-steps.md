@@ -27,7 +27,7 @@ These cost the least and close the most risk.
 The key you pasted into the chat on 2026-08-18 sits in a transcript. Treat it as public.
 
 1. Open https://console.anthropic.com → **API Keys**.
-2. Create a key named `geostrategy-prod-2`. Copy it.
+2. Create a key named `traficio-prod-2`. Copy it.
 3. From `backend/`:
    ```
    fly secrets set --app geostrategy-api ANTHROPIC_API_KEY="sk-ant-..."
@@ -75,9 +75,9 @@ Independent of each other. Any order.
 
 The login and signup pages show a "Continue with Google" button. It fails until this exists.
 
-1. https://console.cloud.google.com → create a project `GeoStrategy`.
+1. https://console.cloud.google.com → create a project `Traficio`.
 2. **APIs & Services → OAuth consent screen**:
-   - User type **External**. App name `GeoStrategy`. Support email: yours.
+   - User type **External**. App name `Traficio`. Support email: yours.
    - Homepage `https://traficio.com`, privacy `https://traficio.com/privacy`,
      terms `https://traficio.com/terms`.
    - Authorized domain `traficio.com`. Developer contact: yours.
@@ -113,13 +113,13 @@ small `EmailSender` class in the backend.
    `traficio.com` → **DNS → Records → Add record**, copy each exactly. Set each to **DNS
    only** (grey cloud), not proxied.
 4. Back in Resend, click **Verify DNS Records**. Wait until every row reads "Verified".
-5. **API Keys → Create API Key**: name `geostrategy-prod`, permission **Sending access**,
+5. **API Keys → Create API Key**: name `traficio-prod`, permission **Sending access**,
    domain `traficio.com`. Copy it once.
 6. From `backend/`:
    ```
    fly secrets set --app geostrategy-api \
      RESEND_API_KEY="re_..." \
-     EMAIL_FROM="GeoStrategy <noreply@traficio.com>"
+     EMAIL_FROM="Traficio <noreply@traficio.com>"
    ```
    No mailbox is needed. Resend sends from any address on a verified domain.
 7. Check: register at `https://traficio.com/signup` with a real address. The email must
@@ -149,7 +149,7 @@ Until this is done the pricing page shows the checkout as unavailable. Everythin
    they are the seller, they handle VAT, and they pay out. They ask for seller identity and
    a payout method, and **live sales stay blocked until their review clears**. Sandbox
    works immediately.
-2. **Add product**: type **SaaS**, name `GeoStrategy`, URL `https://traficio.com`.
+2. **Add product**: type **SaaS**, name `Traficio`, URL `https://traficio.com`.
 3. **Plans**: one plan named `Pro`, price **$9 a month**, to match `PRO_PRICE_LABEL` in
    `frontend/src/app/core/config.ts`. Enable the checkout.
 4. Copy four values:

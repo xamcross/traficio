@@ -34,7 +34,7 @@ class ResendEmailSenderTest {
             body = String(request.body.toByteArray())
             respond("""{"id":"email_1"}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
         }
-        ResendEmailSender("re_test_key", "GeoStrategy <noreply@geostrategy.app>", clientWith(engine))
+        ResendEmailSender("re_test_key", "Traficio <noreply@traficio.com>", clientWith(engine))
             .send("ada@example.com", "Hello", "<p>Hi</p>")
 
         assertEquals("Bearer re_test_key", authHeader)
@@ -42,7 +42,7 @@ class ResendEmailSenderTest {
         val parsed = Json.parseToJsonElement(body!!).jsonObject
         assertEquals("ada@example.com", parsed["to"]!!.jsonArray[0].jsonPrimitive.content)
         assertEquals("Hello", parsed["subject"]!!.jsonPrimitive.content)
-        assertEquals("GeoStrategy <noreply@geostrategy.app>", parsed["from"]!!.jsonPrimitive.content)
+        assertEquals("Traficio <noreply@traficio.com>", parsed["from"]!!.jsonPrimitive.content)
         assertEquals("<p>Hi</p>", parsed["html"]!!.jsonPrimitive.content)
     }
 

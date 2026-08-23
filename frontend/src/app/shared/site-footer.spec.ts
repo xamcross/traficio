@@ -18,6 +18,6 @@ describe('SiteFooter', () => {
     const mark = el.querySelector('.brand-faint svg');
     expect(mark).withContext('the footer wordmark carries the mark').not.toBeNull();
     expect(mark!.getAttribute('aria-hidden')).toBe('true');
-    expect(el.textContent).toContain('GEOSTRATEGY');
+    expect(el.textContent).toContain('TRAFICIO');
   });
 });

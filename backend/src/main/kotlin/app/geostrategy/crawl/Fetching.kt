@@ -40,7 +40,7 @@ class HttpFetcher(
                 if (blocked) return null
 
                 val res = http.get(currentUrl) {
-                    header(HttpHeaders.UserAgent, "GeoStrategyBot/1.0 (+https://geostrategy.app)")
+                    header(HttpHeaders.UserAgent, "TraficioBot/1.0 (+https://traficio.com)")
                 }
                 val location = res.headers[HttpHeaders.Location]
                 if (res.status.value in REDIRECT_STATUSES && location != null) {

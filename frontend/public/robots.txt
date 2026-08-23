@@ -1,4 +1,4 @@
-# AI crawler policy for GeoStrategy. This product helps a site appear in AI
+# AI crawler policy for Traficio. This product helps a site appear in AI
 # search and AI answers, so this file names and welcomes the crawlers that
 # do that. It does not yet state a preference for the crawlers that train
 # AI models — see the commented-out block near the end of this file.

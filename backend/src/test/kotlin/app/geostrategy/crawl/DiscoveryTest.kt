@@ -24,12 +24,12 @@ class DiscoveryTest {
     }
 
     @Test
-    fun `robots parse prefers a GeoStrategyBot group over star, case-insensitively`() {
+    fun `robots parse prefers a TraficioBot group over star, case-insensitively`() {
         val botAllowsOverridingStarDisallow = Robots.parse(
             """
             User-agent: *
             Disallow: /
-            User-agent: GeoStrategyBot
+            User-agent: TraficioBot
             Allow: /
             """.trimIndent(),
         )
@@ -37,7 +37,7 @@ class DiscoveryTest {
 
         val botDisallowsOverridingStarAllow = Robots.parse(
             """
-            User-agent: geostrategybot
+            User-agent: traficiobot
             Disallow: /
             User-agent: *
             Allow: /

@@ -9,7 +9,7 @@ import { SiteFooter } from '../../shared/site-footer';
     <div class="page surface prose">
       <h1>Terms of Service</h1>
       <p>
-        GeoStrategy checks your website and gives you a simple plan to help people find it. This is
+        Traficio checks your website and gives you a simple plan to help people find it. This is
         version 1 of our terms, written in plain language.
       </p>
 

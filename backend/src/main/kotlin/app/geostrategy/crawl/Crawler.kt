@@ -49,7 +49,7 @@ class Crawler(
             llmsPresent = fetcher.fetch("$origin/llms.txt")?.status == 200
             val robots = Robots.parse(robotsTxt)
             if (!robots.allows("/")) {
-                throw AppException(HttpStatusCode.UnprocessableEntity, "robots_blocked", "Your site's robots.txt asks us not to read it. Allow GeoStrategyBot in robots.txt, then try again.")
+                throw AppException(HttpStatusCode.UnprocessableEntity, "robots_blocked", "Your site's robots.txt asks us not to read it. Allow TraficioBot in robots.txt, then try again.")
             }
             val urls = discoverUrls(startUrl, fetched.body, sitemapXml, pageCap)
                 .filter { robots.allows(URI(it).rawPath?.takeIf(String::isNotEmpty) ?: "/") }

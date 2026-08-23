@@ -37,6 +37,7 @@ class RegisterRouteTest {
         assertFalse(user.emailVerified)
         assertTrue(user.passwordHash!!.startsWith("\$argon2id\$"))
         assertEquals(1, emails.sent.size)
+        assertEquals("Confirm your Traficio email", emails.sent[0].subject)
         assertTrue(emails.sent[0].html.contains("token="))
     }
 
