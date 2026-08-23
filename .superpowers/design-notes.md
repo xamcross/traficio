@@ -54,6 +54,14 @@ invoke your Function." A `_routes.json` that includes only `/r/*` is mandatory. 
 every static request runs the Worker, spends the shared 100,000 requests a day, and adds
 latency to pages that are free and unlimited today.
 
+**The second trap, found live on 2026-08-23.** Wrangler reads `functions/` and
+`_routes.json` from its working directory, not from the asset directory it uploads. CI ran
+`pages deploy frontend-dist` from the repository root, which holds neither. The deploy
+succeeded, every static page answered 200, and the `/r/<slug>` route quietly fell through
+to `404.html`. The only visible difference is one missing line in the wrangler output:
+`Uploading Functions bundle`. CI now runs wrangler from `frontend/`, and a smoke test after
+each deploy asserts that an unknown slug returns the Function's own page.
+
 Also true, and useful here: `_redirects` rules do not apply to a path a Function serves.
 The `/r/*` route does not overlap any existing rule, so nothing else changes.
 

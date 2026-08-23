@@ -126,21 +126,56 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
+      # The artifact lands in the same place the local build writes it. Wrangler
+      # then runs from frontend/, which is the only directory that holds
+      # functions/ and _routes.json. Wrangler reads both from its working
+      # directory, not from the asset directory. A deploy from the repository
+      # root finds neither, and the /r/<slug> route silently disappears.
       - uses: actions/download-artifact@v8
         with:
           name: frontend-dist
-          path: frontend-dist
+          path: frontend/dist/frontend/browser
       - name: Reject a placeholder API origin
         run: |
-          if grep -rq 'REPLACE_ME_DOMAIN' frontend-dist; then
-            echo "frontend-dist still contains REPLACE_ME_DOMAIN. Set the domain in environment.production.ts."
+          if grep -rq 'REPLACE_ME_DOMAIN' frontend/dist/frontend/browser; then
+            echo "The build still contains REPLACE_ME_DOMAIN. Set the domain in environment.production.ts."
             exit 1
           fi
+      - name: Check the Pages Function is present
+        run: |
+          test -f 'frontend/functions/r/[slug].js' || {
+            echo "frontend/functions/r/[slug].js is missing. The /r/<slug> result page would not deploy."
+            exit 1
+          }
+          test -f frontend/_routes.json || {
+            echo "frontend/_routes.json is missing. Every request would invoke the Function."
+            exit 1
+          }
       - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy frontend-dist --project-name=geostrategy --branch=master
+          workingDirectory: frontend
+          command: pages deploy dist/frontend/browser --project-name=geostrategy --branch=master
+      # Proves the Pages Function reached production. A deploy that drops it still
+      # answers 200 on every static page, so only this check finds the fault.
+      # The unknown slug must return the Function's own page, not the static 404.
+      - name: Smoke test the /r/ result route
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            body=$(curl -sS --max-time 20 https://traficio.com/r/ci-probe-unknown-slug || true)
+            case "$body" in
+              *"Result not found"*)
+                echo "The /r/ Function answers. Attempt $attempt."
+                exit 0
+                ;;
+            esac
+            echo "Attempt $attempt: the /r/ route did not answer from the Function. Waiting."
+            sleep 10
+          done
+          echo "The /r/<slug> route does not run the Pages Function."
+          echo "Check that wrangler ran from frontend/, the one directory with functions/ and _routes.json."
+          exit 1
 
   deploy-backend:
     needs: [changes, backend, frontend]

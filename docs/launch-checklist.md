@@ -190,6 +190,11 @@ Work from the `backend/` directory.
       3.2 is done, CI deploys on each push to `master`.
 - [x] 8.6 The custom domain `traficio.com` is attached and serves the site.
       `app.traficio.com` and `www` redirect to it (see 5.2). Changed 2026-08-23.
+- [x] 8.11 **Defect found and fixed 2026-08-23.** CI deployed from the repository root, so
+      wrangler never found `frontend/functions/` or `frontend/_routes.json`. Every CI
+      deploy shipped the site without the `/r/<slug>` Pages Function, and the route fell
+      through to `404.html`. CI now runs wrangler from `frontend/`. A smoke test after the
+      deploy asserts an unknown slug returns the Function's page.
 - [x] 8.7 A preview deployment (`--branch=preview`) was tested in a real browser on
       2026-08-17: all `_redirects` rows serve the SPA with 200; a bad path answers 404.
 - [x] 8.8 `https://app.traficio.com` verified 2026-08-18: `/`, `/login`, `/dashboard/`,
