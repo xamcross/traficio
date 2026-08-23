@@ -8,7 +8,7 @@ import { environment } from '../../../environments/environment';
  * The landing page copy. Every route falls back to these values, so a page
  * never ships an empty description, an empty title or a stale Open Graph tag.
  */
-export const FALLBACK_TITLE = 'AI visibility check for your website | GeoStrategy';
+export const FALLBACK_TITLE = 'AI visibility check for your website | Traficio';
 export const FALLBACK_DESCRIPTION =
   'See how findable your website is in Google, answer boxes and AI assistants like ChatGPT. Get your score and every problem we find, free. No card needed.';
 
@@ -20,7 +20,7 @@ export const FALLBACK_DESCRIPTION =
 const OG_IMAGE_PATH = '/og-image.png';
 const OG_IMAGE_WIDTH = '1200';
 const OG_IMAGE_HEIGHT = '630';
-const OG_IMAGE_ALT = 'GeoStrategy: your customers ask AI. Does it know you exist?';
+const OG_IMAGE_ALT = 'Traficio: your customers ask AI. Does it know you exist?';
 
 /**
  * Sets the document title and the SEO meta tags on every navigation.
@@ -53,7 +53,7 @@ export class PageTitleStrategy extends TitleStrategy {
     this.meta.updateTag({ property: 'og:description', content: description });
     this.meta.updateTag({ property: 'og:url', content: url });
     this.meta.updateTag({ property: 'og:type', content: 'website' });
-    this.meta.updateTag({ property: 'og:site_name', content: 'GeoStrategy' });
+    this.meta.updateTag({ property: 'og:site_name', content: 'Traficio' });
     this.meta.updateTag({ property: 'og:image', content: image });
     this.meta.updateTag({ property: 'og:image:width', content: OG_IMAGE_WIDTH });
     this.meta.updateTag({ property: 'og:image:height', content: OG_IMAGE_HEIGHT });

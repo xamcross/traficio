@@ -86,7 +86,7 @@ class AssessmentPipeline(
                     users.findById(assessment.userId)?.let { owner ->
                         emailSender.send(
                             owner.email,
-                            "Your GeoStrategy plan is ready",
+                            "Your Traficio plan is ready",
                             "<p>Good news! We finished checking your site.</p><p>Log in to see your scores and your step-by-step plan.</p>",
                         )
                     }

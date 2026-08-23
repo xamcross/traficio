@@ -25,7 +25,7 @@ Why: without `ANTHROPIC_API_KEY` the API uses a canned Claude client. Scores and
 are deterministic sample data.
 
 1. Open https://console.anthropic.com → **API Keys** → **Create Key**. Name it
-   `geostrategy-prod`. Copy it once.
+   `traficio-prod`. Copy it once.
 2. Set it:
    ```
    fly secrets set ANTHROPIC_API_KEY="sk-ant-..."
@@ -62,11 +62,11 @@ Do this step before you accept real users. The Resend path, when you want it:
    **DNS only** (grey cloud), not proxied.
 4. Back in Resend click **Verify**. Wait until every record shows "Verified"
    (usually under five minutes).
-5. **API Keys** → **Create API Key**. Name `geostrategy-prod`, permission
+5. **API Keys** → **Create API Key**. Name `traficio-prod`, permission
    "Sending access", domain `traficio.com`. Copy it once.
 6. Set both values:
    ```
-   fly secrets set RESEND_API_KEY="re_..." EMAIL_FROM="GeoStrategy <noreply@traficio.com>"
+   fly secrets set RESEND_API_KEY="re_..." EMAIL_FROM="Traficio <noreply@traficio.com>"
    ```
 7. Check: on `https://app.traficio.com/signup` register with a real address of yours.
    The verification email must arrive within a minute. Click the link. The account
@@ -80,10 +80,10 @@ Cloudflare DNS → `TXT` name `_dmarc`, value `v=DMARC1; p=none; rua=mailto:supp
 Why: the login and signup pages have a "Continue with Google" button. It fails until
 the client exists.
 
-1. Open https://console.cloud.google.com. Create a project `GeoStrategy` (or reuse
+1. Open https://console.cloud.google.com. Create a project `Traficio` (or reuse
    one you own).
 2. **APIs & Services** → **OAuth consent screen**:
-   - User type **External**. App name `GeoStrategy`. User support email: your address.
+   - User type **External**. App name `Traficio`. User support email: your address.
    - App domain: homepage `https://app.traficio.com`, privacy policy
      `https://app.traficio.com/privacy`, terms `https://app.traficio.com/terms`.
    - Authorized domain: `traficio.com`. Developer contact: your address.
@@ -91,7 +91,7 @@ the client exists.
    - **Publish** the app (status "In production"). No verification is needed for
      these scopes.
 3. **Credentials** → **Create Credentials** → **OAuth client ID**:
-   - Type **Web application**. Name `geostrategy-web`.
+   - Type **Web application**. Name `traficio-web`.
    - Authorized JavaScript origins: `https://api.traficio.com`.
    - Authorized redirect URIs: `https://api.traficio.com/v1/auth/google/callback`.
    - Create. Copy the client id and the client secret.
@@ -112,7 +112,7 @@ label. Until this is set the pricing page shows "not connected" for checkout.
 1. Create an account at https://dashboard.freemius.com. Freemius asks for your
    seller details (identity, payout method). Live sales stay blocked until their
    review is done; sandbox works at once.
-2. **Add product**: type **SaaS**, name `GeoStrategy`, URL `https://app.traficio.com`.
+2. **Add product**: type **SaaS**, name `Traficio`, URL `https://app.traficio.com`.
 3. **Plans**: create one plan named `Pro`. Price: match `PRO_PRICE_LABEL` in
    `frontend/src/app/core/config.ts` (default `$9` a month). Billing cycle
    monthly. Enable the checkout.
@@ -186,7 +186,7 @@ keep it as your test user.
 ```
 fly secrets set \
   ANTHROPIC_API_KEY="sk-ant-..." \
-  RESEND_API_KEY="re_..." EMAIL_FROM="GeoStrategy <noreply@traficio.com>" \
+  RESEND_API_KEY="re_..." EMAIL_FROM="Traficio <noreply@traficio.com>" \
   GOOGLE_CLIENT_ID="...apps.googleusercontent.com" GOOGLE_CLIENT_SECRET="GOCSPX-..." \
   FREEMIUS_SECRET_KEY="..." FREEMIUS_PRO_PLAN_ID="..."
 ```

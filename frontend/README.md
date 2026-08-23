@@ -1,8 +1,8 @@
-# GeoStrategy frontend
+# Traficio frontend
 
 ## What this is
 
-This is the GeoStrategy web app. A user adds a site and runs a check. The Free tier sees
+This is the Traficio web app. A user adds a site and runs a check. The Free tier sees
 the score, the findings, and a locked plan preview. Pro unlocks the step-by-step plan, task
 tracking, re-checks, and history.
 

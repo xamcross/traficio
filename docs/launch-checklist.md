@@ -1,4 +1,4 @@
-# GeoStrategy — Manual Launch Checklist
+# Traficio — Manual Launch Checklist
 
 All code for v1 and the "One Thing" redesign is merged to `master`. This document
 lists the manual actions that remain before launch, and the current status of each.
@@ -84,7 +84,7 @@ Work from the `backend/` directory.
       BASE_URL="https://api.traficio.com"
       APP_URL="https://traficio.com"
       RESEND_API_KEY="re_..."
-      EMAIL_FROM="GeoStrategy <noreply@traficio.com>"
+      EMAIL_FROM="Traficio <noreply@traficio.com>"
       GOOGLE_CLIENT_ID="..."
       GOOGLE_CLIENT_SECRET="..."
       ANTHROPIC_API_KEY="sk-ant-..."

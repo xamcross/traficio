@@ -46,7 +46,7 @@ Rendered, the landing page holds only 186 words, which is thin by itself.
 | 7 | High | Public copy contains SEO 0, AEO 0, "answer engine" 0, "AI search" 0, "small business" 0. |
 | 8 | Medium | No structured data. Value is brand attribution; 2026 evidence shows no citation uplift. |
 | 9 | Medium | No stated AI-crawler policy. Cloudflare changes the control on 2026-09-15. |
-| 10 | Medium | The brand is GeoStrategy, the domain is traficio.com. Brand search splits. |
+| 10 | Medium | The brand is GeoStrategy, the domain is traficio.com. Brand search splits. **Resolved 2026-08-23: the product is now Traficio.** |
 | 11 | Low | No Open Graph image. HTML is not cached at the edge. |
 | — | Already right | Delivery is fast and correct: TTFB 155-305 ms, 1.6 KB shell, HTTPS, security headers, a real 404. |
 | — | Already right | The site is empty, not blocked. No penalty, no accidental `noindex`. Every fix is additive. |

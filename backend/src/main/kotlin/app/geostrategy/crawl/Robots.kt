@@ -4,7 +4,7 @@ class Robots(private val disallowed: List<String>) {
     fun allows(path: String): Boolean = disallowed.none { it.isNotEmpty() && path.startsWith(it) }
 
     companion object {
-        private const val TARGET_UA = "geostrategybot"
+        private const val TARGET_UA = "traficiobot"
 
         fun parse(txt: String?): Robots {
             if (txt.isNullOrBlank()) return Robots(emptyList())
@@ -24,7 +24,7 @@ class Robots(private val disallowed: List<String>) {
                         groups.getValue(currentUa).add(trimmed.substringAfter(':').trim())
                 }
             }
-            // A GeoStrategyBot group, if present, applies exclusively (standard robots.txt
+            // A TraficioBot group, if present, applies exclusively (standard robots.txt
             // precedence: the most specific matching group wins). Otherwise fall back to "*".
             val rules = groups[TARGET_UA] ?: groups["*"] ?: emptyList()
             return Robots(rules)

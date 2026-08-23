@@ -40,16 +40,16 @@ export class StructuredData {
         {
           '@type': 'Organization',
           '@id': `${origin}/#organization`,
-          name: 'GeoStrategy',
+          name: 'Traficio',
           url: `${origin}/`,
           // Google rejects an SVG for an Organization logo, so this names the raster.
           logo: `${origin}/logo-512.png`,
           description:
-            'GeoStrategy checks whether a small business website can be found in Google, in answer boxes, and inside AI assistants.',
+            'Traficio checks whether a small business website can be found in Google, in answer boxes, and inside AI assistants.',
         },
         {
           '@type': 'SoftwareApplication',
-          name: 'GeoStrategy',
+          name: 'Traficio',
           url: `${origin}/`,
           applicationCategory: 'BusinessApplication',
           operatingSystem: 'Web browser',

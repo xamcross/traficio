@@ -1,4 +1,4 @@
-# GeoStrategy backend
+# Traficio backend
 
 Frontend: see `../frontend/README.md` for the web app.
 
@@ -29,7 +29,7 @@ Do these steps once, by hand, before the first CI deploy.
        BASE_URL="https://api.<domain>"
        APP_URL="https://app.<domain>"
        RESEND_API_KEY="re_..."
-       EMAIL_FROM="GeoStrategy <noreply@<domain>>"
+       EMAIL_FROM="Traficio <noreply@<domain>>"
        GOOGLE_CLIENT_ID="..." GOOGLE_CLIENT_SECRET="..."
        ANTHROPIC_API_KEY="sk-ant-..."
        FREEMIUS_SECRET_KEY="..." FREEMIUS_PRO_PLAN_ID="..."

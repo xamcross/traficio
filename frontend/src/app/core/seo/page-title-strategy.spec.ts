@@ -20,7 +20,7 @@ describe('PageTitleStrategy', () => {
           { path: '', component: DummyPage },
           {
             path: 'with-meta',
-            title: 'With meta | GeoStrategy',
+            title: 'With meta | Traficio',
             data: { description: 'A description for this route.' },
             component: DummyPage,
           },
@@ -46,7 +46,7 @@ describe('PageTitleStrategy', () => {
   it('sets the title, the description and the canonical link on navigation', async () => {
     await router.navigateByUrl('/with-meta');
 
-    expect(title.getTitle()).toBe('With meta | GeoStrategy');
+    expect(title.getTitle()).toBe('With meta | Traficio');
     expect(metaContent('name="description"')).toBe('A description for this route.');
     expect(canonicalHref()).toBe(`${environment.siteOrigin}/with-meta`);
   });
@@ -54,11 +54,11 @@ describe('PageTitleStrategy', () => {
   it('sets the Open Graph and the Twitter card tags on navigation', async () => {
     await router.navigateByUrl('/with-meta');
 
-    expect(metaContent('property="og:title"')).toBe('With meta | GeoStrategy');
+    expect(metaContent('property="og:title"')).toBe('With meta | Traficio');
     expect(metaContent('property="og:description"')).toBe('A description for this route.');
     expect(metaContent('property="og:url"')).toBe(`${environment.siteOrigin}/with-meta`);
     expect(metaContent('property="og:type"')).toBe('website');
-    expect(metaContent('property="og:site_name"')).toBe('GeoStrategy');
+    expect(metaContent('property="og:site_name"')).toBe('Traficio');
     expect(metaContent('name="twitter:card"')).toBe('summary_large_image');
   });
 
@@ -70,7 +70,7 @@ describe('PageTitleStrategy', () => {
     expect(metaContent('property="og:image:width"')).toBe('1200');
     expect(metaContent('property="og:image:height"')).toBe('630');
     expect(metaContent('property="og:image:alt"')).toBe(
-      'GeoStrategy: your customers ask AI. Does it know you exist?',
+      'Traficio: your customers ask AI. Does it know you exist?',
     );
     expect(metaContent('name="twitter:image"')).toBe(image);
   });

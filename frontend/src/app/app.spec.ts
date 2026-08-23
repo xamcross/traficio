@@ -37,9 +37,10 @@ describe('App', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('a.brand')?.textContent?.trim()).toBe('TRAFICIO');
     const mark = compiled.querySelector('a.brand svg');
     expect(mark).withContext('the brand link carries the mark').not.toBeNull();
-    // The link already reads "GEOSTRATEGY", so the mark must not name the brand twice.
+    // The link already reads "TRAFICIO", so the mark must not name the brand twice.
     expect(mark!.getAttribute('aria-hidden')).toBe('true');
   });
 
