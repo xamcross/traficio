@@ -195,6 +195,11 @@ Work from the `backend/` directory.
       deploy shipped the site without the `/r/<slug>` Pages Function, and the route fell
       through to `404.html`. CI now runs wrangler from `frontend/`. A smoke test after the
       deploy asserts an unknown slug returns the Function's page.
+- [ ] 8.12 **Clear `EXTRA_CORS_ORIGINS` when the move settles.** The secret still allows
+      `https://app.traficio.com`, which carried the site across the apex move. That host
+      now answers only a 301, so no browser loads the app from it. A tab opened before
+      2026-08-23 is the last reason to keep it. Run
+      `flyctl secrets unset --app geostrategy-api EXTRA_CORS_ORIGINS` after about a week.
 - [x] 8.7 A preview deployment (`--branch=preview`) was tested in a real browser on
       2026-08-17: all `_redirects` rows serve the SPA with 200; a bad path answers 404.
 - [x] 8.8 `https://app.traficio.com` verified 2026-08-18: `/`, `/login`, `/dashboard/`,
