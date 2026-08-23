@@ -1,5 +1,10 @@
 # Owner setup guide — the accounts that only you can create
 
+> **Superseded on 2026-08-23.** Read `docs/2026-08-22-manual-steps.md` instead. It holds
+> the current list and the current addresses. This file stays as the record of 2026-08-18.
+> Two facts here are now out of date: the site serves from `https://traficio.com`, not
+> `app.traficio.com`; and step 5 of the audit, the apex move, is done.
+
 Date: 2026-08-18. Status of the platform: the app is live at `https://app.traficio.com`,
 the API at `https://api.traficio.com`, CI deploys both on each push to `master`.
 This guide covers the six steps that need your personal accounts. Do them in this

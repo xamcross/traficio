@@ -1,6 +1,7 @@
 # SEO / AEO / GEO audit of traficio.com
 
 Date: 2026-08-20. Target: `https://app.traficio.com` and the apex `traficio.com`.
+Update 2026-08-23: the site now serves from the apex `https://traficio.com`.
 Report artifact (designed, shareable): https://claude.ai/code/artifact/ff698770-b7cd-4b82-8e35-2b0c3bd420ac
 
 This document is the repository record. The artifact holds the same content in a
@@ -52,12 +53,14 @@ Rendered, the landing page holds only 186 words, which is thin by itself.
 
 ## Status
 
-Steps 1, 2, 3, 4, 6, 7 and 8 are **done** and live (master c8dcebe, deployed 2026-08-22).
-Only **step 5** (move the marketing pages to the apex) remains, and it is a decision:
-see `docs/2026-08-22-manual-steps.md` item 8.
+All eight steps are **done** and live. Steps 1, 2, 3, 4, 6, 7 and 8 shipped on
+2026-08-22 (master c8dcebe). Step 5, the apex move, shipped on 2026-08-23.
 The site went from 4 pages and 0 indexable words to **10 pages and about 5,000 words**.
 
-Measured on `https://app.traficio.com` after the deploy:
+One owner action remains: add the `https://traficio.com` property in Google Search
+Console and submit the new sitemap. See `docs/2026-08-22-manual-steps.md`.
+
+Measured after the deploy:
 
 | URL | Before | After |
 |---|---|---|
@@ -100,8 +103,12 @@ each one; neither was visible from the build output.
    each. A `Content-signal` line states: `search=yes, ai-input=yes, use=reference,
    ai-train=no`. The training crawlers stay in a commented-out block — that is the
    owner's decision, and it is item 3 of `docs/2026-08-22-manual-steps.md`.
-5. **Move the marketing pages to the apex.** Keep the signed-in app on `app.`.
-   Cheapest before links exist. Half a day. This reverses plan decision D1.
+5. ~~**Move the marketing pages to the apex.**~~ **Done 2026-08-23.** `traficio.com`
+   now serves the whole site, the marketing pages and the signed-in app together.
+   `www.traficio.com` and `app.traficio.com` return 301 to the apex and keep the path
+   and the query string. `siteOrigin` is the single source of the origin: the canonical
+   links, the Open Graph tags, the structured data, the sitemap, and the `Sitemap:` line
+   in `robots.txt` all derive from it. This reverses plan decision D1.
 6. ~~**Open the free check; give results a public address.**~~ **Done 2026-08-21.**
    The landing page now runs an ungated preview: it crawls up to 5 pages and reports
    deterministic checks, with no model call and no account. Rate limit 3 per IP per hour,

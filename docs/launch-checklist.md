@@ -9,8 +9,9 @@ Facts (2026-08-18):
 
 - The domain is `traficio.com`. It is registered and proxied on Cloudflare
   (zone `traficio.com`, account `Xamcross@gmail.com's Account`).
-- The SPA runs at `https://app.traficio.com` (Cloudflare Pages project `geostrategy`).
-  The API runs at `https://api.traficio.com` (Fly app `geostrategy-api`, region `fra`).
+- The SPA runs at `https://traficio.com` (Cloudflare Pages project `geostrategy`).
+  It moved there from `app.traficio.com` on 2026-08-23. The API runs at
+  `https://api.traficio.com` (Fly app `geostrategy-api`, region `fra`).
 - Both hosts share one registrable domain. The session cookie is same-site, so
   `SameSite=Lax` works. Keep this layout.
 - The GitHub repository is `xamcross/traficio`. It is public. The default branch is `master`.
@@ -81,7 +82,7 @@ Work from the `backend/` directory.
       MONGODB_URI="mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/?maxPoolSize=50&minPoolSize=5"
       MONGODB_DB="geostrategy"
       BASE_URL="https://api.traficio.com"
-      APP_URL="https://app.traficio.com"
+      APP_URL="https://traficio.com"
       RESEND_API_KEY="re_..."
       EMAIL_FROM="GeoStrategy <noreply@traficio.com>"
       GOOGLE_CLIENT_ID="..."
@@ -118,15 +119,18 @@ Work from the `backend/` directory.
 
 - [x] 5.1 SSL/TLS encryption mode is **Full (strict)**. "Always Use HTTPS" is on.
 - [x] 5.2 DNS records in the zone `traficio.com` (all created 2026-08-18):
+      - `@` CNAME → `geostrategy.pages.dev` (proxied, since 2026-08-23). Pages custom
+        domain `traficio.com` is attached. This is the host that serves the site.
       - `app` CNAME → `geostrategy.pages.dev` (proxied). Pages custom domain
-        `app.traficio.com` is active.
+        `app.traficio.com` is active. It only answers the 301 to the apex.
       - `api` CNAME → `nw2e8o1.geostrategy-api.fly.dev` (proxied).
       - `_acme-challenge.api` CNAME → `api.traficio.com.nw2e8o1.flydns.net` (DNS only).
       - `_fly-ownership.api` TXT → `app-nw2e8o1`.
-      - `@` and `www` A → `192.0.2.1` (proxied placeholders; a redirect rule below
-        sends visitors to the app).
-      - A Single Redirect rule: `traficio.com/*` and `www.traficio.com/*` →
-        `https://app.traficio.com/<path>` (301, query string kept). Verified.
+      - `www` A → `192.0.2.1` (proxied placeholder; a redirect rule below sends
+        visitors to the apex).
+      - Two Single Redirect rules, both 301 and both keep the path and the query
+        string (2026-08-23): `www.traficio.com/*` → `https://traficio.com/<path>`,
+        and `app.traficio.com/*` → `https://traficio.com/<path>`. Verified.
 - [x] 5.3 `https://api.traficio.com/healthz` returns `ok` through the Cloudflare proxy
       with Full (strict) TLS (2026-08-18).
 - [x] 5.4 **WAF rate-limiting rule added 2026-08-22.** Name `api-abuse-endpoints`, the one
@@ -184,13 +188,17 @@ Work from the `backend/` directory.
 - [x] 8.5 The Pages project `geostrategy` exists (direct upload, production branch
       `master`). The first production deploy was made by hand on 2026-08-18. After
       3.2 is done, CI deploys on each push to `master`.
-- [x] 8.6 The custom domain `app.traficio.com` is attached and active. The apex and
-      `www` redirect to it (see 5.2).
+- [x] 8.6 The custom domain `traficio.com` is attached and serves the site.
+      `app.traficio.com` and `www` redirect to it (see 5.2). Changed 2026-08-23.
 - [x] 8.7 A preview deployment (`--branch=preview`) was tested in a real browser on
       2026-08-17: all `_redirects` rows serve the SPA with 200; a bad path answers 404.
 - [x] 8.8 `https://app.traficio.com` verified 2026-08-18: `/`, `/login`, `/dashboard/`,
       `/assessments/x/report` answer 200 with the SPA; `/no-such-page` answers 404;
       the security headers are present.
+- [x] 8.10 `https://traficio.com` verified 2026-08-23 after the apex move: the 10
+      pre-rendered pages answer 200 and each carries its own apex canonical link; the
+      8 client routes serve the CSR shell; `/r/<unknown>` answers 404; `robots.txt` and
+      `sitemap.xml` name the apex only; `www` and `app` return 301 with the path kept.
 - [ ] 8.9 **Plan gate.** As a Free user with a ready check, open `/assessments/<id>/plan`.
       Confirm the redirect to `/pricing?site=<id>` and that the locked list shows task
       titles without steps. (Needs the API, section 4.)
@@ -255,7 +263,7 @@ deploy (4) → DNS/WAF/email (5) → Google (6) → Freemius (7) → frontend va
 smoke tests (9) → prompt QA (10).
 Steps 1–8 must finish before step 9. Step 11 can run in parallel after step 7.
 
-**Working today (2026-08-18):** `https://app.traficio.com` serves the SPA; the API at
+**Working today (2026-08-23):** `https://traficio.com` serves the SPA; the API at
 `https://api.traficio.com` runs with the Atlas database; register, login, and the
 session work end to end. The verification email prints in `fly logs` until Resend is
 set (1.3). A check runs with the canned Claude client until `ANTHROPIC_API_KEY` is set.

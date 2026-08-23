@@ -14,9 +14,11 @@ Base: eeed2e7. Branch: worktree-prerender-seo. Baseline: 120 unit tests pass.
 
 ## Controller decisions
 
-- Canonical and sitemap URLs use `https://app.traficio.com` for now, from ONE constant in
-  the environment files. Audit step 5 moves the marketing pages to the apex; that then
-  becomes a one-line change.
+- Canonical and sitemap URLs come from ONE constant, `siteOrigin`, in the environment
+  files. Audit step 5 moved the site to the apex on 2026-08-23, and that was the one-line
+  change it was designed to be. The value is now `https://traficio.com`. The build also
+  writes the `Sitemap:` line of `robots.txt` from it, so no second copy of the origin
+  exists.
 - Titles keep the product name "GeoStrategy" because the interface uses it. Audit finding
   10 (brand and domain do not match) stays open. Revisit the titles when that is decided.
 - No `og:image` yet. No image asset exists, and a tag that points at a missing file is

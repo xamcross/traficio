@@ -1,7 +1,7 @@
 // Cloudflare Pages Function for /r/<slug>.
 //
 // This route serves the public, shared version of one assessment result. It runs
-// on app.traficio.com. It calls the public API on api.traficio.com, with no
+// on traficio.com. It calls the public API on api.traficio.com, with no
 // cookie and no auth header, the same way an anonymous visitor would. The
 // output is plain HTML. A crawler that does not run JavaScript reads only
 // this markup, so the score, the sub-scores, the summary, and every finding
@@ -82,7 +82,7 @@ function notFoundHtml(slug) {
   return pageShell('Result not found · Traficio', `
   <h1>We could not find that result</h1>
   <p>The link for &ldquo;${escapeHtml(slug)}&rdquo; is no longer shared, or it never existed.</p>
-  <p><a href="https://app.traficio.com/">Go to Traficio</a></p>
+  <p><a href="https://traficio.com/">Go to Traficio</a></p>
   `);
 }
 
@@ -165,7 +165,7 @@ function resultHtml(data, canonicalUrl) {
   <h2>What we found</h2>
   ${findingsHtml}
 
-  <footer>Checked with <a href="https://app.traficio.com/">Traficio</a>.</footer>`;
+  <footer>Checked with <a href="https://traficio.com/">Traficio</a>.</footer>`;
 
   return pageShell(escapeHtml(title), head + body);
 }

@@ -46,7 +46,8 @@ Chosen approach: **a Pages Function**, not a separate Worker and not the Ktor ho
   Cloudflare token for this project has neither, so that path is blocked today.
 - The Ktor host could serve the HTML itself, but the content would then live on
   `api.traficio.com`. Google tracks crawl behaviour per hostname, so the page would sit
-  outside the marketing site's signals. Keep the route on `app.traficio.com`.
+  outside the marketing site's signals. Keep the route on the site host. Since the apex
+  move of 2026-08-23 that host is `traficio.com`.
 
 **The trap.** "Once you add Functions on a Pages project, all requests by default will
 invoke your Function." A `_routes.json` that includes only `/r/*` is mandatory. Without it
