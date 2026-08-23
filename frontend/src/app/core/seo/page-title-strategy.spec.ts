@@ -62,6 +62,19 @@ describe('PageTitleStrategy', () => {
     expect(metaContent('name="twitter:card"')).toBe('summary_large_image');
   });
 
+  it('sets an absolute Open Graph image, so a shared link shows the card', async () => {
+    await router.navigateByUrl('/with-meta');
+
+    const image = `${environment.siteOrigin}/og-image.png`;
+    expect(metaContent('property="og:image"')).toBe(image);
+    expect(metaContent('property="og:image:width"')).toBe('1200');
+    expect(metaContent('property="og:image:height"')).toBe('630');
+    expect(metaContent('property="og:image:alt"')).toBe(
+      'GeoStrategy: your customers ask AI. Does it know you exist?',
+    );
+    expect(metaContent('name="twitter:image"')).toBe(image);
+  });
+
   it('falls back to the landing page title and description for a route with neither', async () => {
     await router.navigateByUrl('/no-meta');
 

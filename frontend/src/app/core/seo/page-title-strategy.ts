@@ -13,6 +13,16 @@ export const FALLBACK_DESCRIPTION =
   'See how findable your website is in Google, answer boxes and AI assistants like ChatGPT. Get your score and every problem we find, free. No card needed.';
 
 /**
+ * The social card. The file sits in `public/`, so the build copies it to the
+ * site root. Every page shares the same card: one card that states what the
+ * product is beats a per-page card that says nothing.
+ */
+const OG_IMAGE_PATH = '/og-image.png';
+const OG_IMAGE_WIDTH = '1200';
+const OG_IMAGE_HEIGHT = '630';
+const OG_IMAGE_ALT = 'GeoStrategy: your customers ask AI. Does it know you exist?';
+
+/**
  * Sets the document title and the SEO meta tags on every navigation.
  *
  * The Title and Meta services write through Angular's injected DOCUMENT, not
@@ -30,6 +40,9 @@ export class PageTitleStrategy extends TitleStrategy {
     const pageTitle = this.buildTitle(snapshot) ?? FALLBACK_TITLE;
     const description = this.buildDescription(snapshot) ?? FALLBACK_DESCRIPTION;
     const url = environment.siteOrigin + this.canonicalPath(snapshot);
+    // A crawler that reads the card never resolves a relative path, so the
+    // image URL is absolute.
+    const image = environment.siteOrigin + OG_IMAGE_PATH;
 
     this.title.setTitle(pageTitle);
 
@@ -41,7 +54,12 @@ export class PageTitleStrategy extends TitleStrategy {
     this.meta.updateTag({ property: 'og:url', content: url });
     this.meta.updateTag({ property: 'og:type', content: 'website' });
     this.meta.updateTag({ property: 'og:site_name', content: 'GeoStrategy' });
+    this.meta.updateTag({ property: 'og:image', content: image });
+    this.meta.updateTag({ property: 'og:image:width', content: OG_IMAGE_WIDTH });
+    this.meta.updateTag({ property: 'og:image:height', content: OG_IMAGE_HEIGHT });
+    this.meta.updateTag({ property: 'og:image:alt', content: OG_IMAGE_ALT });
     this.meta.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
+    this.meta.updateTag({ name: 'twitter:image', content: image });
 
     this.setCanonicalLink(url);
   }

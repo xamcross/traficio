@@ -24,9 +24,9 @@ function priceNumber(label: string): string {
  * happens during the pre-render, so the block lands in the static HTML that a crawler
  * reads without JavaScript.
  *
- * Every value here is true. The block states no logo, no address, no founding date and no
- * rating, because none of those exist. A product that finds invented facts on other sites
- * does not invent its own.
+ * Every value here is true. The block names the logo, because the brand mark now exists.
+ * It states no address, no founding date and no rating, because none of those exist. A
+ * product that finds invented facts on other sites does not invent its own.
  */
 @Injectable({ providedIn: 'root' })
 export class StructuredData {
@@ -42,6 +42,8 @@ export class StructuredData {
           '@id': `${origin}/#organization`,
           name: 'GeoStrategy',
           url: `${origin}/`,
+          // Google rejects an SVG for an Organization logo, so this names the raster.
+          logo: `${origin}/logo-512.png`,
           description:
             'GeoStrategy checks whether a small business website can be found in Google, in answer boxes, and inside AI assistants.',
         },

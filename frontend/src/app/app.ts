@@ -3,10 +3,11 @@ import { isPlatformBrowser } from '@angular/common';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { UserStore } from './core/auth/user-store';
 import { SiteContext } from './core/site-context';
+import { BrandMark } from './shared/brand-mark';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, BrandMark],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })

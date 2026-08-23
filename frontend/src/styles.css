@@ -92,4 +92,4 @@ table.data .num { text-align: right; }
 /* footer */
 .site-footer { display: flex; align-items: center; gap: 24px; padding: 26px 0 0; margin-top: 46px; }
 .site-footer a { color: var(--muted); font-size: 14px; }
-.brand-faint { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: var(--faint-2); }
+.brand-faint { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: var(--faint-2); }

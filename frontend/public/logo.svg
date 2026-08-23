@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="GeoStrategy">
+  <rect width="48" height="48" rx="11.0" fill="#b4552f"/>
+  <g fill="none" stroke="#efe7db" stroke-width="4.8" stroke-linecap="round">
+    <line x1="10.2" y1="12.4" x2="19.0" y2="15.4"/>
+    <line x1="9.6" y1="24.0" x2="21.6" y2="24.0"/>
+    <line x1="10.2" y1="35.6" x2="19.0" y2="32.6"/>
+  </g>
+  <circle cx="33.8" cy="24.0" r="7.4" fill="#efe7db"/>
+</svg>
