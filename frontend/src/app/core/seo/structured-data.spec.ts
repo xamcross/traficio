@@ -45,10 +45,17 @@ describe('StructuredData', () => {
     expect(graph[1]['url']).toBe(`${environment.siteOrigin}/`);
   });
 
+  it('names the real logo on the Organization', () => {
+    TestBed.inject(StructuredData).writeLandingBlock();
+    const graph = block()['@graph'] as Array<Record<string, string>>;
+    // Google rejects an SVG here, so the block points at the raster file.
+    expect(graph[0]['logo']).toBe(`${environment.siteOrigin}/logo-512.png`);
+  });
+
   it('claims nothing it cannot support', () => {
     TestBed.inject(StructuredData).writeLandingBlock();
     const text = JSON.stringify(block());
-    ['aggregateRating', 'reviewCount', 'ratingValue', 'logo', 'foundingDate', 'address'].forEach(
+    ['aggregateRating', 'reviewCount', 'ratingValue', 'foundingDate', 'address'].forEach(
       (invented) => expect(text).not.toContain(invented),
     );
   });

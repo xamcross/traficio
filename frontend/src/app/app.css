@@ -1,6 +1,6 @@
 .site-header { background: var(--surface); border-bottom: 1px solid var(--line); }
 .site-nav { max-width: 1080px; margin: 0 auto; display: flex; align-items: center; gap: 22px; padding: 16px 44px; }
-.brand { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: var(--ink); }
+.brand { display: inline-flex; align-items: center; gap: 9px; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: var(--ink); }
 .site-nav a { color: var(--muted); font-size: 14px; }
 .site-nav a.active { color: var(--ink); font-weight: 600; }
 .site-domain { color: var(--muted); }

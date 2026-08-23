@@ -32,6 +32,17 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
+  it('puts the brand mark inside the brand link, hidden from a screen reader', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const mark = compiled.querySelector('a.brand svg');
+    expect(mark).withContext('the brand link carries the mark').not.toBeNull();
+    // The link already reads "GEOSTRATEGY", so the mark must not name the brand twice.
+    expect(mark!.getAttribute('aria-hidden')).toBe('true');
+  });
+
   it('shows Log in when logged out', () => {
     const fixture = TestBed.createComponent(App);
     const store = TestBed.inject(UserStore);
