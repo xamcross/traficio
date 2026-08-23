@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// This script builds sitemap.xml after the Angular build.
+// This script builds sitemap.xml after the Angular build. It also writes the
+// Sitemap line into the built robots.txt.
 // It reads the production origin from environment.production.ts, so the
 // origin has one source of truth. It reads the list of pre-rendered routes
 // from prerendered-routes.json, so a future public route appears in the
@@ -17,6 +18,7 @@ const distDir = path.join(frontendRoot, 'dist/frontend');
 const browserDir = path.join(distDir, 'browser');
 const routesFile = path.join(distDir, 'prerendered-routes.json');
 const outputFile = path.join(browserDir, 'sitemap.xml');
+const robotsFile = path.join(browserDir, 'robots.txt');
 
 // A route under one of these prefixes is private or transactional.
 // The sitemap must never list it, even if it appears in prerendered-routes.json.
@@ -50,7 +52,7 @@ function readSiteOrigin() {
     fail(
       `The file "${envFile}" has no "siteOrigin" field with a quoted string value. ` +
         'The script cannot build absolute sitemap URLs without it. Add a line like ' +
-        `siteOrigin: 'https://app.traficio.com' to environment.production.ts.`,
+        `siteOrigin: 'https://traficio.com' to environment.production.ts.`,
     );
   }
   const origin = match[1].replace(/\/+$/, '');
@@ -110,6 +112,27 @@ function buildSitemap(origin, routes, lastmod) {
   );
 }
 
+// Writes "Sitemap: <origin>/sitemap.xml" into the built robots.txt. The source
+// file at public/robots.txt holds no origin, so the origin has one source of
+// truth. Any Sitemap line that is already there is replaced, not duplicated.
+function writeRobotsSitemapLine(origin) {
+  if (!existsSync(robotsFile)) {
+    fail(
+      `The file "${robotsFile}" does not exist. The build must copy public/robots.txt ` +
+        'into dist/frontend/browser. Without it the site ships no robots.txt.',
+    );
+  }
+  const line = `Sitemap: ${origin}/sitemap.xml`;
+  const kept = readFileSync(robotsFile, 'utf8')
+    .split(/\r?\n/)
+    .filter((row) => !/^\s*Sitemap\s*:/i.test(row));
+  while (kept.length > 0 && kept[kept.length - 1].trim() === '') {
+    kept.pop();
+  }
+  writeFileSync(robotsFile, `${kept.join('\n')}\n\n${line}\n`, 'utf8');
+  console.log(`sitemap.mjs: wrote "${line}" into ${robotsFile}`);
+}
+
 function main() {
   if (!existsSync(browserDir)) {
     fail(
@@ -122,6 +145,8 @@ function main() {
   const lastmod = new Date().toISOString().slice(0, 10);
   const xml = buildSitemap(origin, routes, lastmod);
   writeFileSync(outputFile, xml, 'utf8');
+
+  writeRobotsSitemapLine(origin);
 
   console.log(`sitemap.mjs: wrote ${outputFile}`);
   for (const route of routes) {

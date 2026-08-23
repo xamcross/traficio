@@ -87,4 +87,6 @@ Disallow: /reset-password
 # User-agent: ClaudeBot
 # Disallow: /
 
-Sitemap: https://app.traficio.com/sitemap.xml
+# The build appends the Sitemap line here, from siteOrigin in
+# environment.production.ts. That keeps one source of truth for the origin.
+# See scripts/sitemap.mjs.
