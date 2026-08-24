@@ -35,13 +35,15 @@
       </section>
     }
 
-    @if (canAdd()) {
+    @if (canAdd() || addError()) {
       <section class="add stack">
-        <h2>{{ sites().length === 0 ? 'Add your site' : 'Add another site' }}</h2>
-        <form [formGroup]="addForm" (ngSubmit)="submitAdd()" class="stack">
-          <label class="stack tight"><span class="muted small">Website</span><input type="text" formControlName="url" placeholder="yourbusiness.com" autocomplete="url" /></label>
-          <div class="row"><button type="submit" class="btn btn-primary" [disabled]="addBusy() || addForm.invalid">Add site</button></div>
-        </form>
+        @if (canAdd()) {
+          <h2>{{ sites().length === 0 ? 'Add your site' : 'Add another site' }}</h2>
+          <form [formGroup]="addForm" (ngSubmit)="submitAdd()" class="stack">
+            <label class="stack tight"><span class="muted small">Website</span><input type="text" formControlName="url" placeholder="yourbusiness.com" autocomplete="url" /></label>
+            <div class="row"><button type="submit" class="btn btn-primary" [disabled]="addBusy() || addForm.invalid">Add site</button></div>
+          </form>
+        }
         @if (addError(); as e) {
           @if (e.code === 'invalid_url') {<p class="error-note" role="alert">That address does not look right. Enter it like example.com.</p>}
           @else if (e.code === 'site_exists') {<p class="error-note" role="alert">You already added this site.</p>}
