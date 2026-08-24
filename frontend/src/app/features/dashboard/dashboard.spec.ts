@@ -191,6 +191,22 @@ describe('Dashboard', () => {
     expect(TestBed.inject(Location).path()).toBe('');
   });
 
+  it('with a pending url at the site cap: shows the limit error even though the add form is hidden', async () => {
+    sessionStorage.setItem(PENDING_URL_KEY, 'traficio.com');
+    api.createSiteResult = Promise.reject(new ApiError('site_limit_reached', 'Your plan includes 1 site. Upgrade to add more.', 403));
+    api.listSitesResult = Promise.resolve([makeSite({ id: 'S1', domain: 'example.com' })]);
+    api.usageResult = Promise.resolve({ assessmentsUsed: 0, assessmentsLimit: 1, sitesUsed: 1, sitesLimit: 1, nextCheckAt: null });
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(addSiteInput(el)).toBeNull();
+    expect(el.textContent).toContain('Your plan includes 1 site. Upgrade to add more.');
+    expect(Array.from(el.querySelectorAll('a')).some((a) => a.textContent?.includes('Upgrade'))).toBe(true);
+  });
+
   it('with a pending url and one site already listed: a check error blocks the one-site redirect', async () => {
     sessionStorage.setItem(PENDING_URL_KEY, 'rivertonbakery.com');
     api.createSiteResult = Promise.resolve(makeSite({ id: 'S1' }));
