@@ -60,7 +60,7 @@ describe('Landing', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Your customers ask AI. Does it know you exist?');
     expect(text).toContain('You give us your web address');
-    expect(text).toContain('We read it the way machines do');
+    expect(text).toContain('We read it the way GPTBot and Googlebot do');
     expect(text).toContain('You fix one thing at a time');
     expect(text).toContain('Your score and every problem we find. No card, no trial clock.');
     expect(text).toContain(`${PRO_PRICE_LABEL} a month`);

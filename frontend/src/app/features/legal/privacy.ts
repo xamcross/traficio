@@ -26,6 +26,22 @@ import { SiteFooter } from '../../shared/site-footer';
         as hosting and email delivery.
       </p>
 
+      <h2>How long we keep it</h2>
+      <ul>
+        <li>Your account, for as long as the account is open</li>
+        <li>Your reports and plans, for as long as the account is open</li>
+        <li>Server logs, for 30 days</li>
+        <li>Everything above, for 30 days after you ask us to close the account</li>
+      </ul>
+      <p>After those 30 days we delete it. Our backups hold a copy for up to 30 days more.</p>
+
+      <h2>How to get it or delete it</h2>
+      <p>
+        Email <a href="mailto:support@traficio.com">support@traficio.com</a> from the address on
+        your account. Ask us for a copy of your data, or ask us to delete it. We reply within 30
+        days. Deleting your data closes your account, and we cannot undo it.
+      </p>
+
       <h2>Questions</h2>
       <p>Email us at <a href="mailto:support@traficio.com">support@traficio.com</a>.</p>
 

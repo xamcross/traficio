@@ -24,9 +24,9 @@ export function nextTaskFor(plan: PlanDto, skipped: Set<string>): PlanTaskDto | 
       </div>
       <span class="spacer"></span>
       <div class="row subs">
-        <div class="stack tight right"><span class="faint small">Google search</span><strong>{{ scores().seo }}</strong></div>
-        <div class="stack tight right"><span class="faint small">Answer boxes</span><strong>{{ scores().aeo }}</strong></div>
-        <div class="stack tight right"><span class="faint small">AI assistants</span><strong>{{ scores().geo }}</strong></div>
+        <div class="stack tight right"><span class="faint small">{{ areaName('seo') }}</span><strong>{{ scores().seo }}</strong></div>
+        <div class="stack tight right"><span class="faint small">{{ areaName('aeo') }}</span><strong>{{ scores().aeo }}</strong></div>
+        <div class="stack tight right"><span class="faint small">{{ areaName('geo') }}</span><strong>{{ scores().geo }}</strong></div>
       </div>
       <a class="small" [routerLink]="['/assessments', assessment().id, 'report']">Full report →</a>
       <button type="button" class="btn btn-text small" (click)="checkAgain.emit()" [disabled]="checkBusy()">Check again</button>
@@ -69,8 +69,8 @@ export function nextTaskFor(plan: PlanDto, skipped: Set<string>): PlanTaskDto | 
         }
       } @else {
         <article class="card stack">
-          <h2>You have done everything on your plan.</h2>
-          <p class="lead">Check again to see your new score and to confirm your fixes.</p>
+          <h2>That is every task done.</h2>
+          <p class="lead">Now check again. We read the same pages and confirm each fix actually worked.</p>
           <div class="row"><button type="button" class="btn btn-primary" (click)="checkAgain.emit()" [disabled]="checkBusy()">Check again</button></div>
         </article>
       }

@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { FREE_TIER_COPY, PRO_PRICE_LABEL, PRO_TIER_COPY } from '../../core/config';
 import { numberWord } from '../../shared/copy';
 
@@ -16,16 +16,16 @@ import { numberWord } from '../../shared/copy';
           <li class="ok">Your visibility score and the three sub-scores</li>
           <li class="ok">Every problem we found, in plain language</li>
           <li class="no">No step-by-step plan</li>
-          <li class="no">No progress tracking or history</li>
+          <li class="no">No way to confirm a fix worked</li>
         </ul>
         <span class="spacer"></span>
-        <button type="button" class="btn btn-outline" (click)="stayFree.emit()">{{ freeButton() }}</button>
+        <button type="button" class="btn" [class.btn-primary]="freeIsPrimary()" [class.btn-outline]="!freeIsPrimary()" (click)="stayFree.emit()">{{ freeButton() }}</button>
       </section>
 
       <section class="plan-card pro">
         <div class="stack head">
           <div class="row"><strong class="name">Pro</strong><span class="badge badge-high">{{ context() === 'gate' ? 'UNLOCKS YOUR PLAN' : 'THE PLAN' }}</span></div>
-          <span class="price">{{ price }} <span class="per">a month</span> <span class="faint small">· cancel any time</span></span>
+          <span class="price">{{ price }} <span class="per">a month</span></span>
         </div>
         <ul class="features pro-features">
           <li class="ok">@if (taskCount(); as n) {<strong>All {{ word(n) }} tasks with their steps</strong>, in the order that helps most first} @else {<strong>Every task with its steps</strong>, in the order that helps most first}</li>
@@ -39,8 +39,8 @@ import { numberWord } from '../../shared/copy';
           <a class="btn btn-outline" [href]="portalUrl()" target="_blank" rel="noopener">Manage subscription</a>
           <span class="faint small center">You are on Pro.</span>
         } @else {
-          <button type="button" class="btn btn-primary" (click)="unlock.emit()" [disabled]="busy()">Unlock my plan</button>
-          <span class="faint small center">{{ context() === 'gate' ? 'Your plan is already written and waiting.' : 'Cancel any time. Your score stays free.' }}</span>
+          <button type="button" class="btn" [class.btn-primary]="!freeIsPrimary()" [class.btn-outline]="freeIsPrimary()" (click)="unlock.emit()" [disabled]="busy()">{{ proButton() }}</button>
+          <span class="faint small center">{{ proNote() }}</span>
         }
       </section>
     </div>
@@ -67,11 +67,26 @@ export class PlanCards {
   taskCount = input<number | null>(null);
   context = input<'gate' | 'public'>('public');
   isPro = input(false);
+  /** False for a visitor with no account. That visitor has no plan to unlock yet. */
+  signedIn = input(false);
   busy = input(false);
   portalUrl = input('');
   freeButton = input('Stay on Free');
   unlock = output<void>();
   stayFree = output<void>();
+
+  /**
+   * A visitor with no account cannot unlock a plan, because nobody has written
+   * one for them. The free check is their real first step, so the free card
+   * takes the primary button and the Pro card steps back to the outline.
+   */
+  protected readonly freeIsPrimary = computed(() => this.context() === 'public' && !this.isPro() && !this.signedIn());
+  protected readonly proButton = computed(() => (this.freeIsPrimary() ? 'Start free, then unlock' : 'Unlock my plan'));
+  protected readonly proNote = computed(() => {
+    if (this.context() === 'gate') return 'Your plan is already written and waiting.';
+    if (this.freeIsPrimary()) return 'You see your score and every finding before you pay.';
+    return 'Cancel any time. Your score stays free.';
+  });
 
   protected readonly price = PRO_PRICE_LABEL;
   protected readonly freeSites = FREE_TIER_COPY.sites === 1 ? 'One site' : `${cap(numberWord(FREE_TIER_COPY.sites))} sites`;

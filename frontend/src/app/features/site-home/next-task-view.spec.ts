@@ -80,7 +80,7 @@ describe('NextTaskView', () => {
     const p = plan();
     const fixture = await render({ ...p, tasks: p.tasks.map((t) => ({ ...t, status: 'done' as const })) }, null);
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('You have done everything on your plan.');
+    expect(text).toContain('That is every task done.');
     expect(text).toContain('Check again');
     expect(text).not.toContain('since your last check');
   });

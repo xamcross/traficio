@@ -117,7 +117,7 @@ describe('History', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('It is working.');
     expect(text).toContain('You have gone from 31 to 41 since March.');
-    expect(text).toContain('Google search');
+    expect(text).toContain('Google');
     expect(text).toContain('WHAT CHANGED');
     expect(text).toContain('28 July 2026');
     expect(text).toContain('Two tasks confirmed fixed');

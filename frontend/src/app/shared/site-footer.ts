@@ -9,7 +9,7 @@ import { BrandMark } from './brand-mark';
     <footer class="site-footer divider">
       <span class="brand-faint"><app-brand-mark [size]="15" />TRAFICIO</span>
       <span class="spacer"></span>
-      <a routerLink="/pricing">Pricing</a><a routerLink="/terms">Terms</a><a routerLink="/privacy">Privacy</a>
+      <a routerLink="/guides">Guides</a><a routerLink="/pricing">Pricing</a><a href="mailto:support@traficio.com">Contact</a><a routerLink="/terms">Terms</a><a routerLink="/privacy">Privacy</a>
     </footer>
   `,
 })

@@ -12,7 +12,7 @@ describe('history copy', () => {
   it('headline: it is working, names the area that moved most', () => {
     const h = headlineFor([a('1', 31, 55, 26, 13, '2026-03-02T10:00:00Z'), a('2', 41, 62, 34, 28, '2026-07-28T10:00:00Z')]);
     expect(h.title).toBe('It is working.');
-    expect(h.text).toBe('You have gone from 31 to 41 since March. AI assistants has moved the most.');
+    expect(h.text).toBe('You have gone from 31 to 41 since March. AI has moved the most.');
   });
   it('headline: not moving yet', () => {
     const h = headlineFor([a('1', 41, 62, 34, 28, '2026-03-02T10:00:00Z'), a('2', 40, 62, 33, 28, '2026-07-28T10:00:00Z')]);

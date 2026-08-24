@@ -1,4 +1,4 @@
-import { areaCode, areaName, bandFor, effortText, formatDate, formatDateShort, monthName, numberWord, pagesCaption, severityLabel, severityOrder } from './copy';
+import { areaCode, areaName, bandFor, effortText, formatDate, formatDateShort, monthName, numberWord, pagesCaption, plural, severityLabel, severityOrder } from './copy';
 
 describe('copy helpers', () => {
   it('bands scores into three labels and tones', () => {
@@ -11,9 +11,9 @@ describe('copy helpers', () => {
   });
 
   it('maps categories to area names and codes', () => {
-    expect(areaName('seo')).toBe('Google search');
-    expect(areaName('aeo')).toBe('Answer boxes');
-    expect(areaName('geo')).toBe('AI assistants');
+    expect(areaName('seo')).toBe('Google');
+    expect(areaName('aeo')).toBe('Answers');
+    expect(areaName('geo')).toBe('AI');
     expect(areaName('other')).toBe('other');
     expect(areaCode('geo')).toBe('GEO');
   });
@@ -22,7 +22,7 @@ describe('copy helpers', () => {
     expect(severityLabel('high')).toBe('HIGH');
     expect(severityLabel('medium')).toBe('MED');
     expect(severityLabel('low')).toBe('LOW');
-    expect(severityLabel('good')).toBe('FINE');
+    expect(severityLabel('good')).toBe('PASS');
     expect(['good', 'low', 'high', 'medium'].sort((a, b) => severityOrder(a) - severityOrder(b))).toEqual(['high', 'medium', 'low', 'good']);
   });
 
@@ -35,12 +35,14 @@ describe('copy helpers', () => {
 
   it('writes effort in minutes under 90 and in rounded hours above', () => {
     expect(effortText(20)).toBe('about 20 minutes');
-    expect(effortText(89)).toBe('about 89 minutes');
+    expect(effortText(89)).toBe('about 85 minutes');
+    expect(effortText(47)).toBe('about 45 minutes');
+    expect(effortText(3)).toBe('about 5 minutes');
     expect(effortText(90)).toBe('about 2 hours');
     expect(effortText(60)).toBe('about 60 minutes');
     expect(effortText(100)).toBe('about 2 hours');
     expect(effortText(175)).toBe('about 3 hours');
-    expect(effortText(0)).toBe('about 0 minutes');
+    expect(effortText(0)).toBe('nothing');
   });
 
   it('captions affected pages', () => {
@@ -50,6 +52,13 @@ describe('copy helpers', () => {
     expect(pagesCaption(1, 18)).toBe('1 PAGE');
     expect(pagesCaption(14, 18)).toBe('14 PAGES');
     expect(pagesCaption(3, null)).toBe('3 PAGES');
+  });
+
+  it('picks the singular form only at one', () => {
+    expect(plural(0, 'thing', 'things')).toBe('things');
+    expect(plural(1, 'thing', 'things')).toBe('thing');
+    expect(plural(2, 'thing', 'things')).toBe('things');
+    expect(plural(1, 'TASK', 'TASKS')).toBe('TASK');
   });
 
   it('formats dates in the long form', () => {

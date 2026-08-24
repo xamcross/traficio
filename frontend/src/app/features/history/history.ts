@@ -6,14 +6,14 @@ import { SiteContext } from '../../core/site-context';
 import { ErrorNote } from '../../shared/error-note';
 import { assessmentErrorCopy } from '../../shared/assessment-error-copy';
 import { changesText, chartPoints, headlineFor } from './history-copy';
-import { formatDate, monthName } from '../../shared/copy';
+import { areaName, formatDate, monthName } from '../../shared/copy';
 import { toApiError } from '../../shared/to-api-error';
 import { isUpgradeRequired, pricingUrlFor } from '../../shared/upgrade-redirect';
 
 const SERIES: { key: 'seo' | 'aeo' | 'geo'; label: string; color: string }[] = [
-  { key: 'seo', label: 'Google search', color: 'var(--olive)' },
-  { key: 'aeo', label: 'Answer boxes', color: 'var(--accent)' },
-  { key: 'geo', label: 'AI assistants', color: 'var(--amber)' },
+  { key: 'seo', label: areaName('seo'), color: 'var(--olive)' },
+  { key: 'aeo', label: areaName('aeo'), color: 'var(--accent)' },
+  { key: 'geo', label: areaName('geo'), color: 'var(--amber)' },
 ];
 const W = 1000, H = 240;
 // The viewBox is wider and taller than the plot so the end labels and month labels have room.

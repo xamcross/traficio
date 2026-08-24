@@ -1,8 +1,9 @@
-import { Component, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { Component, PLATFORM_ID, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
-import { API_BASE } from '../../core/config';
+import { API_BASE, PENDING_URL_KEY } from '../../core/config';
 import { ErrorNote } from '../../shared/error-note';
 
 @Component({
@@ -11,9 +12,15 @@ import { ErrorNote } from '../../shared/error-note';
   template: `
     <div class="page surface plain">
       @if (sent()) {
-        <p>Check your email. We sent you a link. Click the link to confirm your address.</p>
+        <h1>Check your email.</h1>
+        <p class="lead">We sent you a link. Click it to confirm your address, then log in and run your first check.</p>
         <p><a routerLink="/login">Log in</a></p>
       } @else {
+        <h1>Create your free account</h1>
+        <p class="lead">Your score and every finding stay free. We ask for a card only if you want the step-by-step plan.</p>
+        @if (pendingDomain(); as domain) {
+          <p class="muted">We will check {{ domain }} as soon as you are in.</p>
+        }
         <form [formGroup]="form" (ngSubmit)="submit()">
           <label>
             Email
@@ -23,7 +30,7 @@ import { ErrorNote } from '../../shared/error-note';
             Password
             <input type="password" formControlName="password" autocomplete="new-password" />
           </label>
-          <button type="submit" class="btn btn-primary" [disabled]="busy() || form.invalid">Create account</button>
+          <button type="submit" class="btn btn-primary" [disabled]="busy() || form.invalid">Create my free account</button>
         </form>
 
         @if (error(); as e) {
@@ -44,10 +51,25 @@ import { ErrorNote } from '../../shared/error-note';
 })
 export class Register {
   private api = inject(ApiClient);
+  private platformId = inject(PLATFORM_ID);
 
   protected readonly googleUrl = `${API_BASE}/v1/auth/google/start`;
   protected readonly busy = signal(false);
   protected readonly error = signal<ApiError | null>(null);
+
+  /**
+   * The address the visitor typed on the landing page, if there is one. Naming
+   * it here tells them the work they started is not lost. The dashboard reads
+   * the same key back out after they log in, so this only displays it.
+   */
+  protected readonly pendingDomain = signal(this.readPendingDomain());
+
+  private readPendingDomain(): string | null {
+    if (!isPlatformBrowser(this.platformId)) return null;
+    const raw = sessionStorage.getItem(PENDING_URL_KEY)?.trim();
+    if (!raw) return null;
+    return raw.replace(/^https?:\/\//i, '').replace(/\/.*$/, '') || null;
+  }
   protected readonly sent = signal(false);
 
   protected readonly form = new FormGroup({

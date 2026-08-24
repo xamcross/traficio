@@ -4,7 +4,7 @@ import { ApiClient } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
 import { PlanDto, SiteDto } from '../../core/api/types';
 import { FREEMIUS_PORTAL_URL, PRO_PRICE_LABEL } from '../../core/config';
-import { numberWord } from '../../shared/copy';
+import { numberWord, plural } from '../../shared/copy';
 import { ImpactBadge } from '../../shared/impact-badge';
 import { SiteFooter } from '../../shared/site-footer';
 import { PlanCards } from './plan-cards';
@@ -21,7 +21,7 @@ type Phase = 'idle' | 'opening' | 'unlocking' | 'timeout';
         <a class="back muted" [routerLink]="['/sites', g.site.id]">← Back to my result</a>
         <div class="intro stack">
           <span class="eyebrow">YOUR PLAN IS READY</span>
-          <h1>{{ capWord(g.plan.tasks.length) }} things to fix, written for your site.</h1>
+          <h1>{{ capWord(g.plan.tasks.length) }} {{ plural(g.plan.tasks.length, 'thing', 'things') }} to fix, written for your site.</h1>
           <p class="lead">Your score and your findings stay free, always. The step-by-step plan, the check that confirms each fix worked, and your score history are part of Pro.</p>
         </div>
       } @else {
@@ -35,6 +35,7 @@ type Phase = 'idle' | 'opening' | 'unlocking' | 'timeout';
         [taskCount]="gate()?.plan?.tasks?.length ?? null"
         [context]="gate() ? 'gate' : 'public'"
         [isPro]="store.user()?.tier === 'pro'"
+        [signedIn]="store.user() !== null"
         [busy]="phase() !== 'idle'"
         [portalUrl]="portalUrl"
         [freeButton]="gate() ? 'Stay on Free' : 'Check my site free'"
@@ -83,7 +84,7 @@ type Phase = 'idle' | 'opening' | 'unlocking' | 'timeout';
       <section class="cost stack divider">
         <span class="eyebrow">WHY {{ price }}, NOT $1,000</span>
         <h2>You see everything before you pay</h2>
-        <p>Agencies commonly quote $1,000 to $5,000 a month for this kind of work, and most of it stays invisible until the invoice arrives. We show you the score and every finding free, first. You only pay once you have seen exactly what you are getting.</p>
+        <p>In the quotes we have seen, agencies ask $1,000 to $5,000 a month for this kind of work, and most of it stays invisible until the invoice arrives. We break that range down in <a routerLink="/guides/what-seo-costs-a-small-business">what SEO costs a small business</a>. We show you the score and every finding free, first. You only pay once you have seen exactly what you are getting.</p>
         <p>You do not need to decide today. Check your site free, read every finding, and see whether the fixes look like something you can act on. If your score is already solid, you may not need Pro at all.</p>
       </section>
 
@@ -120,6 +121,7 @@ export class Pricing implements OnInit {
   protected readonly price = PRO_PRICE_LABEL;
   protected readonly portalUrl = FREEMIUS_PORTAL_URL;
   protected readonly word = numberWord;
+  protected readonly plural = plural;
   protected readonly gate = signal<{ site: SiteDto; plan: PlanDto } | null>(null);
   protected readonly phase = signal<Phase>('idle');
   protected readonly note = signal<string | null>(null);
