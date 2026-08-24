@@ -2,15 +2,15 @@
 # 1. changes        - which half changed
 # 2. backend        - Gradle tests with a Mongo service container
 # 3. frontend       - unit tests, production build, e2e, artifact upload
-# 4. deploy-frontend - upload the tested artifact to Cloudflare Pages (master only)
-# 5. deploy-backend  - flyctl deploy --remote-only (master only)
+# 4. deploy-frontend - upload the tested artifact to Cloudflare Pages (main only)
+# 5. deploy-backend  - flyctl deploy --remote-only (main only)
 name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -114,7 +114,7 @@ jobs:
     needs: [changes, backend, frontend]
     if: >-
       ${{ !cancelled()
-          && github.ref == 'refs/heads/master'
+          && github.ref == 'refs/heads/main'
           && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
           && needs.frontend.result == 'success'
           && (needs.backend.result == 'success' || needs.backend.result == 'skipped') }}
@@ -151,12 +151,14 @@ jobs:
             echo "frontend/_routes.json is missing. Every request would invoke the Function."
             exit 1
           }
+      # --branch must match the production branch of the Pages project.
+      # Cloudflare treats any other name as a preview deploy.
       - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: frontend
-          command: pages deploy dist/frontend/browser --project-name=geostrategy --branch=master
+          command: pages deploy dist/frontend/browser --project-name=geostrategy --branch=main
       # Proves the Pages Function reached production. A deploy that drops it still
       # answers 200 on every static page, so only this check finds the fault.
       # The unknown slug must return the Function's own page, not the static 404.
@@ -181,7 +183,7 @@ jobs:
     needs: [changes, backend, frontend]
     if: >-
       ${{ !cancelled()
-          && github.ref == 'refs/heads/master'
+          && github.ref == 'refs/heads/main'
           && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
           && needs.backend.result == 'success'
           && (needs.frontend.result == 'success' || needs.frontend.result == 'skipped') }}
