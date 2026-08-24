@@ -281,7 +281,11 @@ describe('Progress', () => {
     expect(text).toContain('Read your pages');                  // done form
     expect(text).toContain('Writing your plan');                // later step keeps the active form
     expect(text).toContain('You can close this tab. We will email you when your result is ready.');
-    expect(text).toContain('QUEUED → CRAWLING → ANALYZING → PLANNING');
+    // The rail says the steps in plain words. It must not also print the machine names,
+    // which would undo the plain labels sitting directly above them.
+    for (const jargon of ['QUEUED', 'CRAWLING', 'ANALYZING', 'PLANNING']) {
+      expect(text).not.toContain(jargon);
+    }
   });
 
   it('shows the failure state with the headline for the code, the message verbatim and the free quota note', async () => {

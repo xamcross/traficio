@@ -2,7 +2,7 @@ import { Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AssessmentDto, Finding, PlanDto, Tier } from '../../core/api/types';
 import { PRO_PRICE_LABEL } from '../../core/config';
-import { areaCode, areaName, bandFor, effortText, formatDate, numberWord, pagesCaption, severityOrder } from '../../shared/copy';
+import { areaCode, areaName, bandFor, effortText, formatDate, numberWord, pagesCaption, plural, severityOrder } from '../../shared/copy';
 import { ScoreBar } from '../../shared/score-bar';
 import { SeverityBadge } from '../../shared/severity-badge';
 import { LockedPlanList } from './locked-plan-list';
@@ -49,7 +49,7 @@ const AREAS: Array<{ key: 'seo' | 'aeo' | 'geo' }> = [{ key: 'seo' }, { key: 'ae
     </section>
 
     <section class="stack findings">
-      <div class="row baseline"><h2>What we found</h2><span class="muted">{{ findings().length }} things, across {{ areaCount() }} areas</span></div>
+      <div class="row baseline"><h2>What we found</h2><span class="muted">{{ foundCaption() }}</span></div>
       @if (findings().length === 0) {
         <p class="muted">{{ tier() === 'pro' ? 'We found nothing to fix. Check again after your next change.' : 'We found nothing to fix.' }}</p>
       } @else {
@@ -72,7 +72,7 @@ const AREAS: Array<{ key: 'seo' | 'aeo' | 'geo' }> = [{ key: 'seo' }, { key: 'ae
         <section class="card teaser two-col">
           <div class="stack">
             <span class="eyebrow">NEXT</span>
-            <h2 class="teaser-h">We wrote you {{ word(p.tasks.length) }} things to fix, in order.</h2>
+            <h2 class="teaser-h">We wrote you {{ word(p.tasks.length) }} {{ plural(p.tasks.length, 'thing', 'things') }} to fix, in order.</h2>
             <p class="lead">Each one is a short set of steps you can follow yourself, with a way to check it worked. {{ effortSentence(p) }} The first one alone should move your score the most.</p>
             <div class="row"><a class="btn btn-primary" [routerLink]="['/pricing']" [queryParams]="{ site: siteId() }">Read my plan</a><span class="muted">Included with Pro, from {{ price }} a month</span></div>
           </div>
@@ -122,15 +122,25 @@ export class ResultView {
   protected readonly areaName = areaName;
   protected readonly areaCode = areaCode;
   protected readonly word = numberWord;
+  protected readonly plural = plural;
   protected readonly scores = computed(() => this.assessment().scores ?? { seo: 0, aeo: 0, geo: 0, overall: 0 });
   protected readonly band = computed(() => bandFor(this.scores().overall));
   protected readonly checked = computed(() => formatDate(this.assessment().completedAt ?? this.assessment().createdAt).toUpperCase());
   protected readonly findings = computed(() => sortedFindings(this.assessment().findings));
   protected readonly areaCount = computed(() => distinctAreas(this.assessment().findings));
 
+  /** "4 things, across 3 areas" — and the singular forms when either count is one. */
+  protected readonly foundCaption = computed(() => {
+    const things = this.findings().length, areas = this.areaCount();
+    if (areas <= 1) return `${things} ${plural(things, 'thing', 'things')}, in 1 area`;
+    return `${things} ${plural(things, 'thing', 'things')}, across ${areas} areas`;
+  });
+
   protected pages(f: Finding): string { return pagesCaption(f.affectedPages.length, this.assessment().pageCount); }
   protected effortSentence(p: PlanDto): string {
-    const e = effortText(openMinutes(p));
+    const minutes = openMinutes(p);
+    if (minutes <= 0) return '';
+    const e = effortText(minutes);
     return `${e.charAt(0).toUpperCase()}${e.slice(1)} of work in total.`;
   }
 }

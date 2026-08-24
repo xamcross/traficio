@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -30,12 +31,13 @@ type PreviewState =
       <section class="hero">
         <span class="eyebrow">FOR PEOPLE WHO RUN ONE WEBSITE</span>
         <h1>Your customers ask AI. Does it know you exist?</h1>
-        <p class="lead">People used to search. Now they ask ChatGPT for a bakery near them, and it answers with somebody. We check whether that somebody is you, and tell you what to fix.</p>
+        <p class="lead">Someone asks ChatGPT for a bakery near them. It names one business. We check whether it names you — and show you what to fix if it does not.</p>
         <form [formGroup]="form" (ngSubmit)="submit()" class="hero-form" id="check">
           <label class="sr-only" for="url">Your website</label>
           <input id="url" type="text" formControlName="url" placeholder="yourbusiness.com" autocomplete="url" />
           <button type="submit" class="btn btn-primary" [disabled]="form.invalid || previewState() === 'loading'">Check my site free</button>
-          <span class="faint small">Two minutes. No card. Your score and every problem, free.</span>
+          <span class="faint small">First findings in seconds, no account. Your full score is free and takes about two minutes.</span>
+          <span class="faint small">We only read pages anyone can already see. We never ask for a login to your site.</span>
         </form>
       </section>
 
@@ -53,7 +55,7 @@ type PreviewState =
                 <div class="stack tight">
                   <span class="eyebrow">QUICK LOOK</span>
                   <h2>What we found on {{ r.domain }}</h2>
-                  <p class="muted">We read {{ r.pagesChecked }} {{ r.pagesChecked === 1 ? 'page' : 'pages' }}, the way an AI crawler does. This is not your score — the full check works that out.</p>
+                  <p class="muted">We read {{ r.pagesChecked }} {{ r.pagesChecked === 1 ? 'page' : 'pages' }}, the way an AI crawler does. This is a quick look, not your score. The full check gives you that.</p>
                 </div>
                 @if (sortedChecks().length === 0) {
                   <p class="muted">We did not find anything to flag on the pages we read.</p>
@@ -69,7 +71,7 @@ type PreviewState =
                 }
                 <div class="card cta-card stack">
                   <p class="promise">The full check adds your score, the rest of the findings, and your plan to fix them.</p>
-                  <p class="muted">It is free to start.</p>
+                  <p class="muted">Those findings above are real, and you read them without an account. The full check is free too.</p>
                   <a class="btn btn-primary" routerLink="/signup">Create my free account</a>
                 </div>
               }
@@ -99,22 +101,34 @@ type PreviewState =
 
       <section class="steps divider">
         <div><span class="mono step-no">01</span><h3>You give us your web address</h3><p>Nothing to install, no password to your site, no plugin. We only read the pages anyone can see.</p></div>
-        <div><span class="mono step-no">02</span><h3>We read it the way machines do</h3><p>Then we score how findable you are in Google, in answer boxes, and inside AI assistants — and list what is holding you back.</p></div>
+        <div><span class="mono step-no">02</span><h3>We read it the way GPTBot and Googlebot do</h3><p>Then we score how findable you are in Google, in answer boxes, and inside AI assistants — and list what is holding you back.</p></div>
         <div><span class="mono step-no">03</span><h3>You fix one thing at a time</h3><p>We show you the single biggest win, with steps you can follow yourself, then confirm it worked at your next check.</p></div>
       </section>
 
       <section class="explainer stack divider">
         <span class="eyebrow">YOUR SCORE</span>
         <h2>One score, three parts</h2>
-        <p>Your score is one number out of 100, made from three checks: Google, for how well search engines can find and rank you; Answers, for whether the answer box above the results can quote you directly; and AI, for whether ChatGPT, Claude and the rest can read your page at all.</p>
+        <p>Your score is one number out of 100. It comes from three checks:</p>
+        <ul class="parts">
+          <li><strong>Google</strong> — can search engines find and rank you?</li>
+          <li><strong>Answers</strong> — can the answer box above the results quote you directly?</li>
+          <li><strong>AI</strong> — can ChatGPT, Claude and the rest read your page at all?</li>
+        </ul>
         <p>Most AI crawlers read the plain HTML of a page and do not run JavaScript. Google can run it, but only on a separate, later pass. If your address or your hours only appear after a script runs, an AI assistant never sees them.</p>
+      </section>
+
+      <section class="why-it-matters stack divider">
+        <span class="eyebrow">WHY IT MATTERS</span>
+        <h2>Someone is being named. It may not be you.</h2>
+        <p>When a customer asks an assistant for a plumber, a florist, a dentist, it gives one or two names. It does not give a list of ten links to choose from. If your pages do not say plainly what you do and where you are, the name it gives is your competitor's.</p>
       </section>
 
       <section class="card free-card two-col">
         <div class="stack">
           <span class="eyebrow">WHAT YOU GET FREE</span>
           <p class="promise">Your score and every problem we find. No card, no trial clock.</p>
-          <p class="muted">The step-by-step plan that fixes them is {{ price }} a month. You will know exactly what is in it before you decide.</p>
+          <p class="muted">You will know exactly where you stand before you spend anything. The step-by-step plan that fixes it is {{ price }} a month, and you see what is in it first.</p>
+          <button type="button" class="btn btn-primary free-cta" (click)="goToCheck()">Check my site free</button>
         </div>
         <div class="example stack">
           <div class="row"><span class="example-score">41</span><span class="tone-low semi">Needs work</span></div>
@@ -149,7 +163,7 @@ type PreviewState =
         </div>
         <div class="faq-item">
           <h3>How is this different from hiring an agency?</h3>
-          <p>Agencies commonly quote $1,000 to $5,000 a month and hand you a strategy document. We give you the score and every finding free, and a step-by-step plan for {{ price }} a month — plain steps, not a strategy meeting.</p>
+          <p>In the quotes we have seen, agencies ask $1,000 to $5,000 a month and hand you a strategy document. We break that range down in <a routerLink="/guides/what-seo-costs-a-small-business">what SEO costs a small business</a>. We give you the score and every finding free, and a step-by-step plan for {{ price }} a month — plain steps, not a strategy meeting.</p>
         </div>
         <div class="faq-item">
           <h3>What do I get without paying?</h3>
@@ -159,6 +173,13 @@ type PreviewState =
           <h3>How long does a check take?</h3>
           <p>About two minutes, from typing your address to seeing your score.</p>
         </div>
+      </section>
+
+      <section class="closer stack divider">
+        <span class="eyebrow">READY?</span>
+        <h2>Find out in about ten seconds.</h2>
+        <p class="lead">Type your address. We read your pages the way an AI crawler does and show you what we find. No account, no card.</p>
+        <div class="row"><button type="button" class="btn btn-primary" (click)="goToCheck()">Check my site free</button></div>
       </section>
 
       <app-site-footer />
@@ -185,9 +206,14 @@ type PreviewState =
     .example-subs { gap: 20px; } .example-subs div { display: flex; flex-direction: column; } .example-subs strong { color: var(--ink); }
     .small { font-size: 13px; }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-    .explainer, .faq { padding: 38px 0 46px; }
-    .explainer h2, .faq h2 { font-size: 30px; letter-spacing: -0.03em; }
-    .explainer p, .faq-item p { color: var(--body-long); line-height: 1.6; max-width: 68ch; }
+    .explainer, .faq, .why-it-matters, .closer { padding: 38px 0 46px; }
+    .explainer h2, .faq h2, .why-it-matters h2, .closer h2 { font-size: 30px; letter-spacing: -0.03em; }
+    .explainer p, .faq-item p, .why-it-matters p, .closer p { color: var(--body-long); line-height: 1.6; max-width: 68ch; }
+    .parts { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; max-width: 68ch; color: var(--body-long); line-height: 1.6; }
+    .parts li::marker { color: var(--faint-2); }
+    .parts strong { color: var(--ink); }
+    .free-cta { align-self: flex-start; margin-top: 4px; }
+    .closer { align-items: flex-start; }
     .faq-item { display: flex; flex-direction: column; gap: 6px; }
     .faq-item + .faq-item { margin-top: 22px; }
     .faq-item h3 { font-size: 17px; }
@@ -199,13 +225,14 @@ type PreviewState =
     .evidence { font-size: 16px; line-height: 1.55; color: var(--ink); margin: 0; }
     .cta-card { margin-top: 8px; align-items: flex-start; gap: 10px; }
     .cta-card .btn { margin-top: 6px; }
-    @media (max-width: 760px) { .hero h1 { font-size: 36px; } .steps { flex-direction: column; } .steps > div + div { border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 24px; } .example { width: 100%; padding-left: 0; border-left: none; } .explainer h2, .faq h2 { font-size: 24px; } }
+    @media (max-width: 760px) { .hero h1 { font-size: 36px; } .why-it-matters h2, .closer h2 { font-size: 24px; } .steps { flex-direction: column; } .steps > div + div { border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 24px; } .example { width: 100%; padding-left: 0; border-left: none; } .explainer h2, .faq h2 { font-size: 24px; } }
   `,
 })
 export class Landing {
   private store = inject(UserStore);
   private router = inject(Router);
   private api = inject(ApiClient);
+  private document = inject(DOCUMENT);
   protected readonly price = PRO_PRICE_LABEL;
 
   constructor() {
@@ -224,6 +251,20 @@ export class Landing {
     const result = this.previewResult();
     return result ? [...result.checks].sort((a, b) => severityOrder(a.severity) - severityOrder(b.severity)) : [];
   });
+
+  /**
+   * The two later calls to action send the reader back to the one hero form.
+   * A second form on the page would duplicate the input id and would render its
+   * result far above the reader's scroll position. Focusing the real field
+   * keeps one source of truth and puts the cursor where the reader must type.
+   */
+  protected goToCheck(): void {
+    const input = this.document.getElementById('url') as HTMLInputElement | null;
+    if (!input) return;
+    const calm = this.document.defaultView?.matchMedia('(prefers-reduced-motion: reduce)').matches === true;
+    input.scrollIntoView({ block: 'center', behavior: calm ? 'auto' : 'smooth' });
+    input.focus({ preventScroll: true });
+  }
 
   protected submit(): void {
     if (this.form.invalid) return;

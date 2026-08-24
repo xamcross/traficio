@@ -11,6 +11,9 @@ import { ErrorNote } from '../../shared/error-note';
   imports: [ReactiveFormsModule, RouterLink, ErrorNote],
   template: `
     <div class="page surface plain">
+      <h1>Welcome back</h1>
+      <p class="lead">Log in to see your score, your findings and what to fix next.</p>
+
       <form [formGroup]="form" (ngSubmit)="submit()">
         <label>
           Email
@@ -26,7 +29,7 @@ import { ErrorNote } from '../../shared/error-note';
       <app-error-note [error]="error()" />
 
       <p><a [href]="googleUrl">Continue with Google</a></p>
-      <p>New here? <a routerLink="/signup">Create an account</a></p>
+      <p>New here? <a routerLink="/signup">Create my free account</a></p>
       <p><a routerLink="/reset-password">Forgot your password?</a></p>
     </div>
   `,

@@ -15,7 +15,7 @@
           <div class="task-header">
             <label class="row small">
               <input type="checkbox" [checked]="isChecked(task)" [disabled]="task.status === 'verified' || busyTaskId() !== null" (change)="toggleStatus(task, $event)" />
-              {{ task.status === 'verified' ? 'Checked by us' : 'Done' }}
+              {{ task.status === 'verified' ? 'Confirmed by us' : 'I did this' }}
             </label>
             <button type="button" class="expand" [attr.aria-expanded]="expanded() === task.taskId" [attr.aria-controls]="'details-' + task.taskId" (click)="toggleExpand(task.taskId)">{{ task.title }}</button>
             <span class="faint small">{{ areaName(task.category) }}</span>

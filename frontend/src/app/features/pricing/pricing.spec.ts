@@ -184,10 +184,19 @@ describe('Pricing', () => {
 
   it('sends a signed-out visitor to signup instead of opening checkout', async () => {
     const { el, flow, fixture } = await setup({}, null);
-    button(el, 'Unlock my plan').click();
+    button(el, 'Start free, then unlock').click();
     await fixture.whenStable();
     fixture.detectChanges();
     expect(TestBed.inject(Location).path()).toBe('/signup');
     expect(flow.openCheckoutCalls).toEqual([]);
+  });
+
+  it('never asks a signed-out visitor to unlock a plan nobody has written for them', async () => {
+    const { el } = await setup({}, null);
+    expect(el.textContent).not.toContain('Unlock my plan');
+    expect(el.textContent).toContain('You see your score and every finding before you pay.');
+    // The free check is that visitor's real first step, so it takes the primary button.
+    expect(button(el, 'Check my site free').className).toContain('btn-primary');
+    expect(button(el, 'Start free, then unlock').className).toContain('btn-outline');
   });
 });

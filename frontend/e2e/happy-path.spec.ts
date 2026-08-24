@@ -209,7 +209,8 @@ test('signup, the dashboard hand-off runs a check, and the free result leads to 
   // free account" call to action below the checks moves on to signup. ---
   await page.goto('/');
   await page.getByLabel('Your website').fill('example.com');
-  await page.getByRole('button', { name: 'Check my site free' }).click();
+  // The landing page repeats this call to action three times. Only the hero form submits.
+  await page.locator('#check').getByRole('button', { name: 'Check my site free' }).click();
   await expect(page.getByRole('heading', { name: 'What we found on example.com' })).toBeVisible();
   await expect(page.getByText('An AI assistant cannot read your pages.')).toBeVisible();
   await page.getByRole('link', { name: 'Create my free account' }).click();
@@ -218,9 +219,10 @@ test('signup, the dashboard hand-off runs a check, and the free result leads to 
   // --- 2. Register ---
   await page.getByLabel('Email').fill('jane@example.com');
   await page.getByLabel('Password').fill('correct horse battery staple');
-  await page.getByRole('button', { name: 'Create account' }).click();
+  await page.getByRole('button', { name: 'Create my free account' }).click();
+  await expect(page.getByRole('heading', { name: 'Check your email.' })).toBeVisible();
   await expect(
-    page.getByText('Check your email. We sent you a link. Click the link to confirm your address.'),
+    page.getByText('We sent you a link. Click it to confirm your address, then log in and run your first check.'),
   ).toBeVisible();
 
   // --- 3. Log in --- (two "Log in" links are visible here: the header nav and this panel; the

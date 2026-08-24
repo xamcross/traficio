@@ -107,7 +107,7 @@ describe('ResetConfirm', () => {
     fixture.detectChanges();
 
     expect(api.confirmPasswordResetCalls).toEqual([{ token: 't', newPassword: 'newSecret123' }]);
-    expect(compiled.textContent).toContain('Your password is changed. Log in with the new password.');
+    expect(compiled.textContent).toContain('Your password is changed.');
     expect(findLinkByText(compiled, 'Log in')).toBeTruthy();
   });
 
@@ -239,7 +239,7 @@ describe('ResetDispatch (routing)', () => {
     harness.detectChanges();
 
     expect(api.confirmPasswordResetCalls).toEqual([{ token: 'abc', newPassword: 'newSecret123' }]);
-    expect(compiled.textContent).toContain('Your password is changed. Log in with the new password.');
+    expect(compiled.textContent).toContain('Your password is changed.');
   });
 
   it('never lets a logged-in user\'s token get eaten by the guest form (bug from the review)', async () => {

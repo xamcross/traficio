@@ -75,7 +75,6 @@ function isTerminal(status: AssessmentStatus): boolean {
             </li>
           }
         </ol>
-        <span class="mono faint small">QUEUED → CRAWLING → ANALYZING → PLANNING</span>
       }
     </div>
   `,

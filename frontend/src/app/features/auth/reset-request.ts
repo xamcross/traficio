@@ -10,9 +10,12 @@ import { ErrorNote } from '../../shared/error-note';
   template: `
     <div class="page surface plain">
       @if (sent()) {
-        <p>Check your email. If an account exists for that address, we sent a link to reset your password.</p>
+        <h1>Check your email.</h1>
+        <p class="lead">If an account exists for that address, we sent a link to reset your password. The link works once.</p>
         <p><a routerLink="/login">Log in</a></p>
       } @else {
+        <h1>Reset your password</h1>
+        <p class="lead">Type the email you signed up with. We send you a link that sets a new password.</p>
         <form [formGroup]="form" (ngSubmit)="submit()">
           <label>
             Email

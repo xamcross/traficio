@@ -182,7 +182,7 @@ describe('Plan', () => {
     expect(compiled.textContent).toContain('1 of 2 done');
   });
 
-  it('renders a disabled checkbox labeled "Checked by us" for a verified task, and it cannot be toggled', async () => {
+  it('renders a disabled checkbox labeled "Confirmed by us" for a verified task, and it cannot be toggled', async () => {
     api.getPlanForAssessmentResult = Promise.resolve(
       makePlan({ tasks: [makeTask({ taskId: 't1', status: 'verified' })], progress: { done: 0, verified: 1, total: 1 } }),
     );
@@ -195,7 +195,7 @@ describe('Plan', () => {
     const checkbox = compiled.querySelector<HTMLInputElement>('input[type=checkbox]')!;
     expect(checkbox.disabled).toBeTrue();
     expect(checkbox.checked).toBeTrue();
-    expect(compiled.querySelector('.task-header label')?.textContent).toContain('Checked by us');
+    expect(compiled.querySelector('.task-header label')?.textContent).toContain('Confirmed by us');
 
     checkbox.dispatchEvent(new Event('change'));
     await fixture.whenStable();

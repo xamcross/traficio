@@ -108,7 +108,7 @@ export const routes: Routes = [
   },
   {
     path: 'signup',
-    title: 'Create your account | Traficio',
+    title: 'Create your free account | Traficio',
     canActivate: [guestGuard],
     loadComponent: () => import('./features/auth/register').then(m => m.Register),
   },

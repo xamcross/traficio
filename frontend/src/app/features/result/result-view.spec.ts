@@ -58,9 +58,9 @@ describe('ResultView', () => {
     expect(text).toContain('Needs work');
     expect(text).toContain('Visibility out of 100');
     expect(text).toContain('People asking ChatGPT or Perplexity cannot.');
-    expect(text).toContain('Google search');
+    expect(text).toContain('Google');
     expect(text).toContain('Indexed and titled well enough to rank.');
-    expect(text).toContain('AI assistants');
+    expect(text).toContain('AI');
   });
 
   it('sorts findings high, medium, low, good and captions the pages', async () => {
@@ -71,10 +71,33 @@ describe('ResultView', () => {
     const low = text.indexOf('One page has no title.');
     const good = text.indexOf('AI crawlers are allowed');
     expect(hi).toBeLessThan(med); expect(med).toBeLessThan(low); expect(low).toBeLessThan(good);
-    expect(text).toContain('AI ASSISTANTS · AFFECTS EVERY PAGE');
-    expect(text).toContain('ANSWER BOXES · 14 PAGES');
-    expect(text).toContain('GOOGLE SEARCH · 1 PAGE');
-    expect(text).toContain('FINE');
+    expect(text).toContain('AI · AFFECTS EVERY PAGE');
+    expect(text).toContain('ANSWERS · 14 PAGES');
+    expect(text).toContain('GOOGLE · 1 PAGE');
+    expect(text).toContain('PASS');
+  });
+
+  it('writes the finding count and the plan teaser in the singular at one', async () => {
+    const one = assessment();
+    one.findings = [one.findings[3]];
+    const onePlan = plan(true);
+    onePlan.tasks = [onePlan.tasks[0]];
+    await TestBed.configureTestingModule({
+      imports: [ResultView],
+      providers: [provideRouter([{ path: 'pricing', component: BlankPage }])],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ResultView);
+    fixture.componentRef.setInput('assessment', one);
+    fixture.componentRef.setInput('plan', onePlan);
+    fixture.componentRef.setInput('tier', 'free');
+    fixture.componentRef.setInput('siteId', 'S1');
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('1 thing, in 1 area');
+    expect(text).toContain('We wrote you one thing to fix, in order.');
+    expect(text).toContain('YOUR PLAN · 1 TASK');
+    expect(text).not.toContain('things');
+    expect(text).not.toContain('1 TASKS');
   });
 
   it('shows the NEXT teaser with the locked list for a free user', async () => {

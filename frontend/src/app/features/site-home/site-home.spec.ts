@@ -112,7 +112,7 @@ describe('SiteHome', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(api.patched).toEqual([['P1', 'T1', 'done']]);
-    expect(el.textContent).toContain('You have done everything on your plan.');
+    expect(el.textContent).toContain('That is every task done.');
   });
 
   it('shows the earlier result with a note when the latest failed after a ready check', async () => {

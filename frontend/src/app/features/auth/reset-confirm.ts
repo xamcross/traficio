@@ -10,12 +10,16 @@ import { ErrorNote } from '../../shared/error-note';
   template: `
     <div class="page surface plain">
       @if (done()) {
-        <p>Your password is changed. Log in with the new password.</p>
+        <h1>Your password is changed.</h1>
+        <p class="lead">Log in with the new password.</p>
         <p><a routerLink="/login">Log in</a></p>
       } @else if (!token) {
+        <h1>This link does not work</h1>
         <app-error-note [error]="error()" />
         <p><a routerLink="/reset-password">Send a new link</a></p>
       } @else {
+        <h1>Set a new password</h1>
+        <p class="lead">Pick something you have not used elsewhere. You stay logged out until you use it.</p>
         <form [formGroup]="form" (ngSubmit)="submit()">
           <label>
             New password

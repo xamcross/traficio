@@ -1,11 +1,12 @@
 import { Component, input } from '@angular/core';
 import { PlanDto } from '../../core/api/types';
+import { plural } from '../../shared/copy';
 
 @Component({
   selector: 'app-locked-plan-list',
   template: `
     <div class="locked card-soft">
-      <div class="row head"><span class="mono faint tiny">YOUR PLAN · {{ plan().tasks.length }} TASKS</span><span class="spacer"></span><span class="mono faint tiny">LOCKED</span></div>
+      <div class="row head"><span class="mono faint tiny">YOUR PLAN · {{ plan().tasks.length }} {{ plural(plan().tasks.length, 'TASK', 'TASKS') }}</span><span class="spacer"></span><span class="mono faint tiny">LOCKED</span></div>
       @for (task of plan().tasks.slice(0, 3); track task.taskId; let i = $index) {
         <div class="row item">
           <span class="box" aria-hidden="true"></span>
@@ -35,4 +36,5 @@ import { PlanDto } from '../../core/api/types';
 })
 export class LockedPlanList {
   plan = input.required<PlanDto>();
+  protected readonly plural = plural;
 }
