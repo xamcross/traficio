@@ -21,9 +21,9 @@ export function resetFreemiusScriptCache(): void {
 /**
  * Loads the Freemius checkout script once. It caches the promise for later calls.
  *
- * A prior call can time out. Its script element can still finish loading later, in the
- * background. This function then finds that same element by id. It waits on that element.
- * It does not add a second element with the same src.
+ * A prior call can time out. Its script element still loads in the background after that.
+ * This function then finds that same element by id. It waits on that element. It does not
+ * add a second element with the same src.
  *
  * This function resolves at once, with no new element, when window.FS already exists from
  * an earlier successful load.
@@ -32,7 +32,8 @@ export function loadFreemiusScript(): Promise<void> {
   if ((window as unknown as FreemiusGlobal).FS) return Promise.resolve();
   if (!freemiusScriptPromise) {
     freemiusScriptPromise = new Promise<void>((resolve, reject) => {
-      // Declared first, so settle() always clears a real handle, however soon it runs.
+      // The code declares timeoutHandle first. Then settle() always clears a real handle,
+      // no matter how soon the call happens.
       const timeoutHandle = setTimeout(() => {
         freemiusScriptPromise = null;
         reject(new Error('Timed out loading the checkout script.'));

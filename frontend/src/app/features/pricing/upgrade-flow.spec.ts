@@ -127,10 +127,10 @@ describe('loadFreemiusScript', () => {
   }));
 
   it('resolves from an already-loaded element left in the page, after resetFreemiusScriptCache runs', fakeAsync(() => {
-    // Simulates the one production path that can reach the script's data-state="loaded"
-    // branch: an earlier, already-successful load, with the cache then reset by the
-    // exported test helper. window.FS is left unset, so the call must resolve from the
-    // element's data-state, not from the window.FS check at the top of loadFreemiusScript.
+    // This test covers the one production path that can reach the 'loaded' branch. An
+    // earlier load succeeds. The exported test helper then resets the cache. The test
+    // leaves window.FS unset. loadFreemiusScript must then resolve from the element's
+    // data-state, not from the window.FS check at the top of the function.
     const script = document.createElement('script');
     script.id = 'freemius-checkout';
     script.src = FREEMIUS_SCRIPT_URL;
