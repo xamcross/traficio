@@ -25,7 +25,7 @@ import kotlin.test.assertTrue
 class BillingWebhookTest {
     private val secret = "whsec-test"
     private val env = mapOf("FREEMIUS_SECRET_KEY" to secret, "FREEMIUS_PRO_PLAN_ID" to "plan-pro")
-    private val renewalTypes = listOf("license.updated")
+    private val renewalTypes = listOf("license.extended", "license.updated")
 
     private fun upgradeBody(email: String) = """
         {"type":"license.created","objects":{"user":{"email":"$email"},

@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory
 
 private val UPGRADE_TYPES = setOf("license.created", "license.activated", "subscription.created")
 private val DOWNGRADE_TYPES = setOf("payment.refund", "license.expired", "license.cancelled", "license.deactivated")
+private val EXPIRY_UPDATE_TYPES = setOf("license.extended", "license.updated")
 
 class BillingService(
     private val users: UserRepository,
@@ -31,12 +32,11 @@ class BillingService(
                 val info = user.freemius ?: return
                 users.setBilling(user.id, user.tier, info.copy(subscriptionStatus = "cancelled"))
             }
-            // Freemius sends no event for a renewal payment. It sends payment.created instead.
-            // A real payment.created payload has no license object. It cannot supply the new
-            // expiration. Freemius also sends license.updated, and that event does carry the
-            // license object. The license id check rejects a stale license.updated event. A
-            // stale event must not overwrite a newer expiration.
-            event.type == "license.updated" -> {
+            // A renewal extends the license. Freemius then sends license.extended with the
+            // license object. The payment.created event of a renewal has no license object, so
+            // it cannot give the new expiration. The generic license.updated event can also
+            // carry the license object. The license id check rejects an event for another license.
+            event.type in EXPIRY_UPDATE_TYPES -> {
                 val info = user.freemius
                 if (info != null && event.licenseId != null && event.licenseId == info.licenseId && event.expiresAt != null) {
                     users.setBilling(user.id, user.tier, info.copy(expiresAt = event.expiresAt))
