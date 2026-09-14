@@ -122,7 +122,7 @@ export class Progress implements OnInit {
   private doneTimer: ReturnType<typeof setTimeout> | null = null;
   /** This is the count of consecutive refetch failures since the last success. Each successful fetch resets it to zero. */
   private refetchFailures = 0;
-  /** This flag becomes true after cleanup() runs and destroys the component.
+  /** This flag becomes true after Angular destroys the component and calls cleanup().
    *  Each async step and each timer below checks this flag first.
    *  A stale promise or timer then cannot navigate, retry, or open a stream. */
   private destroyed = false;
