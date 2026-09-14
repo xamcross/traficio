@@ -19,8 +19,11 @@ fun sha256Hex(value: String): String =
         .digest(value.toByteArray(Charsets.UTF_8))
         .joinToString("") { "%02x".format(it) }
 
-fun hmacSha256Hex(secret: String, body: String): String {
+fun hmacSha256Hex(secret: String, body: ByteArray): String {
     val mac = Mac.getInstance("HmacSHA256")
     mac.init(SecretKeySpec(secret.toByteArray(Charsets.UTF_8), "HmacSHA256"))
-    return mac.doFinal(body.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+    return mac.doFinal(body).joinToString("") { "%02x".format(it) }
 }
+
+fun hmacSha256Hex(secret: String, body: String): String =
+    hmacSha256Hex(secret, body.toByteArray(Charsets.UTF_8))
