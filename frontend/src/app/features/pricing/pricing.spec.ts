@@ -64,9 +64,10 @@ class FakeUpgradeFlow {
 
 const freeUser: UserDto = { id: 'u1', email: 'dana@rivertonbakery.com', emailVerified: true, tier: 'free' };
 
-async function setup(query: Record<string, string>, user: UserDto | null, sites: SiteDto[] = [site()]) {
+async function setup(query: Record<string, string>, user: UserDto | null, sites: SiteDto[] = [site()], plan: PlanDto = lockedPlan()) {
   const api = new FakeApiClient();
   api.sites = sites;
+  api.plan = plan;
   const flow = new FakeUpgradeFlow();
   await TestBed.configureTestingModule({
     imports: [Pricing],
@@ -109,6 +110,15 @@ describe('Pricing', () => {
     expect(text).toContain('Back to my result');
     const backLink = Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Back to my result')) as HTMLAnchorElement;
     expect(backLink.getAttribute('href')).toBe('/sites/S1');
+  });
+
+  it('writes a gate task step count in the singular at one', async () => {
+    const plan = lockedPlan();
+    plan.tasks[0] = { ...plan.tasks[0], stepCount: 1 };
+    const { el } = await setup({ site: 'S1' }, freeUser, [site()], plan);
+    const text = el.textContent ?? '';
+    expect(text).toContain('1 step ·');
+    expect(text).not.toContain('1 steps');
   });
 
   it('shows the public pricing when signed out', async () => {

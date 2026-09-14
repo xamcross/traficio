@@ -121,4 +121,12 @@ describe('ResultView', () => {
     expect(text).toContain('Do this next →');
     expect(text).toContain('See all 8 tasks');
   });
+
+  it('writes the "see all" link in the singular for a pro user with one task', async () => {
+    const onePlan = plan(false);
+    onePlan.tasks = [onePlan.tasks[0]];
+    const { text } = await render('pro', onePlan);
+    expect(text).toContain('See all 1 task');
+    expect(text).not.toContain('1 tasks');
+  });
 });

@@ -1,4 +1,4 @@
-import { areaCode, areaName, bandFor, effortText, formatDate, formatDateShort, monthName, numberWord, pagesCaption, plural, severityLabel, severityOrder } from './copy';
+import { areaCode, areaName, bandFor, capitalize, effortText, formatDate, formatDateShort, monthName, numberWord, pagesCaption, plural, severityLabel, severityOrder } from './copy';
 
 describe('copy helpers', () => {
   it('bands scores into three labels and tones', () => {
@@ -59,6 +59,12 @@ describe('copy helpers', () => {
     expect(plural(1, 'thing', 'things')).toBe('thing');
     expect(plural(2, 'thing', 'things')).toBe('things');
     expect(plural(1, 'TASK', 'TASKS')).toBe('TASK');
+  });
+
+  it('makes the first letter upper case', () => {
+    expect(capitalize('two')).toBe('Two');
+    expect(capitalize('Two')).toBe('Two');
+    expect(capitalize('')).toBe('');
   });
 
   it('formats dates in the long form', () => {

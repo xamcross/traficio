@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { ErrorNote } from '../../shared/error-note';
+import { toApiError } from '../../shared/to-api-error';
 
 @Component({
   selector: 'app-verify-email',
@@ -47,7 +48,7 @@ export class VerifyEmail {
       .verifyEmail(token)
       .then(
         () => this.verified.set(true),
-        (e: unknown) => this.error.set(e instanceof ApiError ? e : new ApiError('unknown', 'Something went wrong. Please try again.', 0)),
+        (e: unknown) => this.error.set(toApiError(e)),
       )
       .finally(() => this.busy.set(false));
   }

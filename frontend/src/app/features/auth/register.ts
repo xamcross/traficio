@@ -6,6 +6,7 @@ import { ApiClient, ApiError } from '../../core/api/api-client';
 import { API_BASE } from '../../core/config';
 import { readPendingUrl } from '../../core/pending-url';
 import { ErrorNote } from '../../shared/error-note';
+import { toApiError } from '../../shared/to-api-error';
 
 @Component({
   selector: 'app-register',
@@ -87,7 +88,7 @@ export class Register {
       .register(email, password)
       .then(
         () => this.sent.set(true),
-        (e: unknown) => this.error.set(e instanceof ApiError ? e : new ApiError('unknown', 'Something went wrong. Please try again.', 0)),
+        (e: unknown) => this.error.set(toApiError(e)),
       )
       .finally(() => this.busy.set(false));
   }

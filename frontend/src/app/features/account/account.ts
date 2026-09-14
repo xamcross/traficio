@@ -5,7 +5,7 @@ import { UserStore } from '../../core/auth/user-store';
 import { SiteDto, UsageDto } from '../../core/api/types';
 import { FREEMIUS_PORTAL_URL, PRO_PRICE_LABEL, PRO_TIER_COPY } from '../../core/config';
 import { ErrorNote } from '../../shared/error-note';
-import { formatDate, formatDateShort, numberWord } from '../../shared/copy';
+import { capitalize, formatDate, formatDateShort, numberWord, plural } from '../../shared/copy';
 import { toApiError } from '../../shared/to-api-error';
 import { pricingUrlFor } from '../../shared/upgrade-redirect';
 
@@ -46,8 +46,9 @@ export class Account implements OnInit {
   protected readonly proSitesLeft = computed(() => Math.max(0, PRO_TIER_COPY.sites - this.sites().length));
   protected readonly hasReadyCheck = computed(() => this.sites().some((s) => s.latestReadyAssessmentId));
   protected readonly word = numberWord;
+  protected readonly plural = plural;
   protected readonly price = PRO_PRICE_LABEL;
-  protected readonly proSites = numberWord(PRO_TIER_COPY.sites).replace(/^./, (c) => c.toUpperCase());
+  protected readonly proSites = capitalize(numberWord(PRO_TIER_COPY.sites));
   protected readonly proChecks = numberWord(PRO_TIER_COPY.checks);
 
   /** Set once on destroy. Every async continuation checks it first.

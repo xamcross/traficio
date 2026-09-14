@@ -43,7 +43,7 @@
                 @if (site.latestScores; as s) {<span class="price" style="font-size:20px">{{ s.overall }}</span>}
               </a>
             }
-            @if (store.user()?.tier !== 'pro' && proSitesLeft() > 0) {<span class="faint small">Pro lets you add {{ word(proSitesLeft()) }} more sites.</span>}
+            @if (store.user()?.tier !== 'pro' && proSitesLeft() > 0) {<span class="faint small">Pro lets you add {{ word(proSitesLeft()) }} more {{ plural(proSitesLeft(), 'site', 'sites') }}.</span>}
           }
         </section>
 

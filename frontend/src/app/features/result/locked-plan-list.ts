@@ -14,7 +14,7 @@ import { plural } from '../../shared/copy';
           @if (i > 0) {<span class="muted tiny">{{ task.effortMinutes }} min</span>}
         </div>
         @if (i === 0) {
-          <div class="row sub"><span class="badge badge-high">BIGGEST WIN</span><span class="muted tiny">{{ task.stepCount }} steps · {{ task.effortMinutes }} min</span></div>
+          <div class="row sub"><span class="badge badge-high">BIGGEST WIN</span><span class="muted tiny">{{ task.stepCount }} {{ plural(task.stepCount, 'step', 'steps') }} · {{ task.effortMinutes }} min</span></div>
         }
       }
       @if (plan().tasks.length > 3) {

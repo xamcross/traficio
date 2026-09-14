@@ -2,7 +2,7 @@ import { Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AssessmentDto, Finding, PlanDto, Tier } from '../../core/api/types';
 import { PRO_PRICE_LABEL } from '../../core/config';
-import { areaCode, areaName, bandFor, effortText, formatDate, numberWord, pagesCaption, plural, severityOrder } from '../../shared/copy';
+import { areaCode, areaName, bandFor, capitalize, effortText, formatDate, numberWord, pagesCaption, plural, severityOrder } from '../../shared/copy';
 import { ScoreBar } from '../../shared/score-bar';
 import { SeverityBadge } from '../../shared/severity-badge';
 import { LockedPlanList } from './locked-plan-list';
@@ -81,7 +81,7 @@ const AREAS: Array<{ key: 'seo' | 'aeo' | 'geo' }> = [{ key: 'seo' }, { key: 'ae
       } @else {
         <div class="row pro-links">
           <a [routerLink]="['/sites', siteId()]">Do this next →</a>
-          <a [routerLink]="['/assessments', assessment().id, 'plan']">See all {{ p.tasks.length }} tasks</a>
+          <a [routerLink]="['/assessments', assessment().id, 'plan']">See all {{ p.tasks.length }} {{ plural(p.tasks.length, 'task', 'tasks') }}</a>
         </div>
       }
     }
@@ -140,7 +140,6 @@ export class ResultView {
   protected effortSentence(p: PlanDto): string {
     const minutes = openMinutes(p);
     if (minutes <= 0) return '';
-    const e = effortText(minutes);
-    return `${e.charAt(0).toUpperCase()}${e.slice(1)} of work in total.`;
+    return `${capitalize(effortText(minutes))} of work in total.`;
   }
 }
