@@ -5,6 +5,7 @@ import app.geostrategy.RecordingEmailSender
 import app.geostrategy.TestMongo
 import app.geostrategy.appModule
 import app.geostrategy.auth.hmacSha256Hex
+import app.geostrategy.http.WEBHOOK_BODY_LIMIT_BYTES
 import app.geostrategy.registerAndLogin
 import app.geostrategy.testDeps
 import app.geostrategy.users.UserRepository
@@ -14,10 +15,15 @@ import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.request
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.writeStringUtf8
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -30,6 +36,13 @@ class BillingWebhookTest {
     private fun upgradeBody(email: String) = """
         {"type":"license.created","objects":{"user":{"email":"$email"},
          "license":{"id":"lic-1","plan_id":"plan-pro","expiration":"2027-01-01T00:00:00Z"}}}
+    """.trimIndent()
+
+    /** A validly-shaped, validly-signable upgrade event padded past the webhook body limit. */
+    private fun oversizedUpgradeBody(email: String) = """
+        {"type":"license.created","objects":{"user":{"email":"$email"},
+         "license":{"id":"lic-1","plan_id":"plan-pro","expiration":"2027-01-01T00:00:00Z"}},
+         "padding":"${"x".repeat(WEBHOOK_BODY_LIMIT_BYTES.toInt())}"}
     """.trimIndent()
 
     private suspend fun io.ktor.client.HttpClient.webhook(body: String, sig: String?) =
@@ -97,6 +110,43 @@ class BillingWebhookTest {
         val res = client.post("/v1/billing/freemius/webhook") { setBody("{}") }
         assertEquals(HttpStatusCode.ServiceUnavailable, res.status)
         assertTrue(res.bodyAsText().contains("billing_not_configured"))
+    }
+
+    @Test
+    fun `a webhook body over the limit with Content-Length is 413 and never applies billing`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+
+        // A validly-signed body, so a 413 here proves the size cap runs before signature
+        // verification and before BillingService.apply, not that the signature failed.
+        val oversized = oversizedUpgradeBody("ada@example.com")
+        val res = http.webhook(oversized, hmacSha256Hex(secret, oversized))
+        assertEquals(HttpStatusCode.PayloadTooLarge, res.status)
+        assertTrue(res.bodyAsText().contains("invalid_request"))
+
+        val user = runBlocking { UserRepository(db).findByEmail("ada@example.com")!! }
+        assertEquals("free", user.tier)
+    }
+
+    @Test
+    fun `a webhook body over the limit with no Content-Length header is also 413`() = testApplication {
+        application { appModule(testDeps(TestMongo.freshDb(), email = RecordingEmailSender(), env = env)) }
+        val body = oversizedUpgradeBody("ada@example.com")
+
+        val res = client.post("/v1/billing/freemius/webhook") {
+            header("X-Signature", hmacSha256Hex(secret, body))
+            setBody(object : OutgoingContent.WriteChannelContent() {
+                override suspend fun writeTo(channel: ByteWriteChannel) {
+                    channel.writeStringUtf8(body)
+                }
+            })
+        }
+        // Confirms this request truly carried no Content-Length header, so the assertion
+        // below proves the streaming byte count, not the declared length, caught it.
+        assertEquals(null, res.request.headers[HttpHeaders.ContentLength])
+        assertEquals(HttpStatusCode.PayloadTooLarge, res.status)
     }
 
     @Test

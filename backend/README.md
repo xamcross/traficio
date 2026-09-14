@@ -113,6 +113,20 @@ Freemius webhooks before production. The test fixtures define the parser's
 current contract. The webhook has no replay protection. The signature covers
 only the body. Review both points before production.
 
+## Request body limits
+
+The `RequestBodyLimit` plugin caps every request body. The API runs on one small
+machine, so an unbounded body can use up all its memory.
+
+- `POST /v1/billing/freemius/webhook` — 64 KB. Verify this against a real
+  Freemius webhook body before production. Raise the limit if 64 KB is less
+  than four times that body's size.
+- Every other route — 16 KB.
+- `POST /v1/preview` keeps its own separate 4 KB cap, because a preview
+  request never needs more than a url.
+
+A body over its limit gets a 413 response with an `invalid_request` error body.
+
 ## Before production with a real Anthropic key
 
 1. Set `ANTHROPIC_API_KEY`. The client streams responses to avoid timeouts.
