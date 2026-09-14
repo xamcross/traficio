@@ -67,6 +67,25 @@ describe('Landing', () => {
     expect(text).toContain('EXAMPLE RESULT, FREE TIER');
   });
 
+  it('keeps the text that a visitor typed into the pre-rendered field before hydration', async () => {
+    // Before hydration, the page holds the server-rendered form, and the visitor has typed into it.
+    const prerendered = document.createElement('div');
+    prerendered.innerHTML = '<form id="check"><input id="url" type="text"></form>';
+    document.body.appendChild(prerendered);
+    prerendered.querySelector('input')!.value = 'rivertonbakery.com';
+    try {
+      await configure();
+      const fixture = TestBed.createComponent(Landing);
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector<HTMLInputElement>('#url')!.value).toBe('rivertonbakery.com');
+      expect(el.querySelector<HTMLButtonElement>('button[type=submit]')!.disabled).toBe(false);
+    } finally {
+      prerendered.remove();
+    }
+  });
+
   it('goes to the dashboard when signed in, without running a preview', async () => {
     await configure();
     TestBed.inject(UserStore).user.set({ id: 'u1', email: 'a@example.com', emailVerified: true, tier: 'free' });
