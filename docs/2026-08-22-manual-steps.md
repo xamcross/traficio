@@ -22,18 +22,17 @@ Legend: **[D]** a decision only you can make · **[A]** an account only you can 
 
 These cost the least and close the most risk.
 
-### 1. Rotate the Anthropic key · [C] · 5 minutes
+### 1. Rotate the Anthropic key — done 2026-09-14
 
-The key you pasted into the chat on 2026-08-18 sits in a transcript. Treat it as public.
+The key pasted into the chat on 2026-08-18 sat in a transcript. You created
+`traficio-prod-2`, set it with `fly secrets set`, and revoked the old key.
 
-1. Open https://console.anthropic.com → **API Keys**.
-2. Create a key named `traficio-prod-2`. Copy it.
-3. From `backend/`:
-   ```
-   fly secrets set --app geostrategy-api ANTHROPIC_API_KEY="sk-ant-..."
-   ```
-4. Back in the console, **revoke the old key**.
-5. Check: `https://api.traficio.com/healthz` returns `ok` after the machine restarts.
+`https://api.traficio.com/healthz` returns `ok` after the restart. The check confirms the
+Fly app runs on the new key. It does not confirm the key works against the Anthropic API.
+
+**Still open:** item 10, the live-key assessment. It is the only check that calls Anthropic
+with the new key and confirms a real check runs end to end. Run it before you rely on the
+new key in production.
 
 ### 2. Delete the temporary Cloudflare token · [C] · 2 minutes
 
