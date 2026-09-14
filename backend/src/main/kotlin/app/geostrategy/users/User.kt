@@ -15,7 +15,6 @@ import org.bson.types.ObjectId
 import java.time.Instant
 
 data class FreemiusInfo(
-    val userId: String? = null,
     val licenseId: String? = null,
     val planId: String? = null,
     val subscriptionStatus: String? = null,
