@@ -242,8 +242,18 @@ export class Landing {
   }
 
   protected readonly form = new FormGroup({
-    url: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    url: new FormControl(this.prerenderedUrl(), { nonNullable: true, validators: [Validators.required] }),
   });
+
+  /**
+   * The landing page is pre-rendered, so a visitor can type into the hero field before the
+   * bundle hydrates the page. On hydration, the form writes its start value into that same
+   * field. The start value is therefore the text that is already in the field (issue #27).
+   * When Angular renders the page itself, the field does not exist yet, and the value is empty.
+   */
+  private prerenderedUrl(): string {
+    return this.document.querySelector<HTMLInputElement>('form#check input#url')?.value ?? '';
+  }
 
   protected readonly previewState = signal<PreviewState>('idle');
   protected readonly previewResult = signal<PreviewDto | null>(null);
