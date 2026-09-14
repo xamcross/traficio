@@ -60,7 +60,7 @@ type Phase = 'idle' | 'opening' | 'unlocking' | 'timeout';
                 <span class="mono faint idx">0{{ i + 1 }}</span>
                 <div class="stack tight">
                   <span class="title">{{ task.title }}</span>
-                  <span class="faint small">{{ task.stepCount }} {{ plural(task.stepCount, 'step', 'steps') }} · {{ task.effortMinutes }} minutes{{ i === 0 ? ' · biggest single win' : '' }}</span>
+                  <span class="faint small">{{ task.stepCount }} {{ plural(task.stepCount, 'step', 'steps') }} · {{ task.effortMinutes }} {{ plural(task.effortMinutes, 'minute', 'minutes') }}{{ i === 0 ? ' · biggest single win' : '' }}</span>
                 </div>
                 <span class="spacer"></span>
                 <app-impact-badge [impact]="task.impact" />

@@ -87,7 +87,7 @@ function isTerminal(status: AssessmentStatus): boolean {
     .rail li:last-child { border-bottom: none; }
     .rail li.active { color: var(--ink); font-weight: 600; }
     .rail li.done { color: var(--ink); }
-    .dot { width: 22px; height: 22px; border-radius: 999px; border: 2px solid var(--line-soft); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+    .dot { width: 22px; height: 22px; border-radius: 999px; border: 2px solid var(--line-deep); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
     .active .dot { border-color: var(--accent); }
     .done .dot { background: var(--accent); border-color: var(--accent); color: var(--card); }
     .tight { gap: 6px; }

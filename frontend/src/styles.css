@@ -1,13 +1,19 @@
 @import '@fontsource/libre-franklin/latin-400.css';
+@import '@fontsource/libre-franklin/latin-ext-400.css';
 @import '@fontsource/libre-franklin/latin-500.css';
+@import '@fontsource/libre-franklin/latin-ext-500.css';
 @import '@fontsource/libre-franklin/latin-600.css';
+@import '@fontsource/libre-franklin/latin-ext-600.css';
 @import '@fontsource/libre-franklin/latin-700.css';
+@import '@fontsource/libre-franklin/latin-ext-700.css';
 @import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-ext-400.css';
 @import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/latin-ext-500.css';
 
 :root {
   --bg: #efe7db; --surface: #fdf7ee; --card: #ffffff; --card-soft: #fdfaf5; --strip: #fbf2e5; --strip-soft: #faf3e9; --note: #fbf6ee;
-  --line: #f0e5d4; --line-strong: #ecdfcc; --line-input: #e0cdb2; --line-soft: #e6d6be; --line-tint: #f5ece0;
+  --line: #f0e5d4; --line-strong: #ecdfcc; --line-input: #e0cdb2; --line-deep: #e6d6be; --line-tint: #f5ece0;
   --ink: #221c15; --body: #4c4237; --body-long: #5c4f40; --muted: #7a6a58;
   --faint: #a89478; --faint-2: #b09a7e; --faint-3: #cbb79a; --faint-4: #c0ad94;
   --accent: #b4552f; --accent-hover: #8e3f20; --accent-tint: #fbeae1;

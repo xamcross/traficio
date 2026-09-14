@@ -5,9 +5,9 @@ export const API_BASE = environment.apiBaseUrl;
 export const FREEMIUS_PRODUCT_ID = environment.freemiusProductId;
 export const FREEMIUS_PUBLIC_KEY = environment.freemiusPublicKey;
 export const FREEMIUS_PORTAL_URL = 'https://users.freemius.com'; // customer portal entry
-// localStorage key for the url a visitor types on the landing page. A visitor types the
-// url before they sign up or log in. The dashboard reads the value after login. It then
-// starts the first check for that url. See core/pending-url.ts for the functions for this
+// localStorage key for the URL a visitor types on the landing page. A visitor types the
+// URL before they sign up or log in. The dashboard reads the value after login. It then
+// starts the first check for that URL. See core/pending-url.ts for the functions for this
 // key.
 export const PENDING_URL_KEY = 'geostrategy.pendingUrl';
 

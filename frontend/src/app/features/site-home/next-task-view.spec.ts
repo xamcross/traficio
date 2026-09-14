@@ -60,6 +60,15 @@ describe('NextTaskView', () => {
     expect(text).toContain('2 more');   // 6 open tasks - the current one - 3 shown
   });
 
+  it('shows the singular unit at one effort minute', async () => {
+    const p = plan();
+    p.tasks[0] = { ...p.tasks[0], effortMinutes: 1 };
+    const fixture = await render(p);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('About 1 minute');
+    expect(text).not.toContain('About 1 minutes');
+  });
+
   it('skip shows the following task and emits done with the task id', async () => {
     const fixture = await render(plan());
     const el = fixture.nativeElement as HTMLElement;

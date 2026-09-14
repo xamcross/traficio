@@ -1,7 +1,7 @@
 import { Component, computed, effect, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AssessmentDto, PlanDto, PlanTaskDto } from '../../core/api/types';
-import { areaName, bandFor, effortText } from '../../shared/copy';
+import { areaName, bandFor, effortText, plural } from '../../shared/copy';
 import { openMinutes } from '../result/result-view';
 import { addSkip, clearSkips, readSkips } from './skips';
 
@@ -44,7 +44,7 @@ export function nextTaskFor(plan: PlanDto, skipped: Set<string>): PlanTaskDto | 
         <article class="card task stack">
           <div class="row">
             @if (isBiggest(t)) {<span class="badge badge-high">BIGGEST WIN</span>}
-            <span class="faint small">About {{ t.effortMinutes }} minutes</span><span class="faint small">·</span><span class="faint small">{{ areaName(t.category) }}</span>
+            <span class="faint small">About {{ t.effortMinutes }} {{ plural(t.effortMinutes, 'minute', 'minutes') }}</span><span class="faint small">·</span><span class="faint small">{{ areaName(t.category) }}</span>
           </div>
           <h2>{{ t.title }}</h2>
           @if (t.whyItMatters) {<p class="lead">{{ t.whyItMatters }}</p>}
@@ -108,6 +108,7 @@ export class NextTaskView {
   checkAgain = output<void>();
 
   protected readonly areaName = areaName;
+  protected readonly plural = plural;
   private readonly skipped = signal<Set<string>>(new Set());
   constructor() {
     effect(() => { this.skipped.set(readSkips(this.plan().id)); });

@@ -121,6 +121,15 @@ describe('Pricing', () => {
     expect(text).not.toContain('1 steps');
   });
 
+  it('writes a gate task effort in the singular at one minute', async () => {
+    const plan = lockedPlan();
+    plan.tasks[0] = { ...plan.tasks[0], effortMinutes: 1 };
+    const { el } = await setup({ site: 'S1' }, freeUser, [site()], plan);
+    const text = el.textContent ?? '';
+    expect(text).toContain('1 minute ·');
+    expect(text).not.toContain('1 minutes');
+  });
+
   it('shows the public pricing when signed out', async () => {
     const { el } = await setup({}, null);
     const text = el.textContent ?? '';

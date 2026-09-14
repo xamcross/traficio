@@ -80,8 +80,8 @@ test('signup, the dashboard hand-off runs a check, and the free result leads to 
     };
   }
 
-  // This catch-all route runs first, so later routes below override it. It fails loudly on any
-  // /v1/** request that this test does not mock.
+  // This catch-all route runs first, so later routes below override it. It throws an error on
+  // any /v1/** request that this test does not mock.
   await page.route('**/v1/**', async (route) => {
     await route.fulfill({
       status: 500,
@@ -168,10 +168,10 @@ test('signup, the dashboard hand-off runs a check, and the free result leads to 
   });
 
   // SSE: this mock sends two status frames, then it ends the response. There is no explicit
-  // terminator. The app's wrapper reads the closed connection as a signal. It stops listening
-  // and it re-fetches the assessment. The delay before fulfill gives the progress page real
-  // time in its "queued" state. A mock with no delay moves through every rail state before the
-  // test can see them.
+  // terminator. The app's wrapper reads the closed connection as a signal. It closes the
+  // stream. Then it re-fetches the assessment. The delay before fulfill gives the progress
+  // page real time in its "queued" state. A mock with no delay moves through every rail state
+  // before the test can see them.
   await page.route(/\/v1\/assessments\/A1\/events$/, async (route) => {
     state.assessmentReady = true;
     await new Promise((resolve) => setTimeout(resolve, 500));
