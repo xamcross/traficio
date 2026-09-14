@@ -45,25 +45,20 @@ now.
 2. Find `traficio-setup` → the `⋯` menu → **Delete**.
 3. Keep `CLOUDFLARE_API_TOKEN`, the CI token with `Pages:Edit` only. CI needs it.
 
-### 3. Decide the AI training-crawler policy · [D] · 5 minutes · **deadline 15 September 2026**
+### 3. AI training-crawler policy — decided: block · [D] · done 2026-09-14
 
 Cloudflare replaces its AI-blocking control with a three-tier search / agent / training
-system on 15 September 2026. If you state nothing, a default may be applied for you.
+system on 15 September 2026. You decided the open question from issue #5: block the
+**training** crawlers, `GPTBot` and `ClaudeBot`. Reason: "we should not allow the bots to
+train on our content. we only allow search."
 
-`frontend/public/robots.txt` already welcomes the **search** crawlers by name:
-`OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`, `Google-Extended`. Those are what put
-you into AI answers, and being found there is the product. That part is settled.
+`frontend/public/robots.txt` names and allows the **search** crawlers —
+`OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`, `Google-Extended` — and now also
+disallows `GPTBot` and `ClaudeBot`. Blocking the training crawlers does not remove you from
+ChatGPT or Claude answers; those use the search bots above, which stay allowed.
 
-The open question is the **training** crawlers, `GPTBot` and `ClaudeBot`:
-
-| Choice | You get | You give up |
-|---|---|---|
-| **Allow** (today) | Your guides may inform future models. Nothing to do. | Your writing trains models with no direct return. |
-| **Block** | Your content is not used for training. | Nothing in search visibility. |
-
-Blocking the training crawlers does **not** remove you from ChatGPT or Claude answers.
-Those use the search bots above, which stay allowed either way. A commented-out block in
-`robots.txt` shows exactly how to disallow them: uncomment it, commit, push, and CI deploys.
+Nothing left to do here. Check `https://traficio.com/robots.txt` after the deploy to
+confirm the `GPTBot` and `ClaudeBot` rules show.
 
 ---
 
@@ -285,4 +280,5 @@ Listed so you can see the boundary. None of it needs your attention.
 - Public shareable results, and the Pages Function that renders them as crawlable HTML.
 - The WAF rate-limit rule `api-abuse-endpoints`.
 - The rule that stops `/v1/preview` answering on the bare Fly hostname.
-- `robots.txt` naming the AI search crawlers, and structured data on the landing page.
+- `robots.txt` naming the AI search crawlers and blocking the AI training crawlers, plus
+  structured data on the landing page.
