@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory
 
 private val UPGRADE_TYPES = setOf("license.created", "license.activated", "subscription.created")
 private val DOWNGRADE_TYPES = setOf("payment.refund", "license.expired", "license.cancelled", "license.deactivated")
+private val HANDLED_TYPES = UPGRADE_TYPES + DOWNGRADE_TYPES + setOf("subscription.cancelled")
 
 class BillingService(
     private val users: UserRepository,
@@ -14,8 +15,15 @@ class BillingService(
     private val log = LoggerFactory.getLogger(BillingService::class.java)
 
     suspend fun apply(event: FreemiusEvent) {
+        if (event.type !in HANDLED_TYPES) {
+            log.info("freemius event {} ignored", event.type)
+            return
+        }
         val email = event.email ?: run { log.warn("freemius event {} without email", event.type); return }
-        val user = users.findByEmail(email) ?: run { log.warn("freemius event {} for unknown email", event.type); return }
+        val user = users.findByEmail(email) ?: run {
+            log.error("freemius event {} for unknown email, license {}", event.type, event.licenseId)
+            return
+        }
         when {
             event.type in UPGRADE_TYPES -> {
                 if (proPlanId != null && event.planId != null && event.planId != proPlanId) {
@@ -34,7 +42,6 @@ class BillingService(
             event.type in DOWNGRADE_TYPES -> {
                 users.setBilling(user.id, "free", (user.freemius ?: FreemiusInfo()).copy(subscriptionStatus = "expired"))
             }
-            else -> log.info("freemius event {} ignored", event.type)
         }
     }
 }

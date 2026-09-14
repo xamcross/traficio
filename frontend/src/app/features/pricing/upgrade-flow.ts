@@ -50,7 +50,7 @@ export class UpgradeFlow {
     await this.loadScript();
     const fs = (window as unknown as FreemiusGlobal).FS;
     const handler = new fs!.Checkout({ product_id: this.productId, public_key: this.publicKey });
-    handler.open({ email, success: onSuccess });
+    handler.open({ user_email: email, readonly_user: true, success: onSuccess });
   }
 
   async awaitUpgrade(): Promise<boolean> {

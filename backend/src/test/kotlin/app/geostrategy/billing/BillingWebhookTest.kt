@@ -1,5 +1,6 @@
 package app.geostrategy.billing
 
+import app.geostrategy.LogCapture
 import app.geostrategy.RecordingEmailSender
 import app.geostrategy.TestMongo
 import app.geostrategy.appModule
@@ -7,6 +8,7 @@ import app.geostrategy.auth.hmacSha256Hex
 import app.geostrategy.registerAndLogin
 import app.geostrategy.testDeps
 import app.geostrategy.users.UserRepository
+import ch.qos.logback.classic.Level
 import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -142,5 +144,62 @@ class BillingWebhookTest {
 
         val res = http.webhook(upgradeBody("ada@example.com"), null)
         assertEquals(HttpStatusCode.Unauthorized, res.status)
+    }
+
+    @Test
+    fun `an unhandled event type is acked without a user lookup and leaves a pro user unchanged`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+
+        val up = upgradeBody("ada@example.com")
+        http.webhook(up, hmacSha256Hex(secret, up))
+        val repo = UserRepository(db)
+        val before = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("pro", before.tier)
+
+        val installed = """{"type":"install.installed","objects":{"user":{"email":"ada@example.com"}}}"""
+        val res = http.webhook(installed, hmacSha256Hex(secret, installed))
+        assertEquals(HttpStatusCode.OK, res.status)
+
+        val after = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("pro", after.tier)
+        assertEquals(before.freemius, after.freemius)
+    }
+
+    @Test
+    fun `an unknown email on a handled event type logs one ERROR line naming the type and the license id`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+
+        val logs = LogCapture()
+        try {
+            val ghost = upgradeBody("ghost@example.com")
+            assertEquals(HttpStatusCode.OK, client.webhook(ghost, hmacSha256Hex(secret, ghost)).status)
+
+            val errors = logs.events().filter { it.level == Level.ERROR }
+            assertEquals(1, errors.size)
+            assertTrue(errors[0].formattedMessage.contains("license.created"))
+            assertTrue(errors[0].formattedMessage.contains("lic-1"))
+        } finally {
+            logs.stop()
+        }
+    }
+
+    @Test
+    fun `an event type the server ignores logs no ERROR line`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+
+        val logs = LogCapture()
+        try {
+            val installed = """{"type":"install.installed","objects":{"user":{"email":"ghost@example.com"}}}"""
+            assertEquals(HttpStatusCode.OK, client.webhook(installed, hmacSha256Hex(secret, installed)).status)
+
+            assertTrue(logs.events().none { it.level == Level.ERROR })
+        } finally {
+            logs.stop()
+        }
     }
 }

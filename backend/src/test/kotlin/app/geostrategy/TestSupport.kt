@@ -18,6 +18,8 @@ import app.geostrategy.plans.PlanRepository
 import app.geostrategy.preview.PreviewRateLimiter
 import app.geostrategy.sites.SiteRepository
 import app.geostrategy.users.UserRepository
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import io.ktor.client.HttpClient
@@ -27,6 +29,8 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Semaphore
+import org.slf4j.Logger.ROOT_LOGGER_NAME
+import org.slf4j.LoggerFactory
 import org.testcontainers.containers.MongoDBContainer
 import java.util.UUID
 
@@ -133,6 +137,24 @@ suspend fun registerVerifyLogin(
 class MapFetcher(private val pages: Map<String, String>) : app.geostrategy.crawl.Fetcher {
     override suspend fun fetch(url: String): app.geostrategy.crawl.FetchResult? =
         pages[url]?.let { app.geostrategy.crawl.FetchResult(url, 200, "text/html", it) }
+}
+
+/** Captures log lines written while the capture is open, for a test that checks what got logged. */
+class LogCapture {
+    private val appender = ListAppender<ILoggingEvent>()
+    private val root = LoggerFactory.getLogger(ROOT_LOGGER_NAME) as ch.qos.logback.classic.Logger
+
+    init {
+        appender.start()
+        root.addAppender(appender)
+    }
+
+    fun events(): List<ILoggingEvent> = appender.list.toList()
+
+    fun stop() {
+        root.detachAppender(appender)
+        appender.stop()
+    }
 }
 
 /** Sets the user's tier to pro directly in the database. Billing is out of scope for these tests. */
