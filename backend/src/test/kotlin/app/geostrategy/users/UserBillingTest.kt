@@ -37,7 +37,7 @@ class UserBillingTest {
         val db = TestMongo.freshDb()
         val id = ObjectId()
         val now = Date.from(Instant.now())
-        // A document written before the userId field was removed. Production can still hold
+        // This document predates the removal of the userId field. Production can still hold
         // it, so UserRepository.findById must decode the document and ignore the field.
         db.getCollection<Document>("users").insertOne(
             Document(

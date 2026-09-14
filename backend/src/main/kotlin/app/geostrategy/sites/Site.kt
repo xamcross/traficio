@@ -44,8 +44,8 @@ open class SiteRepository(db: MongoDatabase) {
 
     suspend fun findById(id: ObjectId): Site? = col.find(eq("_id", id)).firstOrNull()
 
-    // The sort gives a stable order: readers such as GET /v1/sites and allowedSiteIds rely
-    // on the oldest site first, and MongoDB does not guarantee an order on its own.
+    // The sort gives a stable order. Readers such as GET /v1/sites and allowedSiteIds rely
+    // on the oldest site first. MongoDB does not guarantee an order on its own.
     suspend fun listFor(userId: ObjectId): List<Site> =
         col.find(eq("userId", userId)).sort(Sorts.ascending("createdAt", "_id")).toList()
 
