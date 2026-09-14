@@ -14,7 +14,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
 class FreemiusWebhookVerifier(private val secret: String) {
-    fun verify(rawBody: String, signature: String?): Boolean {
+    fun verify(rawBody: ByteArray, signature: String?): Boolean {
         if (signature.isNullOrBlank()) return false
         val expected = hmacSha256Hex(secret, rawBody).toByteArray(Charsets.UTF_8)
         return MessageDigest.isEqual(expected, signature.lowercase().toByteArray(Charsets.UTF_8))

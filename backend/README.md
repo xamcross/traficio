@@ -105,13 +105,13 @@ Set these environment variables to enable billing:
 - `FREEMIUS_SIGNATURE_HEADER` — the signature header name. The default is `X-Signature`.
 
 Point the Freemius webhook to `POST /v1/billing/freemius/webhook`.
-The server verifies each call with HMAC-SHA256 over the raw body.
+The server verifies each call with HMAC-SHA256 over the raw request bytes,
+before it decodes the body as UTF-8.
 
 Warning: verify the signature header name and the payload shapes against real
 Freemius webhooks before production. The test fixtures define the parser's
 current contract. The webhook has no replay protection. The signature covers
-only the body, and verification uses the decoded text, not the raw bytes.
-Review both points before production.
+only the body. Review both points before production.
 
 ## Before production with a real Anthropic key
 
