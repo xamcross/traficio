@@ -6,27 +6,71 @@ import { FREEMIUS_PRODUCT_ID, FREEMIUS_PUBLIC_KEY } from '../../core/config';
 type FreemiusCheckout = { open: (o: object) => void };
 type FreemiusGlobal = { FS?: { Checkout: new (o: object) => FreemiusCheckout } };
 
+const FREEMIUS_SCRIPT_ID = 'freemius-checkout';
+const FREEMIUS_SCRIPT_SRC = 'https://checkout.freemius.com/js/v1/';
 const FREEMIUS_SCRIPT_TIMEOUT_MS = 10_000;
 
 /** Module-level cache so the checkout script is appended once, however many times checkout opens. */
 let freemiusScriptPromise: Promise<void> | null = null;
 
+/** Clears the cached promise. A test calls this so the next call to loadFreemiusScript starts fresh. */
+export function resetFreemiusScriptCache(): void {
+  freemiusScriptPromise = null;
+}
+
+/**
+ * Loads the Freemius checkout script once, and caches the promise for later calls.
+ *
+ * A prior call can time out and still finish loading later, in the background. This function
+ * then finds the same script element by id and waits on it, instead of adding a second element
+ * with the same src. It also resolves at once, with no new element, when window.FS is already
+ * there from an earlier successful load.
+ */
 export function loadFreemiusScript(): Promise<void> {
+  if ((window as unknown as FreemiusGlobal).FS) return Promise.resolve();
   if (!freemiusScriptPromise) {
-    const scriptLoad = new Promise<void>((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://checkout.freemius.com/js/v1/';
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Failed to load the checkout script.'));
-      document.head.appendChild(script);
-    });
-    const timeout = new Promise<never>((_resolve, reject) => {
-      setTimeout(() => reject(new Error('Timed out loading the checkout script.')), FREEMIUS_SCRIPT_TIMEOUT_MS);
-    });
-    // A rejected load clears the cache. This lets the next click retry.
-    freemiusScriptPromise = Promise.race([scriptLoad, timeout]).catch((e: unknown) => {
-      freemiusScriptPromise = null;
-      throw e;
+    freemiusScriptPromise = new Promise<void>((resolve, reject) => {
+      let timeoutHandle: ReturnType<typeof setTimeout>;
+      const settle = (run: () => void) => {
+        clearTimeout(timeoutHandle);
+        run();
+      };
+
+      let script = document.getElementById(FREEMIUS_SCRIPT_ID) as HTMLScriptElement | null;
+      // A failed element can never load. Remove it so a fresh element can retry.
+      if (script?.dataset['state'] === 'failed') {
+        script.remove();
+        script = null;
+      }
+      if (!script) {
+        script = document.createElement('script');
+        script.id = FREEMIUS_SCRIPT_ID;
+        script.src = FREEMIUS_SCRIPT_SRC;
+        document.head.appendChild(script);
+      }
+
+      if (script.dataset['state'] === 'loaded') {
+        settle(resolve);
+      } else if (!script.dataset['state']) {
+        // No state yet: either this element is new, or an earlier call is still waiting on it
+        // after its own timeout. Either way, wait for this one element to load or fail.
+        const el = script;
+        el.onload = () => {
+          el.dataset['state'] = 'loaded';
+          settle(resolve);
+        };
+        el.onerror = () => {
+          el.dataset['state'] = 'failed';
+          freemiusScriptPromise = null;
+          settle(() => reject(new Error('Failed to load the checkout script.')));
+        };
+      }
+
+      // A rejected load clears the cache, so the next click can retry.
+      timeoutHandle = setTimeout(() => {
+        freemiusScriptPromise = null;
+        reject(new Error('Timed out loading the checkout script.'));
+      }, FREEMIUS_SCRIPT_TIMEOUT_MS);
     });
   }
   return freemiusScriptPromise;

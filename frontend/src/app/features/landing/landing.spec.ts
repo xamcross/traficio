@@ -5,7 +5,8 @@ import { provideRouter } from '@angular/router';
 import { Landing } from './landing';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
-import { PENDING_URL_KEY, PRO_PRICE_LABEL } from '../../core/config';
+import { PRO_PRICE_LABEL } from '../../core/config';
+import { clearPendingUrl, readPendingUrl } from '../../core/pending-url';
 import { PreviewDto, UserDto } from '../../core/api/types';
 
 @Component({ selector: 'landing-spec-blank', template: '' })
@@ -50,8 +51,8 @@ function configure(previewImpl?: (url: string) => Promise<PreviewDto>) {
 }
 
 describe('Landing', () => {
-  beforeEach(() => sessionStorage.removeItem(PENDING_URL_KEY));
-  afterEach(() => sessionStorage.removeItem(PENDING_URL_KEY));
+  beforeEach(() => clearPendingUrl());
+  afterEach(() => clearPendingUrl());
 
   it('shows the hero, the three steps, the free promise and the price', async () => {
     await configure();
@@ -109,7 +110,7 @@ describe('Landing', () => {
 
     // The address is stored right away, and the visitor stays on the landing page — no
     // immediate trip to signup, since the preview runs in place first.
-    expect(sessionStorage.getItem(PENDING_URL_KEY)).toBe('rivertonbakery.com');
+    expect(readPendingUrl()).toBe('rivertonbakery.com');
     expect(TestBed.inject(Location).path()).not.toBe('/signup');
     let text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Reading your pages…');
@@ -140,7 +141,7 @@ describe('Landing', () => {
     cta.click();
     await fixture.whenStable();
     expect(TestBed.inject(Location).path()).toBe('/signup');
-    expect(sessionStorage.getItem(PENDING_URL_KEY)).toBe('rivertonbakery.com');
+    expect(readPendingUrl()).toBe('rivertonbakery.com');
   });
 
   it('shows the limit message on a 429, and never claims a network error', async () => {

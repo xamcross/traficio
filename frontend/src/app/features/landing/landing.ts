@@ -5,7 +5,8 @@ import { Router, RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { PreviewDto } from '../../core/api/types';
 import { UserStore } from '../../core/auth/user-store';
-import { PENDING_URL_KEY, PRO_PRICE_LABEL } from '../../core/config';
+import { PRO_PRICE_LABEL } from '../../core/config';
+import { savePendingUrl } from '../../core/pending-url';
 import { StructuredData } from '../../core/seo/structured-data';
 import { severityOrder } from '../../shared/copy';
 import { ScoreBar } from '../../shared/score-bar';
@@ -281,7 +282,7 @@ export class Landing {
     if (this.form.invalid) return;
     const { url } = this.form.getRawValue();
     const trimmed = url.trim();
-    sessionStorage.setItem(PENDING_URL_KEY, trimmed);
+    savePendingUrl(trimmed);
     if (this.store.user()) {
       void this.router.navigateByUrl('/dashboard');
       return;

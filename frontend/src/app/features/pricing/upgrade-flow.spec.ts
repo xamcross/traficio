@@ -1,8 +1,14 @@
-import { TestBed } from '@angular/core/testing';
-import { UpgradeFlow } from './upgrade-flow';
+import { fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { UpgradeFlow, loadFreemiusScript, resetFreemiusScriptCache } from './upgrade-flow';
 import { ApiClient } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
 import { UserDto } from '../../core/api/types';
+
+const FREEMIUS_SCRIPT_SELECTOR = 'script[src^="https://checkout.freemius.com"]';
+
+function freemiusScriptEl(): HTMLScriptElement | null {
+  return document.getElementById('freemius-checkout') as HTMLScriptElement | null;
+}
 
 class FakeApiClient {
   tiers: Array<'free' | 'pro'> = [];
@@ -65,4 +71,40 @@ describe('UpgradeFlow', () => {
     expect(await flow.awaitUpgrade()).toBeFalse();
     expect(api.calls).toBe(3);
   });
+});
+
+describe('loadFreemiusScript', () => {
+  beforeEach(() => {
+    resetFreemiusScriptCache();
+    freemiusScriptEl()?.remove();
+  });
+
+  afterEach(() => {
+    resetFreemiusScriptCache();
+    freemiusScriptEl()?.remove();
+    delete (window as unknown as { FS?: unknown }).FS;
+  });
+
+  it('leaves exactly one script element after a timeout, and a retry reuses it', fakeAsync(() => {
+    const first = loadFreemiusScript();
+    first.catch(() => {});
+    tick(10_000); // past the load timeout: the first call rejects, the element stays
+
+    expect(document.head.querySelectorAll(FREEMIUS_SCRIPT_SELECTOR).length).toBe(1);
+
+    const second = loadFreemiusScript();
+    second.catch(() => {});
+    tick(10_000); // the retry also times out, but must not append a second element
+
+    expect(document.head.querySelectorAll(FREEMIUS_SCRIPT_SELECTOR).length).toBe(1);
+  }));
+
+  it('resolves at once, and appends no element, when window.FS already exists', fakeAsync(() => {
+    (window as unknown as { FS?: unknown }).FS = {};
+    let resolved = false;
+    loadFreemiusScript().then(() => { resolved = true; });
+    tick();
+    expect(resolved).toBeTrue();
+    expect(freemiusScriptEl()).toBeNull();
+  }));
 });

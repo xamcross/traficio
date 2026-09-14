@@ -5,8 +5,9 @@ export const API_BASE = environment.apiBaseUrl;
 export const FREEMIUS_PRODUCT_ID = environment.freemiusProductId;
 export const FREEMIUS_PUBLIC_KEY = environment.freemiusPublicKey;
 export const FREEMIUS_PORTAL_URL = 'https://users.freemius.com'; // customer portal entry
-// sessionStorage key for the URL a visitor typed on the landing page before signing up or
-// logging in; the dashboard reads it back out to pick up where that flow left off.
+// localStorage key for the URL a visitor typed on the landing page before signing up or
+// logging in. The dashboard reads it back out to pick up where that flow left off. See
+// core/pending-url.ts for the functions that read and write this key.
 export const PENDING_URL_KEY = 'geostrategy.pendingUrl';
 
 /** Shown price. Freemius bills the real price; keep the two equal (launch checklist 8.1a). */

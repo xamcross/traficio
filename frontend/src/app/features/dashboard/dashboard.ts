@@ -4,7 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
 import { SiteDto, UsageDto } from '../../core/api/types';
-import { PENDING_URL_KEY } from '../../core/config';
+import { clearPendingUrl, readPendingUrl } from '../../core/pending-url';
 import { ErrorNote } from '../../shared/error-note';
 import { assessmentErrorCopy } from '../../shared/assessment-error-copy';
 import { formatDate } from '../../shared/copy';
@@ -59,9 +59,9 @@ export class Dashboard implements OnInit {
   }
 
   private async init(): Promise<void> {
-    const pendingUrl = sessionStorage.getItem(PENDING_URL_KEY);
+    const pendingUrl = readPendingUrl();
     if (pendingUrl) {
-      sessionStorage.removeItem(PENDING_URL_KEY);
+      clearPendingUrl();
       await this.createAndCheck(pendingUrl);
       if (this.destroyed) return;
       if (this.checkError() === null && this.addError() === null) return; // navigated away

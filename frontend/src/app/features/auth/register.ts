@@ -3,7 +3,8 @@ import { Component, PLATFORM_ID, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
-import { API_BASE, PENDING_URL_KEY } from '../../core/config';
+import { API_BASE } from '../../core/config';
+import { readPendingUrl } from '../../core/pending-url';
 import { ErrorNote } from '../../shared/error-note';
 
 @Component({
@@ -66,7 +67,7 @@ export class Register {
 
   private readPendingDomain(): string | null {
     if (!isPlatformBrowser(this.platformId)) return null;
-    const raw = sessionStorage.getItem(PENDING_URL_KEY)?.trim();
+    const raw = readPendingUrl()?.trim();
     if (!raw) return null;
     return raw.replace(/^https?:\/\//i, '').replace(/\/.*$/, '') || null;
   }

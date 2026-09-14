@@ -5,7 +5,7 @@ import { provideRouter } from '@angular/router';
 import { Dashboard } from './dashboard';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { AssessmentDto, PlanDto, SiteDto, UsageDto, UserDto } from '../../core/api/types';
-import { PENDING_URL_KEY } from '../../core/config';
+import { clearPendingUrl, readPendingUrl, savePendingUrl } from '../../core/pending-url';
 
 /** No-op routed targets so provideRouter() has something real to navigate to. */
 @Component({ selector: 'dashboard-spec-blank', template: '' })
@@ -129,7 +129,7 @@ describe('Dashboard', () => {
 
   beforeEach(async () => {
     api = new FakeApiClient();
-    sessionStorage.removeItem(PENDING_URL_KEY);
+    clearPendingUrl();
     await TestBed.configureTestingModule({
       imports: [Dashboard],
       providers: [
@@ -146,11 +146,11 @@ describe('Dashboard', () => {
   });
 
   afterEach(() => {
-    sessionStorage.removeItem(PENDING_URL_KEY);
+    clearPendingUrl();
   });
 
   it('with a pending url: creates the site, starts the check and opens progress', async () => {
-    sessionStorage.setItem(PENDING_URL_KEY, 'rivertonbakery.com');
+    savePendingUrl('rivertonbakery.com');
     api.createSiteResult = Promise.resolve(makeSite({ id: 'S1' }));
     api.submitAssessmentResult = Promise.resolve(makeAssessment({ id: 'A1' }));
     const fixture = TestBed.createComponent(Dashboard);
@@ -159,12 +159,12 @@ describe('Dashboard', () => {
     await fixture.whenStable();
     expect(api.createSiteCalls).toEqual(['rivertonbakery.com']);
     expect(api.submitAssessmentCalls).toEqual(['S1']);
-    expect(sessionStorage.getItem(PENDING_URL_KEY)).toBeNull();
+    expect(readPendingUrl()).toBeNull();
     expect(TestBed.inject(Location).path()).toBe('/assessments/A1/progress');
   });
 
   it('with a pending url and an unverified email: creates the site and shows the confirm note', async () => {
-    sessionStorage.setItem(PENDING_URL_KEY, 'rivertonbakery.com');
+    savePendingUrl('rivertonbakery.com');
     api.createSiteResult = Promise.resolve(makeSite({ id: 'S1' }));
     api.submitAssessmentResult = Promise.reject(new ApiError('email_not_verified', 'Confirm first.', 403));
     const fixture = TestBed.createComponent(Dashboard);
@@ -177,7 +177,7 @@ describe('Dashboard', () => {
   });
 
   it('shows an error note next to the resend button when resend is rejected, and keeps the button', async () => {
-    sessionStorage.setItem(PENDING_URL_KEY, 'rivertonbakery.com');
+    savePendingUrl('rivertonbakery.com');
     api.createSiteResult = Promise.resolve(makeSite({ id: 'S1' }));
     api.submitAssessmentResult = Promise.reject(new ApiError('email_not_verified', 'Confirm first.', 403));
     api.resendVerificationResult = Promise.reject(new ApiError('rate_limited', 'Too many requests. Try again later.', 429));
@@ -200,7 +200,7 @@ describe('Dashboard', () => {
   });
 
   it('with a pending url: shows the add-site error when site creation fails, without starting a check', async () => {
-    sessionStorage.setItem(PENDING_URL_KEY, 'not a url');
+    savePendingUrl('not a url');
     api.createSiteResult = Promise.reject(new ApiError('invalid_url', 'Bad url.', 400));
     const fixture = TestBed.createComponent(Dashboard);
     fixture.detectChanges();
@@ -215,7 +215,7 @@ describe('Dashboard', () => {
   });
 
   it('with a pending url at the site cap: shows the limit error even though the add form is hidden', async () => {
-    sessionStorage.setItem(PENDING_URL_KEY, 'traficio.com');
+    savePendingUrl('traficio.com');
     api.createSiteResult = Promise.reject(new ApiError('site_limit_reached', 'Your plan includes 1 site. Upgrade to add more.', 403));
     api.listSitesResult = Promise.resolve([makeSite({ id: 'S1', domain: 'example.com' })]);
     api.usageResult = Promise.resolve({ assessmentsUsed: 0, assessmentsLimit: 1, sitesUsed: 1, sitesLimit: 1, nextCheckAt: null });
@@ -231,7 +231,7 @@ describe('Dashboard', () => {
   });
 
   it('with a pending url and one site already listed: a check error blocks the one-site redirect', async () => {
-    sessionStorage.setItem(PENDING_URL_KEY, 'rivertonbakery.com');
+    savePendingUrl('rivertonbakery.com');
     api.createSiteResult = Promise.resolve(makeSite({ id: 'S1' }));
     api.submitAssessmentResult = Promise.reject(new ApiError('email_not_verified', 'Confirm first.', 403));
     api.listSitesResult = Promise.resolve([makeSite({ id: 'S1' })]);
