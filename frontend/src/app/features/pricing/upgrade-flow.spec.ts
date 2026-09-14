@@ -4,10 +4,27 @@ import { ApiClient } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
 import { UserDto } from '../../core/api/types';
 
+const FREEMIUS_SCRIPT_URL = 'https://checkout.freemius.com/js/v1/';
 const FREEMIUS_SCRIPT_SELECTOR = 'script[src^="https://checkout.freemius.com"]';
 
 function freemiusScriptEl(): HTMLScriptElement | null {
   return document.getElementById('freemius-checkout') as HTMLScriptElement | null;
+}
+
+/**
+ * Stops a real network load for any script element a test creates.
+ *
+ * A script with an unrecognised type is a data block. The browser never fetches its src.
+ * It still keeps the element's id, its src attribute and its dataset. The CSS-selector
+ * assertions below can then find a real element with a real src.
+ */
+function blockScriptNetworkLoads(): void {
+  const realCreateElement = document.createElement.bind(document);
+  spyOn(document, 'createElement').and.callFake(((tagName: string, options?: ElementCreationOptions) => {
+    const el = realCreateElement(tagName, options);
+    if (tagName === 'script') (el as HTMLScriptElement).type = 'javascript/blocked';
+    return el;
+  }) as typeof document.createElement);
 }
 
 class FakeApiClient {
@@ -77,6 +94,7 @@ describe('loadFreemiusScript', () => {
   beforeEach(() => {
     resetFreemiusScriptCache();
     freemiusScriptEl()?.remove();
+    blockScriptNetworkLoads();
   });
 
   afterEach(() => {
@@ -106,5 +124,25 @@ describe('loadFreemiusScript', () => {
     tick();
     expect(resolved).toBeTrue();
     expect(freemiusScriptEl()).toBeNull();
+  }));
+
+  it('resolves from an already-loaded element left in the page, after resetFreemiusScriptCache runs', fakeAsync(() => {
+    // Simulates the one production path that can reach the script's data-state="loaded"
+    // branch: an earlier, already-successful load, with the cache then reset by the
+    // exported test helper. window.FS is left unset, so the call must resolve from the
+    // element's data-state, not from the window.FS check at the top of loadFreemiusScript.
+    const script = document.createElement('script');
+    script.id = 'freemius-checkout';
+    script.src = FREEMIUS_SCRIPT_URL;
+    script.dataset['state'] = 'loaded';
+    document.head.appendChild(script);
+    resetFreemiusScriptCache();
+
+    let resolved = false;
+    loadFreemiusScript().then(() => { resolved = true; });
+    tick();
+
+    expect(resolved).toBeTrue();
+    expect(document.head.querySelectorAll(FREEMIUS_SCRIPT_SELECTOR).length).toBe(1);
   }));
 });

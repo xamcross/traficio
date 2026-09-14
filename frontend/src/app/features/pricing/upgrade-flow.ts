@@ -19,18 +19,24 @@ export function resetFreemiusScriptCache(): void {
 }
 
 /**
- * Loads the Freemius checkout script once, and caches the promise for later calls.
+ * Loads the Freemius checkout script once. It caches the promise for later calls.
  *
- * A prior call can time out and still finish loading later, in the background. This function
- * then finds the same script element by id and waits on it, instead of adding a second element
- * with the same src. It also resolves at once, with no new element, when window.FS is already
- * there from an earlier successful load.
+ * A prior call can time out. Its script element can still finish loading later, in the
+ * background. This function then finds that same element by id. It waits on that element.
+ * It does not add a second element with the same src.
+ *
+ * This function resolves at once, with no new element, when window.FS already exists from
+ * an earlier successful load.
  */
 export function loadFreemiusScript(): Promise<void> {
   if ((window as unknown as FreemiusGlobal).FS) return Promise.resolve();
   if (!freemiusScriptPromise) {
     freemiusScriptPromise = new Promise<void>((resolve, reject) => {
-      let timeoutHandle: ReturnType<typeof setTimeout>;
+      // Declared first, so settle() always clears a real handle, however soon it runs.
+      const timeoutHandle = setTimeout(() => {
+        freemiusScriptPromise = null;
+        reject(new Error('Timed out loading the checkout script.'));
+      }, FREEMIUS_SCRIPT_TIMEOUT_MS);
       const settle = (run: () => void) => {
         clearTimeout(timeoutHandle);
         run();
@@ -50,10 +56,12 @@ export function loadFreemiusScript(): Promise<void> {
       }
 
       if (script.dataset['state'] === 'loaded') {
+        // A caller reaches this line only after resetFreemiusScriptCache runs. This happens
+        // while a loaded element from an earlier, successful load is still in the page.
         settle(resolve);
       } else if (!script.dataset['state']) {
-        // No state yet: either this element is new, or an earlier call is still waiting on it
-        // after its own timeout. Either way, wait for this one element to load or fail.
+        // The element has no state yet. It may be new. An earlier call may still track it,
+        // after that call's own timeout. This call also waits for the load or the failure.
         const el = script;
         el.onload = () => {
           el.dataset['state'] = 'loaded';
@@ -65,12 +73,6 @@ export function loadFreemiusScript(): Promise<void> {
           settle(() => reject(new Error('Failed to load the checkout script.')));
         };
       }
-
-      // A rejected load clears the cache, so the next click can retry.
-      timeoutHandle = setTimeout(() => {
-        freemiusScriptPromise = null;
-        reject(new Error('Timed out loading the checkout script.'));
-      }, FREEMIUS_SCRIPT_TIMEOUT_MS);
     });
   }
   return freemiusScriptPromise;
