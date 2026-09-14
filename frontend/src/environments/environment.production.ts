@@ -7,6 +7,6 @@ export const environment = {
   // The origin this app is served from. Canonical links, the structured data,
   // the sitemap, and the robots.txt Sitemap line all read this one value.
   siteOrigin: 'https://traficio.com',
-  freemiusProductId: 'REPLACE_ME_FREEMIUS_PRODUCT_ID',
-  freemiusPublicKey: 'REPLACE_ME_FREEMIUS_PUBLIC_KEY',
+  freemiusProductId: '39459',
+  freemiusPublicKey: 'pk_224e5d326818b1a88085dbebba864',
 };
