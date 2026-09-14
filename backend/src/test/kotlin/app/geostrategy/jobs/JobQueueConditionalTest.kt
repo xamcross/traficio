@@ -46,9 +46,12 @@ class JobQueueConditionalTest {
         q.complete(firstHolder)                // stale holder, fenced out -> no-op
         q.fail(firstHolder, "stale failure")   // stale holder, fenced out -> no-op
 
-        val current = q.findById(j.id)!!
-        assertEquals("running", current.status)
-        assertEquals(2, current.attempts)
-        assertNull(current.error)
+        val afterStaleCalls = q.findById(j.id)!!
+        assertEquals("running", afterStaleCalls.status)
+        assertEquals(2, afterStaleCalls.attempts)
+        assertNull(afterStaleCalls.error)
+
+        q.complete(secondHolder)               // the current holder still finishes the job
+        assertEquals("done", q.findById(j.id)!!.status)
     }
 }
