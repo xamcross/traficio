@@ -41,6 +41,7 @@ export class Dashboard implements OnInit {
   protected readonly checkError = signal<ApiError | null>(null);
   protected readonly resent = signal(false);
   protected readonly resendBusy = signal(false);
+  protected readonly resendError = signal<ApiError | null>(null);
   protected readonly assessmentErrorCopy = assessmentErrorCopy;
   protected readonly pricingUrl = pricingUrlFor;
 
@@ -145,13 +146,15 @@ export class Dashboard implements OnInit {
   protected resend(): void {
     if (this.resendBusy()) return;
     this.resendBusy.set(true);
+    this.resent.set(false);
+    this.resendError.set(null);
     this.api.resendVerification()
       .then(() => {
         if (this.destroyed) return;
         this.resent.set(true);
       }, (e: unknown) => {
         if (this.destroyed) return;
-        this.checkError.set(toApiError(e));
+        this.resendError.set(toApiError(e));
       })
       .finally(() => {
         if (this.destroyed) return;

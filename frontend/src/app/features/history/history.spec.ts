@@ -190,6 +190,33 @@ describe('History', () => {
     expect(compiled.textContent).toContain('Sent. Check your inbox.');
   });
 
+  it('shows an error note next to the resend button when resend is rejected, and keeps the button', async () => {
+    api.listAssessmentsResult = Promise.resolve([]);
+    api.submitAssessmentResult = Promise.reject(new ApiError('email_not_verified', 'Confirm your email first.', 403));
+    api.resendVerificationResult = Promise.reject(new ApiError('rate_limited', 'Too many requests. Try again later.', 429));
+
+    const fixture = TestBed.createComponent(History);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    const checkAgain = Array.from(compiled.querySelectorAll('button')).find((b) => b.textContent?.includes('Check again'));
+    checkAgain!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const resendButton = Array.from(compiled.querySelectorAll('button')).find((b) => b.textContent?.includes('Send the email again'));
+    expect(resendButton).toBeTruthy();
+    resendButton!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).not.toContain('Sent. Check your inbox.');
+    expect(compiled.querySelector('.error-note')?.textContent).toContain('Too many requests. Try again later.');
+    expect(Array.from(compiled.querySelectorAll('button')).find((b) => b.textContent?.includes('Send the email again'))).toBeTruthy();
+  });
+
   it('sets SiteContext to the site domain from listSites', async () => {
     api.listAssessmentsResult = Promise.resolve([]);
     api.listSitesResult = Promise.resolve([makeSite({ id: 's1', domain: 'example.com' })]);

@@ -176,6 +176,29 @@ describe('Dashboard', () => {
     expect(findButtonByText(fixture.nativeElement, 'Send the email again')).not.toBeNull();
   });
 
+  it('shows an error note next to the resend button when resend is rejected, and keeps the button', async () => {
+    sessionStorage.setItem(PENDING_URL_KEY, 'rivertonbakery.com');
+    api.createSiteResult = Promise.resolve(makeSite({ id: 'S1' }));
+    api.submitAssessmentResult = Promise.reject(new ApiError('email_not_verified', 'Confirm first.', 403));
+    api.resendVerificationResult = Promise.reject(new ApiError('rate_limited', 'Too many requests. Try again later.', 429));
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+
+    const resendButton = findButtonByText(el, 'Send the email again');
+    expect(resendButton).not.toBeNull();
+    resendButton!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(el.textContent).not.toContain('Sent. Check your inbox.');
+    expect(el.querySelector('.error-note')?.textContent).toContain('Too many requests. Try again later.');
+    expect(findButtonByText(el, 'Send the email again')).not.toBeNull();
+  });
+
   it('with a pending url: shows the add-site error when site creation fails, without starting a check', async () => {
     sessionStorage.setItem(PENDING_URL_KEY, 'not a url');
     api.createSiteResult = Promise.reject(new ApiError('invalid_url', 'Bad url.', 400));

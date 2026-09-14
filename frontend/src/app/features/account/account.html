@@ -1,6 +1,5 @@
 <div class="page surface account">
   @if (loading()) {<p class="muted">Loading your account…</p>}
-  @else if (error(); as e) {<app-error-note [error]="e" />}
   @else {
     <div class="two-col">
       <div class="stack col">
@@ -29,17 +28,23 @@
               <div class="bar" role="img" [attr.aria-label]="'Sites ' + u.sitesUsed + ' of ' + u.sitesLimit"><div class="bar-fill tone-low" [style.width.%]="pct(u.sitesUsed, u.sitesLimit)"></div></div>
             </div>
           </section>
+        } @else if (usageError(); as e) {
+          <app-error-note [error]="e" />
         }
 
         <section class="stack divider" style="padding-top:26px">
-          <span class="eyebrow">{{ sites().length === 1 ? 'YOUR SITE' : 'YOUR SITES' }}</span>
-          @for (site of sites(); track site.id) {
-            <a class="site-card" [routerLink]="['/sites', site.id]">
-              <div class="stack" style="flex:1; gap:4px"><strong>{{ site.domain }}</strong><span class="faint small">{{ lastChecked(site) }}</span></div>
-              @if (site.latestScores; as s) {<span class="price" style="font-size:20px">{{ s.overall }}</span>}
-            </a>
+          @if (sitesError(); as e) {
+            <app-error-note [error]="e" />
+          } @else {
+            <span class="eyebrow">{{ sites().length === 1 ? 'YOUR SITE' : 'YOUR SITES' }}</span>
+            @for (site of sites(); track site.id) {
+              <a class="site-card" [routerLink]="['/sites', site.id]">
+                <div class="stack" style="flex:1; gap:4px"><strong>{{ site.domain }}</strong><span class="faint small">{{ lastChecked(site) }}</span></div>
+                @if (site.latestScores; as s) {<span class="price" style="font-size:20px">{{ s.overall }}</span>}
+              </a>
+            }
+            @if (store.user()?.tier !== 'pro' && proSitesLeft() > 0) {<span class="faint small">Pro lets you add {{ word(proSitesLeft()) }} more sites.</span>}
           }
-          @if (store.user()?.tier !== 'pro' && proSitesLeft() > 0) {<span class="faint small">Pro lets you add {{ word(proSitesLeft()) }} more sites.</span>}
         </section>
 
         <div class="row divider" style="padding-top:26px"><button type="button" class="btn btn-text" (click)="logout()">Log out</button></div>

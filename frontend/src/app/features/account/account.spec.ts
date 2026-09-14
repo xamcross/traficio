@@ -245,7 +245,7 @@ describe('Account', () => {
     expect(store.user()).toBeNull(); // the global session is dropped regardless
   });
 
-  it('shows an error note when the initial usage load fails', async () => {
+  it('shows an error note when the initial usage load fails, but the rest of the page still shows', async () => {
     api.usageResult = Promise.reject(new ApiError('network_error', 'We could not reach the server. Check your connection and try again.', 0));
     const fixture = TestBed.createComponent(Account);
     const store = TestBed.inject(UserStore);
@@ -257,5 +257,21 @@ describe('Account', () => {
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(compiled.querySelector('.error-note')?.textContent).toContain('We could not reach the server.');
+    expect(findButtonByText(compiled, 'Log out')).toBeTruthy();
+  });
+
+  it('shows an error note when listSites fails, but the usage meters still show', async () => {
+    api.listSitesResult = Promise.reject(new ApiError('network_error', 'We could not reach the server. Check your connection and try again.', 0));
+    const fixture = TestBed.createComponent(Account);
+    const store = TestBed.inject(UserStore);
+    store.user.set(makeUser());
+    store.loaded.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.querySelector('.error-note')?.textContent).toContain('We could not reach the server.');
+    expect(compiled.textContent).toContain('Checks used');
   });
 });

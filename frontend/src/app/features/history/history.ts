@@ -36,7 +36,7 @@ const VB_W = 1060, VB_H = 260;
         </div>
         @if (checkError(); as ce) {
           @if (ce.code === 'email_not_verified') {
-            <div class="note-box stack" role="alert"><p>{{ assessmentErrorCopy(ce) }}</p><button type="button" class="btn btn-outline" (click)="resend()" [disabled]="resendBusy()">Send the email again</button>@if (resent()) {<p>Sent. Check your inbox.</p>}</div>
+            <div class="note-box stack" role="alert"><p>{{ assessmentErrorCopy(ce) }}</p><button type="button" class="btn btn-outline" (click)="resend()" [disabled]="resendBusy()">Send the email again</button>@if (resent()) {<p>Sent. Check your inbox.</p>}@if (resendError(); as re) {<app-error-note [error]="re" />}</div>
           } @else {<p class="error-note" role="alert">{{ assessmentErrorCopy(ce) }}</p>}
         }
 
@@ -111,6 +111,7 @@ export class History implements OnInit {
   protected readonly checkError = signal<ApiError | null>(null);
   protected readonly resent = signal(false);
   protected readonly resendBusy = signal(false);
+  protected readonly resendError = signal<ApiError | null>(null);
 
   private readonly readyAssessments = computed(() => [...this.assessments()].filter((a) => a.status === 'ready' && a.scores != null).reverse());
 
@@ -228,6 +229,8 @@ export class History implements OnInit {
   protected resend(): void {
     if (this.resendBusy()) return;
     this.resendBusy.set(true);
+    this.resent.set(false);
+    this.resendError.set(null);
     this.api
       .resendVerification()
       .then(
@@ -237,7 +240,7 @@ export class History implements OnInit {
         },
         (e: unknown) => {
           if (this.destroyed) return;
-          this.checkError.set(toApiError(e));
+          this.resendError.set(toApiError(e));
         },
       )
       .finally(() => {

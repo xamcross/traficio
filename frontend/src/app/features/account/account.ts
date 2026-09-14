@@ -36,7 +36,8 @@ export class Account implements OnInit {
   protected readonly usage = signal<UsageDto | null>(null);
   protected readonly sites = signal<SiteDto[]>([]);
   protected readonly loading = signal(true);
-  protected readonly error = signal<ApiError | null>(null);
+  protected readonly usageError = signal<ApiError | null>(null);
+  protected readonly sitesError = signal<ApiError | null>(null);
 
   protected readonly resent = signal(false);
   protected readonly resendBusy = signal(false);
@@ -60,19 +61,16 @@ export class Account implements OnInit {
 
   private async load(): Promise<void> {
     this.loading.set(true);
-    this.error.set(null);
-    try {
-      const [usage, sites] = await Promise.all([this.api.usage(), this.api.listSites().catch(() => [] as SiteDto[])]);
-      if (this.destroyed) return;
-      this.usage.set(usage);
-      this.sites.set(sites);
-    } catch (e) {
-      if (this.destroyed) return;
-      this.error.set(toApiError(e));
-    } finally {
-      if (this.destroyed) return;
-      this.loading.set(false);
-    }
+    this.usageError.set(null);
+    this.sitesError.set(null);
+    // Promise.allSettled keeps one failed request from hiding the other's result.
+    const [usageResult, sitesResult] = await Promise.allSettled([this.api.usage(), this.api.listSites()]);
+    if (this.destroyed) return;
+    if (usageResult.status === 'fulfilled') this.usage.set(usageResult.value);
+    else this.usageError.set(toApiError(usageResult.reason));
+    if (sitesResult.status === 'fulfilled') this.sites.set(sitesResult.value);
+    else this.sitesError.set(toApiError(sitesResult.reason));
+    this.loading.set(false);
   }
 
   protected lastChecked(site: SiteDto): string {
@@ -97,6 +95,7 @@ export class Account implements OnInit {
   protected resend(): void {
     if (this.resendBusy()) return;
     this.resendBusy.set(true);
+    this.resent.set(false);
     this.resendError.set(null);
     this.api
       .resendVerification()
