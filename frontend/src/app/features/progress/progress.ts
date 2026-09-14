@@ -14,7 +14,7 @@ export const STEP_LABELS: Record<'queued' | 'crawling' | 'analyzing' | 'planning
   planning: { active: 'Writing your plan', done: 'Wrote your plan' },
 };
 
-/** Simple 4-step rail; ready/failed are terminal outcomes shown separately, not rail steps. */
+/** This is a simple 4-step rail. The ready and failed outcomes are terminal. The rail shows them separately, not as steps. */
 const STEPS: Array<keyof typeof STEP_LABELS> = ['queued', 'crawling', 'analyzing', 'planning'];
 
 export const FAILURE_HEADLINES: Record<string, string> = {
@@ -30,7 +30,7 @@ export function failureHeadline(code: string | null): string {
 
 const RETRY_DELAY_MS = 2000;
 const DONE_BEAT_MS = 1500;
-/** After this many consecutive failed refetches, stop retrying and show a terminal error. */
+/** After this many consecutive failed refetches, the component stops further retries and shows a terminal error. */
 const MAX_REFETCH_FAILURES = 5;
 
 function isTerminal(status: AssessmentStatus): boolean {
@@ -87,9 +87,9 @@ function isTerminal(status: AssessmentStatus): boolean {
     .rail li:last-child { border-bottom: none; }
     .rail li.active { color: var(--ink); font-weight: 600; }
     .rail li.done { color: var(--ink); }
-    .dot { width: 22px; height: 22px; border-radius: 999px; border: 2px solid #e6d6be; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+    .dot { width: 22px; height: 22px; border-radius: 999px; border: 2px solid var(--line-soft); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
     .active .dot { border-color: var(--accent); }
-    .done .dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .done .dot { background: var(--accent); border-color: var(--accent); color: var(--card); }
     .tight { gap: 6px; }
     .small { font-size: 13px; }
   `,
@@ -120,11 +120,11 @@ export class Progress implements OnInit {
   private closeStream: (() => void) | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private doneTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Consecutive refetch failures since the last success; reset on any successful fetch. */
+  /** This is the count of consecutive refetch failures since the last success. Each successful fetch resets it to zero. */
   private refetchFailures = 0;
-  /** True after cleanup() runs, when the component is torn down.
-   *  Every async step and timer below checks this flag first.
-   *  This stops a stale promise or timer from navigating, retrying, or opening a stream. */
+  /** This flag becomes true after cleanup() runs and destroys the component.
+   *  Each async step and each timer below checks this flag first.
+   *  A stale promise or timer then cannot navigate, retry, or open a stream. */
   private destroyed = false;
 
   ngOnInit(): void {
@@ -138,8 +138,9 @@ export class Progress implements OnInit {
       assessment = await this.api.getAssessment(this.id);
     } catch {
       if (this.destroyed) return;
-      // Could not load the assessment up front; open the stream anyway. If the id is bad the
-      // stream's own error/re-fetch cycle will surface it via the retry loop.
+      // The initial load of the assessment failed. The code opens the stream anyway. If the id
+      // is invalid, the stream's own error and re-fetch cycle finds the problem through the
+      // retry loop.
       this.openStream();
       return;
     }

@@ -1,12 +1,14 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Free-tier happy path, backend fully mocked with page.route.
- * Landing -> register -> log in -> the dashboard hand-off creates a site and runs a check ->
- * progress -> the site home result view -> the plan gate.
+ * This test covers the free-tier happy path. It mocks the full backend with page.route.
+ * The flow goes: land on the page, register, and log in. The dashboard hand-off then
+ * creates a site and runs a check. The flow then moves through progress, the site home
+ * result view, and the plan gate.
  *
- * Every /v1/** request is intercepted. A catch-all route fulfills any unmocked /v1/** request
- * with a distinctive 500 so a miss fails loudly instead of hanging or silently passing.
+ * The test intercepts every /v1/** request. A catch-all route replies to each unmocked
+ * /v1/** request with a distinct 500 status. A missed mock then fails the test at once.
+ * It does not hang. It does not pass without a warning.
  */
 test('signup, the dashboard hand-off runs a check, and the free result leads to the gate', async ({ page }) => {
   test.setTimeout(90_000);
@@ -78,8 +80,8 @@ test('signup, the dashboard hand-off runs a check, and the free result leads to 
     };
   }
 
-  // Catch-all first (lowest precedence — later-registered routes below override it): fail loudly
-  // on any /v1/** request this test forgot to mock.
+  // This catch-all route runs first, so later routes below override it. It fails loudly on any
+  // /v1/** request that this test does not mock.
   await page.route('**/v1/**', async (route) => {
     await route.fulfill({
       status: 500,
@@ -165,10 +167,11 @@ test('signup, the dashboard hand-off runs a check, and the free result leads to 
     }
   });
 
-  // SSE: two status frames, then the response ends. There is no explicit terminator.
-  // The app's wrapper treats the close as a cue. It stops listening and re-fetches the assessment.
-  // The delay before fulfill gives the progress page real time in its "queued" state.
-  // A zero-latency mock would race through every rail state before the test can see them.
+  // SSE: this mock sends two status frames, then it ends the response. There is no explicit
+  // terminator. The app's wrapper reads the closed connection as a signal. It stops listening
+  // and it re-fetches the assessment. The delay before fulfill gives the progress page real
+  // time in its "queued" state. A mock with no delay moves through every rail state before the
+  // test can see them.
   await page.route(/\/v1\/assessments\/A1\/events$/, async (route) => {
     state.assessmentReady = true;
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -204,9 +207,9 @@ test('signup, the dashboard hand-off runs a check, and the free result leads to 
   });
 
   // --- 1. Landing: type a URL, see the ungated preview run in place, then continue to signup.
-  // The preview no longer sends the visitor straight to signup — it shows a quick, honest
-  // look at their site first, worst finding first, with no invented score. Only the "Create my
-  // free account" call to action below the checks moves on to signup. ---
+  // The preview no longer sends the visitor straight to signup. It first shows a quick, honest
+  // look at the visitor's site, with the worst finding first and no invented score. Only the
+  // "Create my free account" call to action below the checks moves on to signup. ---
   await page.goto('/');
   await page.getByLabel('Your website').fill('example.com');
   // The landing page repeats this call to action three times. Only the hero form submits.
@@ -225,8 +228,8 @@ test('signup, the dashboard hand-off runs a check, and the free result leads to 
     page.getByText('We sent you a link. Click it to confirm your address, then log in and run your first check.'),
   ).toBeVisible();
 
-  // --- 3. Log in --- (two "Log in" links are visible here: the header nav and this panel; the
-  // panel's link renders after the header in the DOM, so it is the last match)
+  // --- 3. Log in --- Two "Log in" links are visible here: the header nav and this panel. The
+  // panel's link renders after the header in the DOM, so it is the last match.
   await page.locator('a', { hasText: 'Log in' }).last().click();
   await expect(page).toHaveURL(/\/login$/);
   await page.getByLabel('Email').fill('jane@example.com');
@@ -234,19 +237,19 @@ test('signup, the dashboard hand-off runs a check, and the free result leads to 
   await page.getByRole('button', { name: 'Log in' }).click();
 
   // --- 4. Dashboard hand-off: login lands on /dashboard. The pending URL from the landing page
-  // creates the site and starts the first check on its own. No extra click is needed on this page.
-  // Against a mocked backend, the hand-off is too fast to catch mid-flight.
-  // The test waits for the hand-off's destination instead of the transient /dashboard URL. ---
+  // creates the site and starts the first check on its own. This page needs no extra click.
+  // The hand-off runs fast against a mocked backend. The test cannot catch it while it runs.
+  // So the test waits for the hand-off's destination, and not for the transient /dashboard URL. ---
   await expect(page).toHaveURL(/\/assessments\/A1\/progress$/, { timeout: 15_000 });
 
-  // --- 5. Progress: the rail narrates the SSE frames. The delay above holds the page in its
-  // pre-stream "queued" state long enough to observe; the regex also allows the first SSE
-  // frame's text, both real content from progress.ts, so the assertion stays accurate even if
-  // the timing shifts. ---
+  // --- 5. Progress: the rail shows the SSE frames as text. The delay above holds the page in
+  // its pre-stream "queued" state long enough to see. The regex also matches the first SSE
+  // frame's text. Both strings are real content from progress.ts. The assertion then stays
+  // accurate even when the timing shifts. ---
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Finding your site…|Reading your pages…/);
 
-  // --- 6. The page auto-navigates to the site home once ready. This follows the progress
-  // page's 1.5-second beat. ---
+  // --- 6. The page moves to the site home on its own, once the result is ready. This follows
+  // the progress page's 1.5-second beat. ---
   await expect(page).toHaveURL(/\/sites\/S1$/, { timeout: 15_000 });
   await expect(page.getByText('Visibility out of 100')).toBeVisible();
   await expect(page.getByText('Read my plan')).toBeVisible();
