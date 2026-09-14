@@ -63,7 +63,7 @@ export class Account implements OnInit {
     this.loading.set(true);
     this.usageError.set(null);
     this.sitesError.set(null);
-    // Promise.allSettled keeps one failed request from hiding the other's result.
+    // Promise.allSettled means one failed request does not hide the other's result.
     const [usageResult, sitesResult] = await Promise.allSettled([this.api.usage(), this.api.listSites()]);
     if (this.destroyed) return;
     if (usageResult.status === 'fulfilled') this.usage.set(usageResult.value);
