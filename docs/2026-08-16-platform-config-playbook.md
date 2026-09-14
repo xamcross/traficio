@@ -64,6 +64,14 @@ with an explicit origin allowlist (`CORS_ALLOWED_ORIGINS`), never `*`.
   postbuild step. Without it, the SPA fallback serves the homepage with
   a 200 for every bad URL (soft 404s).
 - A `public/_headers` file sets `X-Robots-Tag: noindex` for `/404`.
+- Set `"deployUrl": "/"` in the `build` options of `angular.json`. Pages
+  copies each `<link rel="modulepreload">` of a page into a `Link`
+  response header. The browser resolves that header against the page URL,
+  and it ignores `<base href="/">`. With relative paths, a nested client
+  route such as `/auth/complete` preloads `/auth/chunk-*.js`. That path
+  returns a 404, or the HTML shell with a 200 under a wildcard rewrite.
+  `scripts/check-preload-paths.mjs` fails the build when a preload path
+  is relative (issue #26).
 
 ### 2.2 Backend — Fly.io
 
