@@ -1,6 +1,6 @@
 # Traficio — Manual Launch Checklist
 
-All code for v1 and the "One Thing" redesign is merged to `master`. This document
+All code for v1 and the "One Thing" redesign is merged to `main`. This document
 lists the manual actions that remain before launch, and the current status of each.
 Do the open steps in order. Each step tells you where the action happens. Sentences
 follow ASD-STE100.
@@ -14,7 +14,8 @@ Facts (2026-08-18):
   `https://api.traficio.com` (Fly app `geostrategy-api`, region `fra`).
 - Both hosts share one registrable domain. The session cookie is same-site, so
   `SameSite=Lax` works. Keep this layout.
-- The GitHub repository is `xamcross/traficio`. It is public. The default branch is `master`.
+- The GitHub repository is `xamcross/traficio`. It is public. The default branch is `main`.
+- The Cloudflare Pages project `geostrategy` deploys production from the `main` branch.
 - Legend: `[x]` done, `[ ]` open, `[~]` partly done (the item text says what is left).
 
 ---
@@ -56,7 +57,7 @@ network rule `0.0.0.0/0` exists. The database user was prepared in the Atlas UI
 
 ## 3. Push the repository and set the CI secrets
 
-- [x] 3.1 `master` is pushed. The default branch is `master`. The secret scan
+- [x] 3.1 `main` is pushed. The default branch is `main`. The secret scan
       (`git grep -n -i -E 'sk-ant-|re_[A-Za-z0-9]{20,}|mongodb\+srv://|GOCSPX-'`)
       is empty.
 - [x] 3.2 GitHub → Settings → Secrets and variables → Actions:
@@ -64,7 +65,7 @@ network rule `0.0.0.0/0` exists. The database user was prepared in the Atlas UI
       - [x] `CLOUDFLARE_ACCOUNT_ID`.
       - [x] `CLOUDFLARE_API_TOKEN` (set by the owner 2026-08-18). CI run 32075239787
         deployed both halves: all five jobs green.
-- [x] 3.3 The workflow `.github/workflows/ci.yml` runs on each push to `master`. The
+- [x] 3.3 The workflow `.github/workflows/ci.yml` runs on each push to `main`. The
       both deploy jobs work (2026-08-18, run 32075239787). A push with a frontend
       change deploys the SPA; a push with a backend change deploys the API.
 
@@ -106,7 +107,7 @@ Work from the `backend/` directory.
       assessments, and billing when you add them. Each `fly secrets set` restarts
       the machine.
 - [x] 4.3 CI deployed the backend on the push of 2026-08-18 (run 32074084384:
-      `deploy-backend` passed, health check green). Each later push to `master` with a
+      `deploy-backend` passed, health check green). Each later push to `main` with a
       backend change deploys again.
 - [x] 4.4 The certificate for `api.traficio.com` is issued (Let's Encrypt, verified
       2026-08-18). The `_acme-challenge.api` CNAME and the `_fly-ownership.api` TXT
@@ -184,10 +185,10 @@ Work from the `backend/` directory.
       (see 5.5 for the mailbox).
 - [ ] 8.3 Review the legal pages. The current texts are short v1 stubs. Confirm they
       are acceptable for your jurisdiction, or replace them.
-- [ ] 8.4 Commit the edits from 8.1 when the Freemius values exist. Push `master`.
+- [ ] 8.4 Commit the edits from 8.1 when the Freemius values exist. Push `main`.
 - [x] 8.5 The Pages project `geostrategy` exists (direct upload, production branch
-      `master`). The first production deploy was made by hand on 2026-08-18. After
-      3.2 is done, CI deploys on each push to `master`.
+      `main`). The first production deploy was made by hand on 2026-08-18. After
+      3.2 is done, CI deploys on each push to `main`.
 - [x] 8.6 The custom domain `traficio.com` is attached and serves the site.
       `app.traficio.com` and `www` redirect to it (see 5.2). Changed 2026-08-23.
 - [x] 8.11 **Defect found and fixed 2026-08-23.** CI deployed from the repository root, so

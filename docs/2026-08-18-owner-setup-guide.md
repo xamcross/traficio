@@ -2,8 +2,9 @@
 
 > **Superseded on 2026-08-23.** Read `docs/2026-08-22-manual-steps.md` instead. It holds
 > the current list and the current addresses. This file stays as the record of 2026-08-18.
-> Two facts here are now out of date: the site serves from `https://traficio.com`, not
-> `app.traficio.com`; and step 5 of the audit, the apex move, is done.
+> Three facts here are now out of date: the site serves from `https://traficio.com`, not
+> `app.traficio.com`; step 5 of the audit, the apex move, is done; and the default branch
+> is now `main`, not `master`.
 
 Date: 2026-08-18. Status of the platform: the app is live at `https://app.traficio.com`,
 the API at `https://api.traficio.com`, CI deploys both on each push to `master`.
