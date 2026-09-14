@@ -22,6 +22,7 @@ import app.geostrategy.crawl.Crawler
 import app.geostrategy.crawl.HttpFetcher
 import app.geostrategy.email.LoggingEmailSender
 import app.geostrategy.email.ResendEmailSender
+import app.geostrategy.http.installBodyLimit
 import app.geostrategy.http.installCors
 import app.geostrategy.http.installErrorHandling
 import app.geostrategy.jobs.JobQueue
@@ -139,6 +140,7 @@ fun main() {
 }
 
 fun Application.appModule(deps: AppDeps) {
+    installBodyLimit()
     install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; encodeDefaults = true }) }
     install(CallLogging)
     installErrorHandling()

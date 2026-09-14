@@ -1,21 +1,29 @@
 package app.geostrategy.billing
 
+import app.geostrategy.LogCapture
 import app.geostrategy.RecordingEmailSender
 import app.geostrategy.TestMongo
 import app.geostrategy.appModule
 import app.geostrategy.auth.hmacSha256Hex
+import app.geostrategy.http.WEBHOOK_BODY_LIMIT_BYTES
 import app.geostrategy.registerAndLogin
 import app.geostrategy.testDeps
 import app.geostrategy.users.UserRepository
+import ch.qos.logback.classic.Level
 import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.request
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.writeStringUtf8
 import kotlinx.coroutines.runBlocking
 import java.time.Instant
 import kotlin.test.Test
@@ -30,6 +38,13 @@ class BillingWebhookTest {
     private fun upgradeBody(email: String) = """
         {"type":"license.created","objects":{"user":{"email":"$email"},
          "license":{"id":"lic-1","plan_id":"plan-pro","expiration":"2027-01-01T00:00:00Z"}}}
+    """.trimIndent()
+
+    /** A validly-shaped, validly-signable upgrade event padded past the webhook body limit. */
+    private fun oversizedUpgradeBody(email: String) = """
+        {"type":"license.created","objects":{"user":{"email":"$email"},
+         "license":{"id":"lic-1","plan_id":"plan-pro","expiration":"2027-01-01T00:00:00Z"}},
+         "padding":"${"x".repeat(WEBHOOK_BODY_LIMIT_BYTES.toInt())}"}
     """.trimIndent()
 
     // No renewal has occurred for this product yet. So this body is not a captured payload.
@@ -116,6 +131,43 @@ class BillingWebhookTest {
     }
 
     @Test
+    fun `a webhook body over the limit with Content-Length is 413 and never applies billing`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+
+        // A validly-signed body, so a 413 here proves the size cap runs before signature
+        // verification and before BillingService.apply, not that the signature failed.
+        val oversized = oversizedUpgradeBody("ada@example.com")
+        val res = http.webhook(oversized, hmacSha256Hex(secret, oversized))
+        assertEquals(HttpStatusCode.PayloadTooLarge, res.status)
+        assertTrue(res.bodyAsText().contains("invalid_request"))
+
+        val user = runBlocking { UserRepository(db).findByEmail("ada@example.com")!! }
+        assertEquals("free", user.tier)
+    }
+
+    @Test
+    fun `a webhook body over the limit with no Content-Length header is also 413`() = testApplication {
+        application { appModule(testDeps(TestMongo.freshDb(), email = RecordingEmailSender(), env = env)) }
+        val body = oversizedUpgradeBody("ada@example.com")
+
+        val res = client.post("/v1/billing/freemius/webhook") {
+            header("X-Signature", hmacSha256Hex(secret, body))
+            setBody(object : OutgoingContent.WriteChannelContent() {
+                override suspend fun writeTo(channel: ByteWriteChannel) {
+                    channel.writeStringUtf8(body)
+                }
+            })
+        }
+        // Confirms this request truly carried no Content-Length header, so the assertion
+        // below proves the streaming byte count, not the declared length, caught it.
+        assertEquals(null, res.request.headers[HttpHeaders.ContentLength])
+        assertEquals(HttpStatusCode.PayloadTooLarge, res.status)
+    }
+
+    @Test
     fun `signature check uses the raw bytes, ignoring a mismatched charset in Content-Type`() = testApplication {
         val db = TestMongo.freshDb()
         application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
@@ -160,6 +212,63 @@ class BillingWebhookTest {
 
         val res = http.webhook(upgradeBody("ada@example.com"), null)
         assertEquals(HttpStatusCode.Unauthorized, res.status)
+    }
+
+    @Test
+    fun `an unhandled event type is acked without a user lookup and leaves a pro user unchanged`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+
+        val up = upgradeBody("ada@example.com")
+        http.webhook(up, hmacSha256Hex(secret, up))
+        val repo = UserRepository(db)
+        val before = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("pro", before.tier)
+
+        val installed = """{"type":"install.installed","objects":{"user":{"email":"ada@example.com"}}}"""
+        val res = http.webhook(installed, hmacSha256Hex(secret, installed))
+        assertEquals(HttpStatusCode.OK, res.status)
+
+        val after = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("pro", after.tier)
+        assertEquals(before.freemius, after.freemius)
+    }
+
+    @Test
+    fun `an unknown email on a handled event type logs one ERROR line naming the type and the license id`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+
+        val logs = LogCapture()
+        try {
+            val ghost = upgradeBody("ghost@example.com")
+            assertEquals(HttpStatusCode.OK, client.webhook(ghost, hmacSha256Hex(secret, ghost)).status)
+
+            val errors = logs.events().filter { it.level == Level.ERROR }
+            assertEquals(1, errors.size)
+            assertTrue(errors[0].formattedMessage.contains("license.created"))
+            assertTrue(errors[0].formattedMessage.contains("lic-1"))
+        } finally {
+            logs.stop()
+        }
+    }
+
+    @Test
+    fun `an event type the server ignores logs no ERROR line`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+
+        val logs = LogCapture()
+        try {
+            val installed = """{"type":"install.installed","objects":{"user":{"email":"ghost@example.com"}}}"""
+            assertEquals(HttpStatusCode.OK, client.webhook(installed, hmacSha256Hex(secret, installed)).status)
+
+            assertTrue(logs.events().none { it.level == Level.ERROR })
+        } finally {
+            logs.stop()
+        }
     }
 
     @Test

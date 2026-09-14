@@ -5,6 +5,7 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.application.log
 import io.ktor.server.plugins.BadRequestException
+import io.ktor.server.plugins.PayloadTooLargeException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
 import kotlinx.serialization.Serializable
@@ -27,6 +28,12 @@ fun Application.installErrorHandling() {
             call.respond(
                 HttpStatusCode.BadRequest,
                 ApiError("invalid_request", "We couldn't read that request. Please check the data and try again."),
+            )
+        }
+        exception<PayloadTooLargeException> { call, _ ->
+            call.respond(
+                HttpStatusCode.PayloadTooLarge,
+                ApiError("invalid_request", "That request is too large. Please check the data and try again."),
             )
         }
         exception<Throwable> { call, e ->
