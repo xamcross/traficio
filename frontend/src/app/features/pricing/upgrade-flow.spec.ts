@@ -30,6 +30,27 @@ describe('UpgradeFlow', () => {
     await expectAsync(flow.openCheckout('a@example.com', () => {})).toBeRejectedWithError('not_connected');
   });
 
+  it('opens the checkout with the account email locked read-only', async () => {
+    let openedWith: Record<string, unknown> | undefined;
+    flow.productId = 'prod_1';
+    flow.loadScript = () => Promise.resolve();
+    (window as unknown as { FS: unknown }).FS = {
+      Checkout: class {
+        open(o: object) {
+          openedWith = o as Record<string, unknown>;
+        }
+      },
+    };
+
+    await flow.openCheckout('a@example.com', () => {});
+
+    expect(openedWith?.['user_email']).toBe('a@example.com');
+    expect(openedWith?.['readonly_user']).toBe(true);
+    expect(openedWith?.['email']).toBeUndefined();
+
+    delete (window as unknown as { FS?: unknown }).FS;
+  });
+
   it('resolves true and updates the store once the tier turns pro', async () => {
     api.tiers = ['free', 'free', 'pro'];
     flow.maxPolls = 10;
