@@ -37,6 +37,28 @@ class BillingWebhookTest {
             setBody(body)
         }
 
+    // These two shapes were checked on 2026-09-14 against the real Freemius API, for the
+    // sandbox purchase (developer 38607, store 18651, product 39459, events 1417312989 and
+    // 1417313124). A payment.created payload has "objects": {"user", "payment"}. It has no
+    // license object, so it cannot carry a renewal expiration. A license.created payload has
+    // "objects": {"user", "license"}, with the expiration as a MySQL-style timestamp (no zone).
+    // No renewal event ever fired for the sandbox account: it was refunded and cancelled about
+    // a minute after the purchase. So renewalBody below is not a captured payload. It follows
+    // the license.created shape above, per the "resource.event carries objects.resource"
+    // pattern that Freemius documents for its other license.* events.
+
+    private fun renewalBody(email: String, licenseId: String, expiration: String) = """
+        {"type":"license.updated","objects":{"user":{"email":"$email"},
+         "license":{"id":"$licenseId","plan_id":"plan-pro","expiration":"$expiration"}}}
+    """.trimIndent()
+
+    // Real payment.created payload for the sandbox refund (event 1417313124), with the email
+    // and the Stripe, card, and IP fields removed.
+    private fun paymentCreatedWithNoLicense(email: String) = """
+        {"type":"payment.created","objects":{"user":{"email":"$email"},
+         "payment":{"id":"2131050","license_id":"2043610","gross":-9,"type":"refund"}}}
+    """.trimIndent()
+
     @Test
     fun `signed upgrade event makes the user pro and downgrade reverts`() = testApplication {
         val db = TestMongo.freshDb()
@@ -88,5 +110,66 @@ class BillingWebhookTest {
         val res = client.post("/v1/billing/freemius/webhook") { setBody("{}") }
         assertEquals(HttpStatusCode.ServiceUnavailable, res.status)
         assertTrue(res.bodyAsText().contains("billing_not_configured"))
+    }
+
+    @Test
+    fun `renewal event with the matching license id extends expiresAt and the user stays pro`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+        val repo = UserRepository(db)
+
+        val up = upgradeBody("ada@example.com")
+        http.webhook(up, hmacSha256Hex(secret, up))
+        val firstExpiry = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!.expiresAt!!
+
+        val renewal = renewalBody("ada@example.com", "lic-1", "2027-02-01 00:00:00")
+        assertEquals(HttpStatusCode.OK, http.webhook(renewal, hmacSha256Hex(secret, renewal)).status)
+        val renewed = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("pro", renewed.tier)
+        assertTrue(renewed.freemius!!.expiresAt!!.isAfter(firstExpiry))
+
+        val downgraded = BillingRevalidator(repo, CannedFreemiusClient()).run(firstExpiry.plusSeconds(3600))
+        assertEquals(0, downgraded)
+        val after = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("pro", after.tier)
+        assertEquals(renewed.freemius!!.expiresAt, after.freemius!!.expiresAt)
+    }
+
+    @Test
+    fun `renewal event for a different license id changes nothing`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+        val repo = UserRepository(db)
+
+        val up = upgradeBody("ada@example.com")
+        http.webhook(up, hmacSha256Hex(secret, up))
+        val before = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!
+
+        val renewal = renewalBody("ada@example.com", "lic-other", "2027-02-01 00:00:00")
+        assertEquals(HttpStatusCode.OK, http.webhook(renewal, hmacSha256Hex(secret, renewal)).status)
+        val after = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!
+        assertEquals(before, after)
+    }
+
+    @Test
+    fun `payment created without a license object changes nothing`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+        val repo = UserRepository(db)
+
+        val up = upgradeBody("ada@example.com")
+        http.webhook(up, hmacSha256Hex(secret, up))
+        val before = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!
+
+        val payment = paymentCreatedWithNoLicense("ada@example.com")
+        assertEquals(HttpStatusCode.OK, http.webhook(payment, hmacSha256Hex(secret, payment)).status)
+        val after = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!
+        assertEquals(before, after)
     }
 }

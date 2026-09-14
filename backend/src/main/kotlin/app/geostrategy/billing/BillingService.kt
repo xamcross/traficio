@@ -31,6 +31,17 @@ class BillingService(
                 val info = user.freemius ?: return
                 users.setBilling(user.id, user.tier, info.copy(subscriptionStatus = "cancelled"))
             }
+            // Freemius sends no event for a renewal payment. It sends payment.created instead.
+            // A real payment.created payload has no license object. It cannot supply the new
+            // expiration. Freemius also sends license.updated, and that event does carry the
+            // license object. The license id check rejects a stale license.updated event. A
+            // stale event must not overwrite a newer expiration.
+            event.type == "license.updated" -> {
+                val info = user.freemius
+                if (info != null && event.licenseId != null && event.licenseId == info.licenseId && event.expiresAt != null) {
+                    users.setBilling(user.id, user.tier, info.copy(expiresAt = event.expiresAt))
+                }
+            }
             event.type in DOWNGRADE_TYPES -> {
                 users.setBilling(user.id, "free", (user.freemius ?: FreemiusInfo()).copy(subscriptionStatus = "expired"))
             }
