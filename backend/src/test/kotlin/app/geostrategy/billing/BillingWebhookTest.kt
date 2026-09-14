@@ -50,6 +50,13 @@ class BillingWebhookTest {
             setBody(body)
         }
 
+    private suspend fun io.ktor.client.HttpClient.webhookBytes(body: ByteArray, contentType: String, sig: String?) =
+        post("/v1/billing/freemius/webhook") {
+            contentType(ContentType.parse(contentType))
+            if (sig != null) header("X-Signature", sig)
+            setBody(body)
+        }
+
     @Test
     fun `signed upgrade event makes the user pro and downgrade reverts`() = testApplication {
         val db = TestMongo.freshDb()
@@ -138,5 +145,52 @@ class BillingWebhookTest {
         // below proves the streaming byte count, not the declared length, caught it.
         assertEquals(null, res.request.headers[HttpHeaders.ContentLength])
         assertEquals(HttpStatusCode.PayloadTooLarge, res.status)
+    }
+
+    @Test
+    fun `signature check uses the raw bytes, ignoring a mismatched charset in Content-Type`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+
+        val up = """
+            {"type":"license.created","note":"Müller","objects":{"user":{"email":"ada@example.com"},
+             "license":{"id":"lic-1","plan_id":"plan-pro","expiration":"2027-01-01T00:00:00Z"}}}
+        """.trimIndent()
+        val bytes = up.toByteArray(Charsets.UTF_8)
+        val sig = hmacSha256Hex(secret, bytes)
+
+        val res = http.webhookBytes(bytes, "application/json; charset=ISO-8859-1", sig)
+        assertEquals(HttpStatusCode.OK, res.status)
+        assertEquals("pro", runBlocking { UserRepository(db).findByEmail("ada@example.com")!! }.tier)
+    }
+
+    @Test
+    fun `tampering with one byte of the body is 401 and changes no user`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+
+        val bytes = upgradeBody("ada@example.com").toByteArray(Charsets.UTF_8)
+        val sig = hmacSha256Hex(secret, bytes)
+        val tampered = bytes.copyOf()
+        tampered[10] = (tampered[10] + 1).toByte()
+
+        val res = http.webhookBytes(tampered, "application/json", sig)
+        assertEquals(HttpStatusCode.Unauthorized, res.status)
+        assertEquals("free", runBlocking { UserRepository(db).findByEmail("ada@example.com")!! }.tier)
+    }
+
+    @Test
+    fun `missing signature header is 401`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+
+        val res = http.webhook(upgradeBody("ada@example.com"), null)
+        assertEquals(HttpStatusCode.Unauthorized, res.status)
     }
 }

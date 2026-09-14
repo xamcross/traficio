@@ -7,7 +7,7 @@ agent could do is done. Sentences follow ASD-STE100.
 **Where the product stands.** `https://traficio.com` serves the app and 10 crawlable
 pages. `www.traficio.com` and `app.traficio.com` return 301 to it.
 `https://api.traficio.com` serves the API from Fly.io, on a MongoDB Atlas M0. CI tests
-and deploys both halves on every push to `master`. A visitor can run a free preview
+and deploys both halves on every push to `main`. A visitor can run a free preview
 with no account. A signed-in user can run a full check and publish the result.
 
 **What is not connected yet.** Email, Google sign-in and payment. The app runs without all
@@ -271,7 +271,7 @@ Listed so you can see the boundary. None of it needs your attention.
 - The domain, DNS, TLS at Full (strict), the Pages project, and the apex as the one host.
 - The 301 redirects from `www.traficio.com` and `app.traficio.com` to the apex.
 - The Fly app, the Atlas database, and the secrets that make the API run.
-- CI: it tests and deploys both halves on every push to `master`.
+- CI: it tests and deploys both halves on every push to `main`.
 - Pre-rendered HTML on all 10 public pages, with per-page titles, descriptions, canonical
   links and Open Graph tags, plus a generated `sitemap.xml`.
 - The guides section, the landing FAQ, and the depth on the landing and pricing pages.

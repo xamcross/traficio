@@ -20,12 +20,32 @@ class FreemiusVerifierTest {
     @Test
     fun `verifier accepts the right signature and rejects wrong or missing ones`() {
         val v = FreemiusWebhookVerifier("secret-1")
-        val body = """{"type":"license.created"}"""
+        val body = """{"type":"license.created"}""".toByteArray(Charsets.UTF_8)
         val good = hmacSha256Hex("secret-1", body)
         assertTrue(v.verify(body, good))
         assertFalse(v.verify(body, good.dropLast(1) + "0"))
         assertFalse(v.verify(body, null))
         assertFalse(v.verify(body, ""))
+    }
+
+    @Test
+    fun `verifier rejects a body with one changed byte`() {
+        val v = FreemiusWebhookVerifier("secret-1")
+        val body = """{"type":"license.created"}""".toByteArray(Charsets.UTF_8)
+        val signature = hmacSha256Hex("secret-1", body)
+        val tampered = body.copyOf()
+        tampered[0] = (tampered[0] + 1).toByte()
+        assertFalse(v.verify(tampered, signature))
+    }
+
+    @Test
+    fun `verifier checks the exact bytes, not a UTF-8 decode and re-encode of them`() {
+        val v = FreemiusWebhookVerifier("secret-1")
+        val body = """{"type":"license.created","note":"Müller"}""".toByteArray(Charsets.UTF_8)
+        val signature = hmacSha256Hex("secret-1", body)
+        val roundTripped = String(body, Charsets.ISO_8859_1).toByteArray(Charsets.UTF_8)
+        assertFalse(v.verify(roundTripped, signature))
+        assertTrue(v.verify(body, signature))
     }
 
     @Test
