@@ -29,4 +29,12 @@ class CryptoTest {
         assertEquals(sha256Hex("abc"), sha256Hex("abc"))
         assertEquals(64, sha256Hex("abc").length)
     }
+
+    @Test
+    fun `hmacSha256Hex over bytes matches the rfc vector and the String overload delegates to it`() {
+        val bytes = "The quick brown fox jumps over the lazy dog".toByteArray(Charsets.UTF_8)
+        val expected = "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8"
+        assertEquals(expected, hmacSha256Hex("key", bytes))
+        assertEquals(hmacSha256Hex("key", bytes), hmacSha256Hex("key", String(bytes, Charsets.UTF_8)))
+    }
 }

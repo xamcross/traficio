@@ -17,6 +17,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -24,10 +25,27 @@ import kotlin.test.assertTrue
 class BillingWebhookTest {
     private val secret = "whsec-test"
     private val env = mapOf("FREEMIUS_SECRET_KEY" to secret, "FREEMIUS_PRO_PLAN_ID" to "plan-pro")
+    private val renewalTypes = listOf("license.updated")
 
     private fun upgradeBody(email: String) = """
         {"type":"license.created","objects":{"user":{"email":"$email"},
          "license":{"id":"lic-1","plan_id":"plan-pro","expiration":"2027-01-01T00:00:00Z"}}}
+    """.trimIndent()
+
+    // No renewal has occurred for this product yet. So this body is not a captured payload.
+    // It uses the license object of a real license.created payload (event 1417312989), with a
+    // MySQL-style expiration. Freemius documents the same license object for its other
+    // license.* events.
+    private fun renewalBody(type: String, email: String, licenseId: String, expiration: String) = """
+        {"type":"$type","objects":{"user":{"email":"$email"},
+         "license":{"id":"$licenseId","plan_id":"plan-pro","expiration":"$expiration"}}}
+    """.trimIndent()
+
+    // A real payment.created payload from the sandbox refund (event 1417313124). The email and
+    // the Stripe, card, and IP fields are removed. The payload has no license object.
+    private fun paymentCreatedWithNoLicense(email: String) = """
+        {"type":"payment.created","objects":{"user":{"email":"$email"},
+         "payment":{"id":"2131050","license_id":"2043610","gross":-9,"type":"refund"}}}
     """.trimIndent()
 
     private suspend fun io.ktor.client.HttpClient.webhook(body: String, sig: String?) =
@@ -37,27 +55,12 @@ class BillingWebhookTest {
             setBody(body)
         }
 
-    // These two shapes were checked on 2026-09-14 against the real Freemius API, for the
-    // sandbox purchase (developer 38607, store 18651, product 39459, events 1417312989 and
-    // 1417313124). A payment.created payload has "objects": {"user", "payment"}. It has no
-    // license object, so it cannot carry a renewal expiration. A license.created payload has
-    // "objects": {"user", "license"}, with the expiration as a MySQL-style timestamp (no zone).
-    // No renewal event ever fired for the sandbox account: it was refunded and cancelled about
-    // a minute after the purchase. So renewalBody below is not a captured payload. It follows
-    // the license.created shape above, per the "resource.event carries objects.resource"
-    // pattern that Freemius documents for its other license.* events.
-
-    private fun renewalBody(email: String, licenseId: String, expiration: String) = """
-        {"type":"license.updated","objects":{"user":{"email":"$email"},
-         "license":{"id":"$licenseId","plan_id":"plan-pro","expiration":"$expiration"}}}
-    """.trimIndent()
-
-    // Real payment.created payload for the sandbox refund (event 1417313124), with the email
-    // and the Stripe, card, and IP fields removed.
-    private fun paymentCreatedWithNoLicense(email: String) = """
-        {"type":"payment.created","objects":{"user":{"email":"$email"},
-         "payment":{"id":"2131050","license_id":"2043610","gross":-9,"type":"refund"}}}
-    """.trimIndent()
+    private suspend fun io.ktor.client.HttpClient.webhookBytes(body: ByteArray, contentType: String, sig: String?) =
+        post("/v1/billing/freemius/webhook") {
+            contentType(ContentType.parse(contentType))
+            if (sig != null) header("X-Signature", sig)
+            setBody(body)
+        }
 
     @Test
     fun `signed upgrade event makes the user pro and downgrade reverts`() = testApplication {
@@ -113,46 +116,94 @@ class BillingWebhookTest {
     }
 
     @Test
-    fun `renewal event with the matching license id extends expiresAt and the user stays pro`() = testApplication {
+    fun `signature check uses the raw bytes, ignoring a mismatched charset in Content-Type`() = testApplication {
         val db = TestMongo.freshDb()
         application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
         val http = createClient { install(HttpCookies) }
         registerAndLogin(http, "ada@example.com")
-        val repo = UserRepository(db)
 
-        val up = upgradeBody("ada@example.com")
-        http.webhook(up, hmacSha256Hex(secret, up))
-        val firstExpiry = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!.expiresAt!!
+        val up = """
+            {"type":"license.created","note":"Müller","objects":{"user":{"email":"ada@example.com"},
+             "license":{"id":"lic-1","plan_id":"plan-pro","expiration":"2027-01-01T00:00:00Z"}}}
+        """.trimIndent()
+        val bytes = up.toByteArray(Charsets.UTF_8)
+        val sig = hmacSha256Hex(secret, bytes)
 
-        val renewal = renewalBody("ada@example.com", "lic-1", "2027-02-01 00:00:00")
-        assertEquals(HttpStatusCode.OK, http.webhook(renewal, hmacSha256Hex(secret, renewal)).status)
-        val renewed = runBlocking { repo.findByEmail("ada@example.com")!! }
-        assertEquals("pro", renewed.tier)
-        assertTrue(renewed.freemius!!.expiresAt!!.isAfter(firstExpiry))
-
-        val downgraded = BillingRevalidator(repo, CannedFreemiusClient()).run(firstExpiry.plusSeconds(3600))
-        assertEquals(0, downgraded)
-        val after = runBlocking { repo.findByEmail("ada@example.com")!! }
-        assertEquals("pro", after.tier)
-        assertEquals(renewed.freemius!!.expiresAt, after.freemius!!.expiresAt)
+        val res = http.webhookBytes(bytes, "application/json; charset=ISO-8859-1", sig)
+        assertEquals(HttpStatusCode.OK, res.status)
+        assertEquals("pro", runBlocking { UserRepository(db).findByEmail("ada@example.com")!! }.tier)
     }
 
     @Test
-    fun `renewal event for a different license id changes nothing`() = testApplication {
+    fun `tampering with one byte of the body is 401 and changes no user`() = testApplication {
         val db = TestMongo.freshDb()
         application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
         val http = createClient { install(HttpCookies) }
         registerAndLogin(http, "ada@example.com")
-        val repo = UserRepository(db)
 
-        val up = upgradeBody("ada@example.com")
-        http.webhook(up, hmacSha256Hex(secret, up))
-        val before = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!
+        val bytes = upgradeBody("ada@example.com").toByteArray(Charsets.UTF_8)
+        val sig = hmacSha256Hex(secret, bytes)
+        val tampered = bytes.copyOf()
+        tampered[10] = (tampered[10] + 1).toByte()
 
-        val renewal = renewalBody("ada@example.com", "lic-other", "2027-02-01 00:00:00")
-        assertEquals(HttpStatusCode.OK, http.webhook(renewal, hmacSha256Hex(secret, renewal)).status)
-        val after = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!
-        assertEquals(before, after)
+        val res = http.webhookBytes(tampered, "application/json", sig)
+        assertEquals(HttpStatusCode.Unauthorized, res.status)
+        assertEquals("free", runBlocking { UserRepository(db).findByEmail("ada@example.com")!! }.tier)
+    }
+
+    @Test
+    fun `missing signature header is 401`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+
+        val res = http.webhook(upgradeBody("ada@example.com"), null)
+        assertEquals(HttpStatusCode.Unauthorized, res.status)
+    }
+
+    @Test
+    fun `renewal event with the matching license id sets the later expiresAt and the user stays pro`() {
+        for (type in renewalTypes) testApplication {
+            val db = TestMongo.freshDb()
+            application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+            val http = createClient { install(HttpCookies) }
+            registerAndLogin(http, "ada@example.com")
+            val repo = UserRepository(db)
+
+            val up = upgradeBody("ada@example.com")
+            http.webhook(up, hmacSha256Hex(secret, up))
+            val firstExpiry = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!.expiresAt!!
+
+            val renewal = renewalBody(type, "ada@example.com", "lic-1", "2027-02-01 00:00:00")
+            assertEquals(HttpStatusCode.OK, http.webhook(renewal, hmacSha256Hex(secret, renewal)).status, type)
+
+            val downgraded = BillingRevalidator(repo, CannedFreemiusClient()).run(firstExpiry.plusSeconds(3600))
+            assertEquals(0, downgraded, type)
+            val after = runBlocking { repo.findByEmail("ada@example.com")!! }
+            assertEquals("pro", after.tier, type)
+            assertEquals(Instant.parse("2027-02-01T00:00:00Z"), after.freemius!!.expiresAt, type)
+        }
+    }
+
+    @Test
+    fun `renewal event for a different license id changes nothing`() {
+        for (type in renewalTypes) testApplication {
+            val db = TestMongo.freshDb()
+            application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+            val http = createClient { install(HttpCookies) }
+            registerAndLogin(http, "ada@example.com")
+            val repo = UserRepository(db)
+
+            val up = upgradeBody("ada@example.com")
+            http.webhook(up, hmacSha256Hex(secret, up))
+            val before = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!
+
+            val renewal = renewalBody(type, "ada@example.com", "lic-other", "2027-02-01 00:00:00")
+            assertEquals(HttpStatusCode.OK, http.webhook(renewal, hmacSha256Hex(secret, renewal)).status, type)
+            val after = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!
+            assertEquals(before, after, type)
+        }
     }
 
     @Test

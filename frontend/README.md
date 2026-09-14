@@ -27,12 +27,12 @@ Run `npx ng build`. The build output goes to `dist/frontend/browser`.
 
 ## Deploy to Cloudflare Pages
 
-CI deploys the frontend after each merge to `master` (see `.github/workflows/ci.yml`).
+CI deploys the frontend after each merge to `main` (see `.github/workflows/ci.yml`).
 The Pages project is a **direct-upload** project. Do these steps once, by hand.
 
-1. Create the Pages project: `npx wrangler pages project create geostrategy --production-branch=master`.
+1. Create the Pages project: `npx wrangler pages project create geostrategy --production-branch=main`.
 2. Build once by hand: `npm run build`. Then upload once by hand:
-   `npx wrangler pages deploy dist/frontend/browser --project-name=geostrategy --branch=master`.
+   `npx wrangler pages deploy dist/frontend/browser --project-name=geostrategy --branch=main`.
 3. Attach the custom domain `app.<domain>` to the project in the Cloudflare dashboard.
 4. Add the repository secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` on
    GitHub. Scope the token to the account with `Pages:Edit` only.
