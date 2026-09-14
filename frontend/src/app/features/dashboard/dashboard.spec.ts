@@ -294,4 +294,19 @@ describe('Dashboard', () => {
     expect(api.createSiteCalls).toEqual(['new.example.com']);
     expect(TestBed.inject(Location).path()).toBe('/sites/S7');
   });
+
+  it('a url of three spaces keeps "Add site" disabled and calls createSite with nothing', async () => {
+    api.listSitesResult = Promise.resolve([]);
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    setValue(addSiteInput(el)!, '   ');
+    fixture.detectChanges();
+    expect(findButtonByText(el, 'Add site')!.disabled).toBe(true);
+    submitForm(el);
+    await fixture.whenStable();
+    expect(api.createSiteCalls).toEqual([]);
+  });
 });

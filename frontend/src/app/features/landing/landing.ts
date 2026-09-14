@@ -1,6 +1,6 @@
 import { DOCUMENT } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { PreviewDto } from '../../core/api/types';
@@ -11,6 +11,7 @@ import { severityOrder } from '../../shared/copy';
 import { ScoreBar } from '../../shared/score-bar';
 import { SeverityBadge } from '../../shared/severity-badge';
 import { SiteFooter } from '../../shared/site-footer';
+import { notBlank } from '../../shared/validators';
 
 /** State of the ungated preview that runs in place after the hero form submits. */
 type PreviewState =
@@ -242,7 +243,7 @@ export class Landing {
   }
 
   protected readonly form = new FormGroup({
-    url: new FormControl(this.prerenderedUrl(), { nonNullable: true, validators: [Validators.required] }),
+    url: new FormControl(this.prerenderedUrl(), { nonNullable: true, validators: [notBlank] }),
   });
 
   /**

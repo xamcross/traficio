@@ -204,6 +204,7 @@ export class Progress implements OnInit {
     this.status.set(assessment.status);
     if (assessment.status === 'ready') {
       this.doneTimer = setTimeout(() => {
+        this.doneTimer = null;
         if (this.destroyed) return;
         void this.router.navigateByUrl(`/sites/${assessment.siteId}`);
       }, DONE_BEAT_MS);
@@ -214,7 +215,10 @@ export class Progress implements OnInit {
 
   private scheduleRetry(): void {
     if (this.destroyed) return;
-    this.retryTimer = setTimeout(() => this.openStream(), RETRY_DELAY_MS);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      this.openStream();
+    }, RETRY_DELAY_MS);
   }
 
   protected headline(a: AssessmentDto): string { return failureHeadline(a.errorCode); }
@@ -254,5 +258,7 @@ export class Progress implements OnInit {
     this.closeStream = null;
     if (this.retryTimer) clearTimeout(this.retryTimer);
     if (this.doneTimer) clearTimeout(this.doneTimer);
+    this.retryTimer = null;
+    this.doneTimer = null;
   }
 }

@@ -231,4 +231,21 @@ describe('Landing', () => {
     const button = el.querySelector<HTMLButtonElement>('button[type=submit]')!;
     expect(button.disabled).toBe(false);
   });
+
+  it('a url of three spaces keeps "Check my site free" disabled, and runs no preview', async () => {
+    const calls: string[] = [];
+    await configure((url) => {
+      calls.push(url);
+      return Promise.resolve(PREVIEW);
+    });
+    const fixture = TestBed.createComponent(Landing);
+    fixture.detectChanges();
+    setUrl(fixture, '   ');
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector<HTMLButtonElement>('button[type=submit]')!.disabled).toBe(true);
+    submitForm(fixture);
+    await fixture.whenStable();
+    expect(calls).toEqual([]);
+  });
 });

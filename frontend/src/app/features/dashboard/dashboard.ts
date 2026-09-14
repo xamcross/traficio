@@ -1,5 +1,5 @@
 import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
@@ -9,6 +9,7 @@ import { ErrorNote } from '../../shared/error-note';
 import { assessmentErrorCopy } from '../../shared/assessment-error-copy';
 import { formatDate } from '../../shared/copy';
 import { toApiError } from '../../shared/to-api-error';
+import { notBlank } from '../../shared/validators';
 import { pricingUrlFor } from '../../shared/upgrade-redirect';
 
 @Component({
@@ -44,7 +45,7 @@ export class Dashboard implements OnInit {
   protected readonly pricingUrl = pricingUrlFor;
 
   protected readonly addForm = new FormGroup({
-    url: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    url: new FormControl('', { nonNullable: true, validators: [notBlank] }),
   });
 
   /** Set once on destroy. Every async continuation checks it first.

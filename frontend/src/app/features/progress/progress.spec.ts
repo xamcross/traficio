@@ -138,6 +138,27 @@ describe('Progress', () => {
     expect(sources.length).toBe(2);
   }));
 
+  it('clears the retryTimer field once the retry delay elapses', fakeAsync(() => {
+    api.getAssessmentResult = Promise.resolve(makeAssessment({ status: 'queued' }));
+    const fixture = TestBed.createComponent(Progress);
+    fixture.detectChanges();
+    tick();
+    fixture.detectChanges();
+
+    api.getAssessmentResult = Promise.resolve(makeAssessment({ status: 'analyzing' }));
+    sources[0].onerror!(new Event('error'));
+    tick();
+    fixture.detectChanges();
+
+    const instance = fixture.componentInstance as unknown as { retryTimer: ReturnType<typeof setTimeout> | null };
+    expect(instance.retryTimer).not.toBeNull();
+
+    tick(2000);
+    fixture.detectChanges();
+
+    expect(instance.retryTimer).toBeNull();
+  }));
+
   it('caps consecutive refetch failures and shows a terminal error panel instead of retrying forever', fakeAsync(() => {
     api.getAssessmentResult = Promise.resolve(makeAssessment({ status: 'queued' }));
     const fixture = TestBed.createComponent(Progress);
