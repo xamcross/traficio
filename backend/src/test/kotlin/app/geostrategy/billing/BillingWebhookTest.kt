@@ -105,6 +105,27 @@ class BillingWebhookTest {
     }
 
     @Test
+    fun `unhandled event type is acked without a change to the pro user`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+
+        val up = upgradeBody("ada@example.com")
+        assertEquals(HttpStatusCode.OK, http.webhook(up, hmacSha256Hex(secret, up)).status)
+        val repo = UserRepository(db)
+        val pro = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("pro", pro.tier)
+
+        val installed = """{"type":"install.installed","objects":{"user":{"email":"ada@example.com"}}}"""
+        val res = http.webhook(installed, hmacSha256Hex(secret, installed))
+        assertEquals(HttpStatusCode.OK, res.status)
+        val after = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("pro", after.tier)
+        assertEquals(pro.freemius, after.freemius)
+    }
+
+    @Test
     fun `webhook without configured secret is 503`() = testApplication {
         application { appModule(testDeps(TestMongo.freshDb())) }
         val res = client.post("/v1/billing/freemius/webhook") { setBody("{}") }
