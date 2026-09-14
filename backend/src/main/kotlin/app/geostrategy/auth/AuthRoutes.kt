@@ -75,8 +75,8 @@ fun Route.authRoutes(deps: AppDeps) {
         // The meter mirrors two gates, so it never drifts from enforcement.
         // The assessment gate is in AssessmentRoutes.kt.
         // The site count above and the site gate use one filter, eq("userId", userId), from Site.kt.
-        // The site gate checks that filter at SiteRoutes.kt:52, the pre-insert check.
-        // The site gate checks it again at SiteRoutes.kt:60, the post-insert recount.
+        // The site gate checks that filter in the site-cap check in the POST /v1/sites handler.
+        // The site gate checks it again in the post-insert recount in the same handler.
         val since = Instant.now().minus(Duration.ofDays(30))
         val assessmentsUsed = deps.assessments.countNonFailedForUserSince(user.id, since)
         val assessmentsLimit = deps.config.tierLimits.assessmentsPerMonthFor(user.tier)
