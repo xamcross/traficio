@@ -10,8 +10,8 @@ pages. `www.traficio.com` and `app.traficio.com` return 301 to it.
 and deploys both halves on every push to `main`. A visitor can run a free preview
 with no account. A signed-in user can run a full check and publish the result.
 
-**What is not connected yet.** Email, Google sign-in and payment. The app runs without all
-three. The gaps are listed below.
+**What is not connected yet.** Google sign-in and payment. The app runs without both.
+The gaps are listed below.
 
 Legend: **[D]** a decision only you can make · **[A]** an account only you can open ·
 **[£]** costs money · **[C]** a click in your own inbox or console.
@@ -91,15 +91,13 @@ The login and signup pages show a "Continue with Google" button. It fails until 
    Google** → you land on the dashboard. A `redirect_uri_mismatch` means the URI in step 3
    differs from the one above. Compare it character by character.
 
-### 5. Email sending · [A] · 30 minutes · deferred by your decision on 2026-08-18
+### 5. Email sending — done 2026-09-14
 
-The API sends no email today. Each verification and reset link goes to `fly logs` instead,
-on a line starting `EMAIL (not sent, no RESEND_API_KEY)`. That is workable for your own
-testing. It is not workable for real users: they cannot verify an address, and **an
-unverified account cannot run a full check**.
+The API sends real email through Resend, from `noreply@traficio.com` on
+`send.traficio.com`. A verification link and a password reset link now arrive in the
+inbox. The `fly logs` fallback line no longer appears.
 
-Do this before you accept real users. The code supports Resend. Another provider needs one
-small `EmailSender` class in the backend.
+The steps below are the record of the setup that made this work.
 
 1. Create an account at https://resend.com. The free tier covers 3,000 emails a month.
 2. **Domains → Add Domain** → `traficio.com`, region **Europe (Ireland)**.
