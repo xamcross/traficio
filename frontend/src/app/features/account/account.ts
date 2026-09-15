@@ -65,7 +65,9 @@ export class Account implements OnInit {
     this.usageError.set(null);
     this.sitesError.set(null);
     // Promise.allSettled means one failed request does not hide the other's result.
-    const [usageResult, sitesResult] = await Promise.allSettled([this.api.usage(), this.api.listSites()]);
+    // store.refresh() also settles. A Freemius webhook can change the tier while this
+    // page is closed. The store otherwise reloads only at app start or on login.
+    const [usageResult, sitesResult] = await Promise.allSettled([this.api.usage(), this.api.listSites(), this.store.refresh()]);
     if (this.destroyed) return;
     if (usageResult.status === 'fulfilled') this.usage.set(usageResult.value);
     else this.usageError.set(toApiError(usageResult.reason));
