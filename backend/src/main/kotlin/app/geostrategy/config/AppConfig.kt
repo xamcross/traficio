@@ -30,6 +30,10 @@ data class AppConfig(
     val tierLimits: TierLimits,
     val freemiusSecretKey: String?,
     val freemiusProPlanId: String?,
+    val freemiusPublicKey: String?,
+    // Lowercased. A user's email must match a value here before the checkout route
+    // hands out a sandbox token for their account.
+    val freemiusSandboxEmails: List<String>,
     val freemiusSignatureHeader: String,
     val sseMaxMillis: Long,
 ) {
@@ -63,6 +67,12 @@ data class AppConfig(
                 ),
                 freemiusSecretKey = env["FREEMIUS_SECRET_KEY"],
                 freemiusProPlanId = env["FREEMIUS_PRO_PLAN_ID"],
+                freemiusPublicKey = env["FREEMIUS_PUBLIC_KEY"],
+                freemiusSandboxEmails = env["FREEMIUS_SANDBOX_EMAILS"]
+                    ?.split(",")
+                    ?.map { it.trim().lowercase() }
+                    ?.filter { it.isNotEmpty() }
+                    ?: emptyList(),
                 freemiusSignatureHeader = env["FREEMIUS_SIGNATURE_HEADER"] ?: "X-Signature",
                 sseMaxMillis = env["SSE_MAX_MILLIS"]?.toLong() ?: 900_000L,
             )

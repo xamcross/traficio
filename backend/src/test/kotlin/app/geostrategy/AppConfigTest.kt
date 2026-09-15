@@ -35,4 +35,23 @@ class AppConfigTest {
         assertEquals(9999, c.port)
         assertTrue(c.secureCookies)
     }
+
+    @Test
+    fun `freemius public key and sandbox emails are absent by default`() {
+        val c = AppConfig.fromEnv(emptyMap())
+        assertEquals(null, c.freemiusPublicKey)
+        assertEquals(emptyList(), c.freemiusSandboxEmails)
+    }
+
+    @Test
+    fun `freemius sandbox emails split on commas, trim, lowercase, and drop empty entries`() {
+        val c = AppConfig.fromEnv(
+            mapOf(
+                "FREEMIUS_PUBLIC_KEY" to "pk_test",
+                "FREEMIUS_SANDBOX_EMAILS" to " Ada@Example.com, ,bob@example.com ",
+            ),
+        )
+        assertEquals("pk_test", c.freemiusPublicKey)
+        assertEquals(listOf("ada@example.com", "bob@example.com"), c.freemiusSandboxEmails)
+    }
 }

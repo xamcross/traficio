@@ -6,7 +6,7 @@ import { Pricing } from './pricing';
 import { UpgradeFlow } from './upgrade-flow';
 import { ApiClient } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
-import { PlanDto, SiteDto, UserDto } from '../../core/api/types';
+import { CheckoutDto, PlanDto, SiteDto, UserDto } from '../../core/api/types';
 import { FREEMIUS_PORTAL_URL } from '../../core/config';
 
 @Component({ selector: 'pricing-spec-blank', template: '' })
@@ -39,9 +39,11 @@ function lockedPlan(): PlanDto {
 class FakeApiClient {
   sites: SiteDto[] = [site()];
   plan: PlanDto = lockedPlan();
+  checkoutResult: CheckoutDto = { planId: null, sandbox: null };
   listSites() { return Promise.resolve(this.sites); }
   getPlanForSite(_id: string) { return Promise.resolve(this.plan); }
   me(): Promise<UserDto> { return Promise.reject(new Error('not used')); }
+  checkout(): Promise<CheckoutDto> { return Promise.resolve(this.checkoutResult); }
 }
 
 class FakeUpgradeFlow {
@@ -64,10 +66,17 @@ class FakeUpgradeFlow {
 
 const freeUser: UserDto = { id: 'u1', email: 'dana@rivertonbakery.com', emailVerified: true, tier: 'free' };
 
-async function setup(query: Record<string, string>, user: UserDto | null, sites: SiteDto[] = [site()], plan: PlanDto = lockedPlan()) {
+async function setup(
+  query: Record<string, string>,
+  user: UserDto | null,
+  sites: SiteDto[] = [site()],
+  plan: PlanDto = lockedPlan(),
+  checkout: CheckoutDto = { planId: null, sandbox: null },
+) {
   const api = new FakeApiClient();
   api.sites = sites;
   api.plan = plan;
+  api.checkoutResult = checkout;
   const flow = new FakeUpgradeFlow();
   await TestBed.configureTestingModule({
     imports: [Pricing],
@@ -136,6 +145,19 @@ describe('Pricing', () => {
     expect(text).toContain('Your score is free. The plan is $9 a month.');
     expect(text).not.toContain('WHAT IS WAITING FOR YOU');
     expect(text).toContain('Check my site free');
+  });
+
+  it('shows the sandbox note when the checkout route returns a sandbox token for a signed-in free user', async () => {
+    const { el } = await setup({ site: 'S1' }, freeUser, [site()], lockedPlan(), {
+      planId: 'plan-pro',
+      sandbox: { ctx: '123', token: 'abc' },
+    });
+    expect(el.textContent ?? '').toContain('Sandbox checkout. No card is charged.');
+  });
+
+  it('shows no sandbox note when the checkout route returns no sandbox', async () => {
+    const { el } = await setup({ site: 'S1' }, freeUser);
+    expect(el.textContent ?? '').not.toContain('Sandbox checkout');
   });
 
   it('opens checkout with the email, then polls and navigates to the site home', async () => {

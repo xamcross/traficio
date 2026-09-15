@@ -2,7 +2,7 @@ import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { UpgradeFlow, loadFreemiusScript, resetFreemiusScriptCache } from './upgrade-flow';
 import { ApiClient } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
-import { UserDto } from '../../core/api/types';
+import { CheckoutDto, UserDto } from '../../core/api/types';
 
 const FREEMIUS_SCRIPT_URL = 'https://checkout.freemius.com/js/v1/';
 const FREEMIUS_SCRIPT_SELECTOR = 'script[src^="https://checkout.freemius.com"]';
@@ -30,10 +30,14 @@ function blockScriptNetworkLoads(): void {
 class FakeApiClient {
   tiers: Array<'free' | 'pro'> = [];
   calls = 0;
+  checkoutResult: CheckoutDto = { planId: null, sandbox: null };
   me(): Promise<UserDto> {
     const tier = this.tiers[Math.min(this.calls, this.tiers.length - 1)] ?? 'free';
     this.calls++;
     return Promise.resolve({ id: 'u1', email: 'a@example.com', emailVerified: true, tier });
+  }
+  checkout(): Promise<CheckoutDto> {
+    return Promise.resolve(this.checkoutResult);
   }
 }
 
@@ -53,12 +57,16 @@ describe('UpgradeFlow', () => {
     await expectAsync(flow.openCheckout('a@example.com', () => {})).toBeRejectedWithError('not_connected');
   });
 
-  it('opens the checkout with the account email locked read-only', async () => {
+  it('opens the checkout with the account email locked read-only, and no plan_id or sandbox when the route gives none', async () => {
+    let constructedWith: Record<string, unknown> | undefined;
     let openedWith: Record<string, unknown> | undefined;
     flow.productId = 'prod_1';
     flow.loadScript = () => Promise.resolve();
     (window as unknown as { FS: unknown }).FS = {
       Checkout: class {
+        constructor(o: object) {
+          constructedWith = o as Record<string, unknown>;
+        }
         open(o: object) {
           openedWith = o as Record<string, unknown>;
         }
@@ -70,6 +78,55 @@ describe('UpgradeFlow', () => {
     expect(openedWith?.['user_email']).toBe('a@example.com');
     expect(openedWith?.['readonly_user']).toBe(true);
     expect(openedWith?.['email']).toBeUndefined();
+    expect(constructedWith?.['plan_id']).toBeUndefined();
+    expect(openedWith?.['sandbox']).toBeUndefined();
+
+    delete (window as unknown as { FS?: unknown }).FS;
+  });
+
+  it('passes plan_id to the constructor and sandbox to open when the checkout route returns them', async () => {
+    let constructedWith: Record<string, unknown> | undefined;
+    let openedWith: Record<string, unknown> | undefined;
+    flow.productId = 'prod_1';
+    flow.loadScript = () => Promise.resolve();
+    api.checkoutResult = { planId: 'plan-pro', sandbox: { ctx: '123', token: 'abc' } };
+    (window as unknown as { FS: unknown }).FS = {
+      Checkout: class {
+        constructor(o: object) {
+          constructedWith = o as Record<string, unknown>;
+        }
+        open(o: object) {
+          openedWith = o as Record<string, unknown>;
+        }
+      },
+    };
+
+    await flow.openCheckout('a@example.com', () => {});
+
+    expect(constructedWith?.['plan_id']).toBe('plan-pro');
+    expect(openedWith?.['sandbox']).toEqual({ ctx: '123', token: 'abc' });
+
+    delete (window as unknown as { FS?: unknown }).FS;
+  });
+
+  it('fires onSuccess once even when both purchaseCompleted and success are called', async () => {
+    flow.productId = 'prod_1';
+    flow.loadScript = () => Promise.resolve();
+    let capturedOptions: Record<string, unknown> | undefined;
+    (window as unknown as { FS: unknown }).FS = {
+      Checkout: class {
+        open(o: object) {
+          capturedOptions = o as Record<string, unknown>;
+        }
+      },
+    };
+    let successCount = 0;
+
+    await flow.openCheckout('a@example.com', () => { successCount++; });
+    (capturedOptions?.['purchaseCompleted'] as () => void)();
+    (capturedOptions?.['success'] as () => void)();
+
+    expect(successCount).toBe(1);
 
     delete (window as unknown as { FS?: unknown }).FS;
   });

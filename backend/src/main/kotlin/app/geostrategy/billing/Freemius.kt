@@ -1,6 +1,7 @@
 package app.geostrategy.billing
 
 import app.geostrategy.auth.hmacSha256Hex
+import app.geostrategy.auth.md5Hex
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -12,6 +13,19 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+
+// Not secret: this is the same value as frontend/src/environments/environment.production.ts's
+// freemiusProductId, which already ships in every browser bundle.
+const val FREEMIUS_PRODUCT_ID = "39459"
+
+/**
+ * The Freemius sandbox checkout token. Formula from
+ * https://freemius.com/help/documentation/checkout/integration/testing/: `ctx` is the
+ * current Unix time (or any unique string), and `token` is `md5(ctx + product_id +
+ * secret_key + public_key + 'checkout')`.
+ */
+fun freemiusSandboxToken(ctx: String, secretKey: String, publicKey: String): String =
+    md5Hex(ctx + FREEMIUS_PRODUCT_ID + secretKey + publicKey + "checkout")
 
 class FreemiusWebhookVerifier(private val secret: String) {
     fun verify(rawBody: ByteArray, signature: String?): Boolean {
