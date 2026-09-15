@@ -133,17 +133,23 @@ class HttpFreemiusClient(
 ) : FreemiusClient {
     private val log = LoggerFactory.getLogger(HttpFreemiusClient::class.java)
 
+    // The timeout wraps the whole call, the body read included: a stalled response body must
+    // not hang this user's check past timeoutMillis, the same way Crawler.kt bounds a whole
+    // fetch (headers and body) rather than just the request that returns the headers.
     override suspend fun checkLicense(licenseId: String): LicenseState? = try {
-        val response = withTimeoutOrNull(timeoutMillis) {
-            http.get("https://api.freemius.com/v1/products/$productId/licenses/$licenseId.json") {
+        withTimeoutOrNull(timeoutMillis) {
+            val response = http.get("https://api.freemius.com/v1/products/$productId/licenses/$licenseId.json") {
                 header(HttpHeaders.Authorization, "Bearer $apiToken")
             }
-        } ?: error("timed out after ${timeoutMillis}ms")
-        check(response.status.isSuccess()) { "HTTP ${response.status.value}" }
-        val body = Json.parseToJsonElement(response.bodyAsText()).jsonObject
-        val isCancelled = body["is_cancelled"]?.jsonPrimitive?.booleanOrNull ?: false
-        val expiresAt = parseFreemiusTimestamp(body.str("expiration"))
-        LicenseState(active = !isCancelled && (expiresAt == null || expiresAt.isAfter(Instant.now())), expiresAt = expiresAt)
+            check(response.status.isSuccess()) { "HTTP ${response.status.value}" }
+            val body = Json.parseToJsonElement(response.bodyAsText()).jsonObject
+            val isCancelled = body["is_cancelled"]?.jsonPrimitive?.booleanOrNull ?: false
+            val expiresAt = parseFreemiusTimestamp(body.str("expiration"))
+            LicenseState(active = !isCancelled && (expiresAt == null || expiresAt.isAfter(Instant.now())), expiresAt = expiresAt)
+        } ?: run {
+            log.warn("Freemius license lookup for {} timed out after {}ms", licenseId, timeoutMillis)
+            null
+        }
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {

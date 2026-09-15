@@ -8,6 +8,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
 import java.time.Instant
@@ -17,8 +18,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class HttpFreemiusClientTest {
-    private fun clientFor(engine: MockEngine) =
-        HttpFreemiusClient(HttpClient(engine), productId = "39459", apiToken = "tok_abc")
+    private fun clientFor(engine: MockEngine, timeoutMillis: Long = 10_000) =
+        HttpFreemiusClient(HttpClient(engine), productId = "39459", apiToken = "tok_abc", timeoutMillis = timeoutMillis)
 
     private fun MockRequestHandleScope.jsonResponse(body: String, status: HttpStatusCode = HttpStatusCode.OK) =
         respond(content = body, status = status, headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()))
@@ -60,5 +61,22 @@ class HttpFreemiusClientTest {
     fun `a network failure is unknown`() = runBlocking {
         val engine = MockEngine { throw IOException("connection reset") }
         assertNull(clientFor(engine).checkLicense("lic-1"))
+    }
+
+    @Test
+    fun `a response slower than the timeout is unknown, and does not wait for it to finish`() = runBlocking {
+        // The delay happens inside the handler, before it hands back a response at all, so a
+        // timeout that wrapped only the request (and not the body read that follows it) would
+        // still catch this specific case. This test exists to pin the overall contract: the
+        // call never outlives timeoutMillis. Freemius.kt documents why the real body read is
+        // in scope too.
+        val engine = MockEngine {
+            delay(500)
+            jsonResponse("""{"id":"lic-1","is_cancelled":false,"expiration":null}""")
+        }
+        val elapsedMillis = kotlin.time.measureTime {
+            assertNull(clientFor(engine, timeoutMillis = 50).checkLicense("lic-1"))
+        }.inWholeMilliseconds
+        assertTrue(elapsedMillis < 400, "expected the call to give up near the 50ms timeout, took ${elapsedMillis}ms")
     }
 }

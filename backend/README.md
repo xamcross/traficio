@@ -136,9 +136,10 @@ asks `FreemiusClient` for the license's live state:
   The user stays Pro.
 - Not active: the server downgrades the user to Free, with
   `downgradeProIfMatches`.
-- Unknown (a network error, a 5xx answer, or `CannedFreemiusClient`): the
-  server does not downgrade until the stored `expiresAt` is 3 days in the
-  past. It logs each unknown answer at WARN level.
+- Unknown (a network error, a non-2xx answer, a 10-second timeout, or
+  `CannedFreemiusClient`): the server does not downgrade until the stored
+  `expiresAt` is 3 days in the past. It logs each unknown answer at WARN
+  level.
 
 Every write is conditional on the billing state the revalidator just
 observed, so a renewal webhook landing concurrently is not overwritten.
