@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory
 
 private val UPGRADE_TYPES = setOf("license.created", "license.activated", "subscription.created")
 private val DOWNGRADE_TYPES = setOf("payment.refund", "license.expired", "license.cancelled", "license.deactivated")
-private val EXPIRY_UPDATE_TYPES = setOf("license.extended", "license.updated")
+private val EXPIRY_UPDATE_TYPES = setOf("license.extended")
 private val HANDLED_TYPES = UPGRADE_TYPES + DOWNGRADE_TYPES + EXPIRY_UPDATE_TYPES + setOf("subscription.cancelled")
 
 class BillingService(
@@ -40,10 +40,10 @@ class BillingService(
                 val info = user.freemius ?: return
                 users.setBilling(user.id, user.tier, info.copy(subscriptionStatus = "cancelled"))
             }
-            // A renewal extends the license. Freemius then sends license.extended with the
-            // license object. The payment.created event of a renewal has no license object, so
-            // it cannot give the new expiration. The generic license.updated event can also
-            // carry the license object. The license id check rejects an event for another license.
+            // A renewal extends the license. Freemius then sends license.extended with the user
+            // and license objects. A payment.created event has no license object. A
+            // license.updated event has no user object, so the server cannot find the account.
+            // The license id check rejects an event for another license.
             event.type in EXPIRY_UPDATE_TYPES -> {
                 val info = user.freemius
                 if (info != null && event.licenseId != null && event.licenseId == info.licenseId && event.expiresAt != null) {
