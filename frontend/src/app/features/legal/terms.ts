@@ -19,8 +19,8 @@ import { plural } from '../../shared/copy';
 
       <h2>Who we are</h2>
       <p>
-        Traficio is run by <strong>[OPERATOR NAME, to be confirmed]</strong>,
-        <strong>[POSTAL ADDRESS, to be confirmed]</strong>. Email
+        Traficio is an independent service, run by its owner. "We" and "us" in these terms mean
+        the operator of Traficio. Email
         <a href="mailto:support@traficio.com">support@traficio.com</a> to reach us.
       </p>
 
@@ -84,8 +84,8 @@ import { plural } from '../../shared/copy';
         Free limit becomes read-only too.
       </p>
       <p>
-        Freemius gives you a money-back guarantee of <strong>[N, to be confirmed]</strong> days from
-        your first payment. Ask for a refund within that period at
+        Freemius gives you a money-back guarantee of 7 days from your first payment. Ask for a
+        refund within that period at
         <a href="mailto:support@traficio.com">support@traficio.com</a>, and Freemius returns the
         payment. After that period we do not refund part of a month. If we take a payment in error,
         email us and we return it.
@@ -127,10 +127,10 @@ import { plural } from '../../shared/copy';
 
       <h2>Governing law</h2>
       <p>
-        These terms are governed by the law of <strong>[COUNTRY, to be confirmed]</strong>. A dispute
-        that we cannot settle by email goes to the courts of
-        <strong>[CITY AND COUNTRY, to be confirmed]</strong>. If you are a consumer, you keep the
-        protection of the law of the country where you live.
+        These terms are governed by the federal laws of the United States of America and the laws
+        of the State of New York, the same law that governs your purchase through Freemius. A
+        dispute that we cannot settle by email goes to the courts of the State of New York. If you
+        are a consumer, you keep the protection of the law of the country where you live.
       </p>
 
       <h2>Changes to these terms</h2>

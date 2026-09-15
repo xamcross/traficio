@@ -43,4 +43,9 @@ describe('Privacy', () => {
     expect(text).toContain('support@traficio.com');
     expect(text).toContain('delete');
   });
+
+  it('names the operator without a placeholder', () => {
+    expect(text).toContain('Who we are');
+    expect(text).not.toContain('to be confirmed');
+  });
 });

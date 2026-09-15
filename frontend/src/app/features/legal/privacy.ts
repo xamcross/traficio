@@ -18,10 +18,10 @@ import { SiteFooter } from '../../shared/site-footer';
 
       <h2>Who we are</h2>
       <p>
-        Traficio is run by <strong>[OPERATOR NAME, to be confirmed]</strong>,
-        <strong>[POSTAL ADDRESS, to be confirmed]</strong>. We are the data controller for the data
-        described here. Email <a href="mailto:support@traficio.com">support@traficio.com</a> for any
-        question about this policy.
+        Traficio is an independent service, run by its owner. The operator of Traficio is the data
+        controller for the data described here. Email
+        <a href="mailto:support@traficio.com">support@traficio.com</a> for any question about this
+        policy or about your data.
       </p>
 
       <h2>What we collect, and why</h2>

@@ -39,4 +39,10 @@ describe('Terms', () => {
     expect(text).toContain('Our liability');
     expect(text).toContain('Governing law');
   });
+
+  it('states the values the owner decided: New York law, as Freemius uses, and a 7-day guarantee', () => {
+    expect(text).toContain('State of New York');
+    expect(text).toContain('7 days');
+    expect(text).not.toContain('to be confirmed');
+  });
 });
