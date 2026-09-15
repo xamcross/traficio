@@ -5,6 +5,7 @@ import app.geostrategy.http.AppException
 import com.mongodb.MongoWriteException
 import com.mongodb.client.model.Filters.and
 import com.mongodb.client.model.Filters.eq
+import com.mongodb.client.model.Sorts
 import com.mongodb.client.model.Updates.combine
 import com.mongodb.client.model.Updates.set
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
@@ -43,7 +44,10 @@ open class SiteRepository(db: MongoDatabase) {
 
     suspend fun findById(id: ObjectId): Site? = col.find(eq("_id", id)).firstOrNull()
 
-    suspend fun listFor(userId: ObjectId): List<Site> = col.find(eq("userId", userId)).toList()
+    // The sort gives a stable order. Readers such as GET /v1/sites and allowedSiteIds rely
+    // on the oldest site first. MongoDB does not guarantee an order on its own.
+    suspend fun listFor(userId: ObjectId): List<Site> =
+        col.find(eq("userId", userId)).sort(Sorts.ascending("createdAt", "_id")).toList()
 
     suspend fun countFor(userId: ObjectId): Long = col.countDocuments(eq("userId", userId))
 

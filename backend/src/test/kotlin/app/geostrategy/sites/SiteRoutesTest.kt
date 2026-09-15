@@ -96,6 +96,27 @@ class SiteRoutesTest {
     }
 
     @Test
+    fun `GET v1 sites lists the older site first, regardless of insert order`() = testApplication {
+        val db = TestMongo.freshDb()
+        val deps = testDeps(db)
+        application { appModule(deps) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+        val user = runBlocking { deps.users.findByEmail("ada@example.com")!! }
+        val older = Instant.now().minusSeconds(3600)
+        val newer = Instant.now()
+        // Insert the newer site first, so a natural-order read would list it first.
+        runBlocking {
+            deps.sites.insert(Site(userId = user.id, domain = "newer.example.com", url = "https://newer.example.com", createdAt = newer, updatedAt = newer))
+            deps.sites.insert(Site(userId = user.id, domain = "older.example.com", url = "https://older.example.com", createdAt = older, updatedAt = older))
+        }
+
+        val sites = Json.parseToJsonElement(http.get("/v1/sites").bodyAsText()).jsonObject["sites"]!!.jsonArray
+        assertEquals("older.example.com", sites[0].jsonObject["domain"]!!.jsonPrimitive.content)
+        assertEquals("newer.example.com", sites[1].jsonObject["domain"]!!.jsonPrimitive.content)
+    }
+
+    @Test
     fun `sites require login`() = testApplication {
         application { appModule(testDeps(TestMongo.freshDb())) }
         assertEquals(HttpStatusCode.Unauthorized, client.get("/v1/sites").status)

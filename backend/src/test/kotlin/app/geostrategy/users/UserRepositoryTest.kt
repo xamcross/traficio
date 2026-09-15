@@ -2,7 +2,10 @@ package app.geostrategy.users
 
 import app.geostrategy.TestMongo
 import app.geostrategy.http.AppException
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
+import org.bson.Document
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -67,5 +70,12 @@ class UserRepositoryTest {
         val matching = repo.downgradeProIfMatches(u.id, expectedLicenseId = "L2", expectedExpiresAt = renewedExpiresAt)
         assertTrue(matching)
         assertEquals("free", repo.findById(u.id)!!.tier)
+    }
+
+    @Test
+    fun `a fresh database has a tier index for the daily billing scan`() = runBlocking {
+        val db = TestMongo.freshDb()
+        val indexNames = db.getCollection<Document>("users").listIndexes().map { it.getString("name") }.toList()
+        assertTrue("tier_1" in indexNames)
     }
 }

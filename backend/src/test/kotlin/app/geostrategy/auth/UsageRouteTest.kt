@@ -96,6 +96,33 @@ class UsageRouteTest {
     }
 
     @Test
+    fun `at the site cap, sitesUsed equals sitesLimit and a new site is refused`() = testApplication {
+        val db = TestMongo.freshDb()
+        val emails = RecordingEmailSender()
+        val deps = testDeps(db, email = emails)
+        application { appModule(deps) }
+        val http = createClient { install(HttpCookies) }
+        registerVerifyLogin(http, emails, "ada@example.com")
+
+        http.post("/v1/sites") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"url":"one.example.com"}""")
+        }
+
+        val body = Json.parseToJsonElement(http.get("/v1/me/usage").bodyAsText()).jsonObject
+        val sitesUsed = body["sitesUsed"]!!.jsonPrimitive.content.toInt()
+        val sitesLimit = body["sitesLimit"]!!.jsonPrimitive.content.toInt()
+        assertEquals(sitesLimit, sitesUsed)
+
+        val blocked = http.post("/v1/sites") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"url":"two.example.com"}""")
+        }
+        assertEquals(HttpStatusCode.Forbidden, blocked.status)
+        assertTrue(blocked.bodyAsText().contains("site_limit_reached"))
+    }
+
+    @Test
     fun `usage requires login`() = testApplication {
         application { appModule(testDeps(TestMongo.freshDb())) }
         val res = client.get("/v1/me/usage")

@@ -29,13 +29,15 @@ class FakeApiClient {
   history: AssessmentDto[] = [];
   submitted: string[] = [];
   patched: Array<[string, string, string]> = [];
+  resendVerificationResult: Promise<unknown> = Promise.resolve(undefined);
+  resendVerificationCalls = 0;
   listSites() { return Promise.resolve(this.sites); }
   getAssessment(_id: string) { return Promise.resolve(this.assessment); }
   getPlanForAssessment(_id: string) { return this.planResult; }
   listAssessments(_id: string) { return Promise.resolve(this.history); }
   submitAssessment(id: string) { this.submitted.push(id); return Promise.resolve(assessment({ id: 'A9', status: 'queued' })); }
   setTaskStatus(planId: string, taskId: string, status: 'todo' | 'done') { this.patched.push([planId, taskId, status]); return Promise.resolve({ ...plan(false), tasks: [{ ...plan(false).tasks[0], status: 'done' as const }] }); }
-  resendVerification() { return Promise.resolve(undefined); }
+  resendVerification() { this.resendVerificationCalls++; return this.resendVerificationResult; }
   me(): Promise<UserDto> { return Promise.reject(new Error('not used')); }
 }
 
@@ -72,6 +74,22 @@ describe('SiteHome', () => {
     btn(el, 'Check my site').click();
     await Promise.resolve();
     expect(api.submitted).toEqual(['S1']);
+  });
+
+  it('shows an error note next to the resend button when resend is rejected, and keeps the button', async () => {
+    const api = new FakeApiClient();
+    api.resendVerificationResult = Promise.reject(new ApiError('rate_limited', 'Too many requests. Try again later.', 429));
+    const { el, fixture } = await setup(api, 'free', false);
+    expect(el.textContent).toContain('Confirm your email first.');
+
+    btn(el, 'Send it again').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.resendVerificationCalls).toBe(1);
+    expect(el.textContent).not.toContain('Sent. Check your inbox.');
+    expect(el.querySelector('.error-note')?.textContent).toContain('Too many requests. Try again later.');
+    expect(el.textContent).toContain('Send it again');
   });
 
   it('redirects to progress while the latest assessment runs', async () => {

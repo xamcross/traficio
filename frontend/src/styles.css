@@ -1,18 +1,24 @@
-@import '@fontsource/libre-franklin/400.css';
-@import '@fontsource/libre-franklin/500.css';
-@import '@fontsource/libre-franklin/600.css';
-@import '@fontsource/libre-franklin/700.css';
-@import '@fontsource/ibm-plex-mono/400.css';
-@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/libre-franklin/latin-400.css';
+@import '@fontsource/libre-franklin/latin-ext-400.css';
+@import '@fontsource/libre-franklin/latin-500.css';
+@import '@fontsource/libre-franklin/latin-ext-500.css';
+@import '@fontsource/libre-franklin/latin-600.css';
+@import '@fontsource/libre-franklin/latin-ext-600.css';
+@import '@fontsource/libre-franklin/latin-700.css';
+@import '@fontsource/libre-franklin/latin-ext-700.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-ext-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/latin-ext-500.css';
 
 :root {
-  --bg: #efe7db; --surface: #fdf7ee; --card: #ffffff; --card-soft: #fdfaf5; --strip: #fbf2e5; --note: #fbf6ee;
-  --line: #f0e5d4; --line-strong: #ecdfcc; --line-input: #e0cdb2;
+  --bg: #efe7db; --surface: #fdf7ee; --card: #ffffff; --card-soft: #fdfaf5; --strip: #fbf2e5; --strip-soft: #faf3e9; --note: #fbf6ee;
+  --line: #f0e5d4; --line-strong: #ecdfcc; --line-input: #e0cdb2; --line-deep: #e6d6be; --line-tint: #f5ece0;
   --ink: #221c15; --body: #4c4237; --body-long: #5c4f40; --muted: #7a6a58;
-  --faint: #a89478; --faint-2: #b09a7e; --faint-3: #cbb79a;
+  --faint: #a89478; --faint-2: #b09a7e; --faint-3: #cbb79a; --faint-4: #c0ad94;
   --accent: #b4552f; --accent-hover: #8e3f20; --accent-tint: #fbeae1;
   --olive: #6b7d4f; --olive-text: #5c7040; --olive-tint: #eaf0e0;
-  --amber: #8a6a2f; --amber-tint: #f7eed8; --pill: #f3e9da;
+  --amber: #8a6a2f; --amber-tint: #f7eed8; --pill: #f3e9da; --sand: #8a6a48; --sand-tint: #f3e6d5;
   --sans: 'Libre Franklin', system-ui, sans-serif; --mono: 'IBM Plex Mono', ui-monospace, monospace;
   --r-btn: 9px; --r-card: 14px; --r-small: 10px; --r-badge: 4px;
 }

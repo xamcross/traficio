@@ -14,7 +14,7 @@ import { plural } from '../../shared/copy';
           @if (i > 0) {<span class="muted tiny">{{ task.effortMinutes }} min</span>}
         </div>
         @if (i === 0) {
-          <div class="row sub"><span class="badge badge-high">BIGGEST WIN</span><span class="muted tiny">{{ task.stepCount }} steps · {{ task.effortMinutes }} min</span></div>
+          <div class="row sub"><span class="badge badge-high">BIGGEST WIN</span><span class="muted tiny">{{ task.stepCount }} {{ plural(task.stepCount, 'step', 'steps') }} · {{ task.effortMinutes }} min</span></div>
         }
       }
       @if (plan().tasks.length > 3) {
@@ -24,10 +24,10 @@ import { plural } from '../../shared/copy';
   `,
   styles: `
     .locked { width: 400px; max-width: 100%; overflow: hidden; }
-    .head { padding: 11px 16px; background: #faf3e9; border-bottom: 1px solid var(--line); }
-    .item { padding: 13px 16px; border-bottom: 1px solid #f5ece0; gap: 11px; }
+    .head { padding: 11px 16px; background: var(--strip-soft); border-bottom: 1px solid var(--line); }
+    .item { padding: 13px 16px; border-bottom: 1px solid var(--line-tint); gap: 11px; }
     .item:last-child { border-bottom: none; }
-    .sub { padding: 0 16px 13px 43px; border-bottom: 1px solid #f5ece0; gap: 10px; }
+    .sub { padding: 0 16px 13px 43px; border-bottom: 1px solid var(--line-tint); gap: 10px; }
     .box { width: 16px; height: 16px; border: 1.5px solid var(--line-input); border-radius: 4px; flex-shrink: 0; }
     .title { font-size: 14px; color: var(--ink); flex: 1; }
     .more { opacity: 0.45; }

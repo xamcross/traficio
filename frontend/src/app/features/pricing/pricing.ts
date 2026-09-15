@@ -4,7 +4,7 @@ import { ApiClient } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
 import { PlanDto, SiteDto } from '../../core/api/types';
 import { FREEMIUS_PORTAL_URL, PRO_PRICE_LABEL } from '../../core/config';
-import { numberWord, plural } from '../../shared/copy';
+import { capitalize, numberWord, plural } from '../../shared/copy';
 import { ImpactBadge } from '../../shared/impact-badge';
 import { SiteFooter } from '../../shared/site-footer';
 import { PlanCards } from './plan-cards';
@@ -60,7 +60,7 @@ type Phase = 'idle' | 'opening' | 'unlocking' | 'timeout';
                 <span class="mono faint idx">0{{ i + 1 }}</span>
                 <div class="stack tight">
                   <span class="title">{{ task.title }}</span>
-                  <span class="faint small">{{ task.stepCount }} steps · {{ task.effortMinutes }} minutes{{ i === 0 ? ' · biggest single win' : '' }}</span>
+                  <span class="faint small">{{ task.stepCount }} {{ plural(task.stepCount, 'step', 'steps') }} · {{ task.effortMinutes }} {{ plural(task.effortMinutes, 'minute', 'minutes') }}{{ i === 0 ? ' · biggest single win' : '' }}</span>
                 </div>
                 <span class="spacer"></span>
                 <app-impact-badge [impact]="task.impact" />
@@ -152,7 +152,7 @@ export class Pricing implements OnInit {
     }
   }
 
-  protected capWord(n: number): string { const w = numberWord(n); return w.charAt(0).toUpperCase() + w.slice(1); }
+  protected capWord(n: number): string { return capitalize(numberWord(n)); }
 
   protected stayFree(): void {
     const g = this.gate();

@@ -1,0 +1,46 @@
+import { TestBed } from '@angular/core/testing';
+import { ApiClient } from '../api/api-client';
+import { UserDto } from '../api/types';
+import { UserStore } from './user-store';
+
+/** Hand-rolled fake with a controllable, per-call promise. No jasmine.createSpy. */
+class FakeApiClient {
+  meResult: Promise<UserDto> = Promise.resolve({ id: 'u1', email: 'a@b.com', emailVerified: true, tier: 'free' });
+  meCalls = 0;
+
+  me(): Promise<UserDto> {
+    this.meCalls++;
+    return this.meResult;
+  }
+}
+
+describe('UserStore', () => {
+  let api: FakeApiClient;
+  let store: UserStore;
+
+  beforeEach(() => {
+    api = new FakeApiClient();
+    TestBed.configureTestingModule({
+      providers: [{ provide: ApiClient, useValue: api }],
+    });
+    store = TestBed.inject(UserStore);
+  });
+
+  it('makes one ApiClient.me() call when a second refresh() starts before the first resolves', async () => {
+    let resolveMe!: (user: UserDto) => void;
+    api.meResult = new Promise<UserDto>((resolve) => {
+      resolveMe = resolve;
+    });
+
+    const first = store.refresh();
+    const second = store.refresh();
+
+    resolveMe({ id: 'u1', email: 'a@b.com', emailVerified: true, tier: 'free' });
+    await first;
+    await second;
+
+    expect(api.meCalls).toBe(1);
+    expect(store.user()?.id).toBe('u1');
+    expect(store.loaded()).toBeTrue();
+  });
+});

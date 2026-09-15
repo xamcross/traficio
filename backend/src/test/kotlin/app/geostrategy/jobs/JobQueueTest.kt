@@ -19,7 +19,7 @@ class JobQueueTest {
         assertEquals(first.id, claimed.id)
         assertEquals("running", claimed.status)
         assertEquals(1, claimed.attempts)
-        q.complete(claimed.id)
+        q.complete(claimed)
         assertEquals("done", q.findById(claimed.id)!!.status)
         // second job still claimable, first is not
         assertEquals("v2", q.claim()!!.payload.getString("k"))
@@ -31,8 +31,9 @@ class JobQueueTest {
         val q = JobQueue(TestMongo.freshDb(), maxAttempts = 2)
         val j = q.enqueue("assessment", Document())
         assertEquals(1, q.claim(leaseSeconds = -10)!!.attempts)  // lease already expired
-        assertEquals(2, q.claim(leaseSeconds = -10)!!.attempts)  // re-claimed
-        q.fail(j.id, "boom")                                     // attempts == max -> failed
+        val reclaimed = q.claim(leaseSeconds = -10)!!
+        assertEquals(2, reclaimed.attempts)                       // re-claimed
+        q.fail(reclaimed, "boom")                                 // attempts == max -> failed
         val failed = q.findById(j.id)!!
         assertEquals("failed", failed.status)
         assertEquals("boom", failed.error)
@@ -43,8 +44,8 @@ class JobQueueTest {
     fun `fail below max attempts re-queues`() = runBlocking {
         val q = JobQueue(TestMongo.freshDb(), maxAttempts = 2)
         val j = q.enqueue("assessment", Document())
-        q.claim()
-        q.fail(j.id, "transient")
+        val claimed = q.claim()!!
+        q.fail(claimed, "transient")
         assertEquals("queued", q.findById(j.id)!!.status)
         assertEquals(true, q.claim() != null)
     }

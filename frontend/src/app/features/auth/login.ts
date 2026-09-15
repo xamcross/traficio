@@ -5,6 +5,7 @@ import { ApiClient, ApiError } from '../../core/api/api-client';
 import { API_BASE } from '../../core/config';
 import { UserStore } from '../../core/auth/user-store';
 import { ErrorNote } from '../../shared/error-note';
+import { toApiError } from '../../shared/to-api-error';
 
 @Component({
   selector: 'app-login',
@@ -64,7 +65,7 @@ export class Login {
             this.error.set(new ApiError('navigation_failed', 'You are logged in, but we could not open the dashboard. Please try again.', 0));
           }
         },
-        (e: unknown) => this.error.set(e instanceof ApiError ? e : new ApiError('unknown', 'Something went wrong. Please try again.', 0)),
+        (e: unknown) => this.error.set(toApiError(e)),
       )
       .finally(() => this.busy.set(false));
   }

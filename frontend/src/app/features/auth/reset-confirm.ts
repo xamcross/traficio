@@ -3,6 +3,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { ErrorNote } from '../../shared/error-note';
+import { toApiError } from '../../shared/to-api-error';
 
 @Component({
   selector: 'app-reset-confirm',
@@ -64,7 +65,7 @@ export class ResetConfirm {
       .confirmPasswordReset(this.token, password)
       .then(
         () => this.done.set(true),
-        (e: unknown) => this.error.set(e instanceof ApiError ? e : new ApiError('unknown', 'Something went wrong. Please try again.', 0)),
+        (e: unknown) => this.error.set(toApiError(e)),
       )
       .finally(() => this.busy.set(false));
   }

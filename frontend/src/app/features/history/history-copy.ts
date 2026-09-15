@@ -1,5 +1,5 @@
 import { AssessmentDto, Scores } from '../../core/api/types';
-import { areaName, monthName, numberWord } from '../../shared/copy';
+import { areaName, capitalize, monthName, numberWord } from '../../shared/copy';
 
 const AREAS: Array<'seo' | 'aeo' | 'geo'> = ['seo', 'aeo', 'geo'];
 
@@ -16,8 +16,6 @@ export function headlineFor(ready: AssessmentDto[]): { title: string; text: stri
   return { title: 'Not moving yet.', text: `Your score is ${l.overall}. It was ${f.overall} in ${month}. Finish the next task and check again.` };
 }
 
-function cap(s: string): string { return s.charAt(0).toUpperCase() + s.slice(1); }
-
 /** The "what changed" cell. Spec §4.8. */
 export function changesText(a: AssessmentDto, isFirstReady: boolean): string {
   if (a.status !== 'ready' || !a.scores) return 'We could not read your site that day';
@@ -28,9 +26,9 @@ export function changesText(a: AssessmentDto, isFirstReady: boolean): string {
   const done = c.filter((x) => x.kind === 'done').length;
   const verified = c.filter((x) => x.kind === 'verified').length;
   const tasks = (n: number) => `${numberWord(n)} task${n === 1 ? '' : 's'}`;
-  if (verified === 0) return `${cap(tasks(done))} done`;
-  if (done === 0) return `${cap(tasks(verified))} confirmed fixed`;
-  return `${cap(tasks(done))} done, ${numberWord(verified)} confirmed fixed`;
+  if (verified === 0) return `${capitalize(tasks(done))} done`;
+  if (done === 0) return `${capitalize(tasks(verified))} confirmed fixed`;
+  return `${capitalize(tasks(done))} done, ${numberWord(verified)} confirmed fixed`;
 }
 
 export function chartPoints(ready: AssessmentDto[], key: 'seo' | 'aeo' | 'geo', width: number, height: number): string {

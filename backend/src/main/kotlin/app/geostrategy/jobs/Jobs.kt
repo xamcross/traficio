@@ -59,22 +59,27 @@ class JobQueue(db: MongoDatabase, private val maxAttempts: Int = 2) {
         )
     }
 
-    suspend fun complete(id: ObjectId) {
+    // The `attempts` filter fences this call to the lease that `claim` handed out.
+    // A late call from an expired holder does not match the current `attempts`
+    // value, so it changes nothing.
+    suspend fun complete(job: Job) {
         col.updateOne(
-            and(eq("_id", id), eq("status", "running")),
+            and(eq("_id", job.id), eq("status", "running"), eq("attempts", job.attempts)),
             combine(set("status", "done"), unset("leasedUntil"), set("updatedAt", Instant.now())),
         )
     }
 
-    suspend fun fail(id: ObjectId, error: String) {
+    // The `attempts` filter fences both branches to the lease that `claim`
+    // handed out, for the same reason as in `complete`.
+    suspend fun fail(job: Job, error: String) {
         val now = Instant.now()
         val toFailed = col.updateOne(
-            and(eq("_id", id), gte("attempts", maxAttempts), ne("status", "done")),
+            and(eq("_id", job.id), gte("attempts", maxAttempts), ne("status", "done"), eq("attempts", job.attempts)),
             combine(set("status", "failed"), set("error", error), unset("leasedUntil"), set("updatedAt", now)),
         )
         if (toFailed.modifiedCount == 0L) {
             col.updateOne(
-                and(eq("_id", id), lt("attempts", maxAttempts), ne("status", "done")),
+                and(eq("_id", job.id), lt("attempts", maxAttempts), ne("status", "done"), eq("attempts", job.attempts)),
                 combine(set("status", "queued"), set("error", error), unset("leasedUntil"), set("updatedAt", now)),
             )
         }

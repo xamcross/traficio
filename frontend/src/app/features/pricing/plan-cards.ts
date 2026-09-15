@@ -1,6 +1,6 @@
 import { Component, computed, input, output } from '@angular/core';
 import { FREE_TIER_COPY, PRO_PRICE_LABEL, PRO_TIER_COPY } from '../../core/config';
-import { numberWord } from '../../shared/copy';
+import { capitalize, numberWord } from '../../shared/copy';
 
 @Component({
   selector: 'app-plan-cards',
@@ -28,7 +28,7 @@ import { numberWord } from '../../shared/copy';
           <span class="price">{{ price }} <span class="per">a month</span></span>
         </div>
         <ul class="features pro-features">
-          <li class="ok">@if (taskCount(); as n) {<strong>All {{ word(n) }} tasks with their steps</strong>, in the order that helps most first} @else {<strong>Every task with its steps</strong>, in the order that helps most first}</li>
+          <li class="ok">@if (taskCount(); as n) {<strong>{{ taskLine(n) }}</strong>, in the order that helps most first} @else {<strong>Every task with its steps</strong>, in the order that helps most first}</li>
           <li class="ok">A way to check each fix actually worked</li>
           <li class="ok">We re-check your site and confirm your fixes for you</li>
           <li class="ok">{{ proSites }} sites, {{ proChecks }} checks each month</li>
@@ -89,13 +89,14 @@ export class PlanCards {
   });
 
   protected readonly price = PRO_PRICE_LABEL;
-  protected readonly freeSites = FREE_TIER_COPY.sites === 1 ? 'One site' : `${cap(numberWord(FREE_TIER_COPY.sites))} sites`;
+  protected readonly freeSites = FREE_TIER_COPY.sites === 1 ? 'One site' : `${capitalize(numberWord(FREE_TIER_COPY.sites))} sites`;
   protected readonly freeChecks = FREE_TIER_COPY.checks === 1 ? 'one check' : `${numberWord(FREE_TIER_COPY.checks)} checks`;
-  protected readonly proSites = numberWord(PRO_TIER_COPY.sites).replace(/^./, (c) => c.toUpperCase());
+  protected readonly proSites = capitalize(numberWord(PRO_TIER_COPY.sites));
   protected readonly proChecks = numberWord(PRO_TIER_COPY.checks);
   protected readonly word = numberWord;
-}
 
-function cap(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  /** The Pro card's task line. It shows a special sentence when there is one task. */
+  protected taskLine(n: number): string {
+    return n === 1 ? 'Your one task with its steps' : `All ${this.word(n)} tasks with their steps`;
+  }
 }

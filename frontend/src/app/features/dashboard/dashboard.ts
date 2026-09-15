@@ -1,14 +1,15 @@
 import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
 import { SiteDto, UsageDto } from '../../core/api/types';
-import { PENDING_URL_KEY } from '../../core/config';
+import { clearPendingUrl, readPendingUrl } from '../../core/pending-url';
 import { ErrorNote } from '../../shared/error-note';
 import { assessmentErrorCopy } from '../../shared/assessment-error-copy';
 import { formatDate } from '../../shared/copy';
 import { toApiError } from '../../shared/to-api-error';
+import { notBlank } from '../../shared/validators';
 import { pricingUrlFor } from '../../shared/upgrade-redirect';
 
 @Component({
@@ -40,11 +41,12 @@ export class Dashboard implements OnInit {
   protected readonly checkError = signal<ApiError | null>(null);
   protected readonly resent = signal(false);
   protected readonly resendBusy = signal(false);
+  protected readonly resendError = signal<ApiError | null>(null);
   protected readonly assessmentErrorCopy = assessmentErrorCopy;
   protected readonly pricingUrl = pricingUrlFor;
 
   protected readonly addForm = new FormGroup({
-    url: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    url: new FormControl('', { nonNullable: true, validators: [notBlank] }),
   });
 
   /** Set once on destroy. Every async continuation checks it first.
@@ -57,9 +59,9 @@ export class Dashboard implements OnInit {
   }
 
   private async init(): Promise<void> {
-    const pendingUrl = sessionStorage.getItem(PENDING_URL_KEY);
+    const pendingUrl = readPendingUrl();
     if (pendingUrl) {
-      sessionStorage.removeItem(PENDING_URL_KEY);
+      clearPendingUrl();
       await this.createAndCheck(pendingUrl);
       if (this.destroyed) return;
       if (this.checkError() === null && this.addError() === null) return; // navigated away
@@ -144,13 +146,15 @@ export class Dashboard implements OnInit {
   protected resend(): void {
     if (this.resendBusy()) return;
     this.resendBusy.set(true);
+    this.resent.set(false);
+    this.resendError.set(null);
     this.api.resendVerification()
       .then(() => {
         if (this.destroyed) return;
         this.resent.set(true);
       }, (e: unknown) => {
         if (this.destroyed) return;
-        this.checkError.set(toApiError(e));
+        this.resendError.set(toApiError(e));
       })
       .finally(() => {
         if (this.destroyed) return;

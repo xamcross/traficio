@@ -1,7 +1,7 @@
 import { Component, computed, effect, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AssessmentDto, PlanDto, PlanTaskDto } from '../../core/api/types';
-import { areaName, bandFor, effortText } from '../../shared/copy';
+import { areaName, bandFor, effortText, plural } from '../../shared/copy';
 import { openMinutes } from '../result/result-view';
 import { addSkip, clearSkips, readSkips } from './skips';
 
@@ -44,7 +44,7 @@ export function nextTaskFor(plan: PlanDto, skipped: Set<string>): PlanTaskDto | 
         <article class="card task stack">
           <div class="row">
             @if (isBiggest(t)) {<span class="badge badge-high">BIGGEST WIN</span>}
-            <span class="faint small">About {{ t.effortMinutes }} minutes</span><span class="faint small">·</span><span class="faint small">{{ areaName(t.category) }}</span>
+            <span class="faint small">About {{ t.effortMinutes }} {{ plural(t.effortMinutes, 'minute', 'minutes') }}</span><span class="faint small">·</span><span class="faint small">{{ areaName(t.category) }}</span>
           </div>
           <h2>{{ t.title }}</h2>
           @if (t.whyItMatters) {<p class="lead">{{ t.whyItMatters }}</p>}
@@ -90,9 +90,9 @@ export function nextTaskFor(plan: PlanDto, skipped: Set<string>): PlanTaskDto | 
     .lead { font-size: 17px; line-height: 1.65; color: var(--body-long); max-width: 58ch; }
     .steps { list-style: none; margin: 0; padding: 6px 0 0; display: flex; flex-direction: column; gap: 16px; }
     .steps li { display: flex; gap: 18px; align-items: flex-start; font-size: 17px; line-height: 1.5; color: var(--ink); }
-    .num { width: 28px; height: 28px; border-radius: 999px; background: #f3e6d5; color: #8a6a48; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .num { width: 28px; height: 28px; border-radius: 999px; background: var(--sand-tint); color: var(--sand); font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .check { font-size: 16px; color: var(--ink); }
-    .then { padding-top: 10px; gap: 0; } .then .eyebrow { padding-bottom: 10px; color: #c0ad94; }
+    .then { padding-top: 10px; gap: 0; } .then .eyebrow { padding-bottom: 10px; color: var(--faint-4); }
     .item { padding: 13px 0; border-bottom: 1px solid var(--line); } .item:last-child { border-bottom: none; }
     .semi { font-weight: 600; } .tight { gap: 3px; } .small { font-size: 13px; }
     @media (max-width: 760px) { .strip, .body { padding-left: 20px; padding-right: 20px; } .task { padding: 24px 20px; } }
@@ -108,6 +108,7 @@ export class NextTaskView {
   checkAgain = output<void>();
 
   protected readonly areaName = areaName;
+  protected readonly plural = plural;
   private readonly skipped = signal<Set<string>>(new Set());
   constructor() {
     effect(() => { this.skipped.set(readSkips(this.plan().id)); });

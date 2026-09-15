@@ -34,7 +34,7 @@ type State =
             <h1>{{ site()?.domain }}</h1>
             <p class="lead">Run your first check. It takes about two minutes. We read your pages and score how findable you are.</p>
             @if (!emailVerified()) {
-              <div class="note-box stack tight"><span>Confirm your email first. Click the link in the email we sent you.</span><button type="button" class="btn btn-outline" (click)="resend()" [disabled]="resendBusy()">Send it again</button>@if (resent()) {<span class="muted">Sent. Check your inbox.</span>}</div>
+              <div class="note-box stack tight"><span>Confirm your email first. Click the link in the email we sent you.</span><button type="button" class="btn btn-outline" (click)="resend()" [disabled]="resendBusy()">Send it again</button>@if (resent()) {<span class="muted">Sent. Check your inbox.</span>}@if (resendError(); as re) {<app-error-note [error]="re" />}</div>
             }
             <div class="row"><button type="button" class="btn btn-primary" (click)="check()" [disabled]="!emailVerified() || checkBusy()">Check my site</button></div>
             @if (checkError(); as e) {<p class="error-note" role="alert">{{ assessmentErrorCopy(e) }}</p>}
@@ -93,6 +93,7 @@ export class SiteHome implements OnInit {
   protected readonly doneError = signal<ApiError | null>(null);
   protected readonly resendBusy = signal(false);
   protected readonly resent = signal(false);
+  protected readonly resendError = signal<ApiError | null>(null);
   protected readonly assessmentErrorCopy = assessmentErrorCopy;
   protected readonly isPro = computed(() => this.store.user()?.tier === 'pro');
   protected readonly emailVerified = computed(() => this.store.user()?.emailVerified === true);
@@ -200,13 +201,15 @@ export class SiteHome implements OnInit {
   protected resend(): void {
     if (this.resendBusy()) return;
     this.resendBusy.set(true);
+    this.resent.set(false);
+    this.resendError.set(null);
     this.api.resendVerification()
       .then(() => {
         if (this.destroyed) return;
         this.resent.set(true);
       }, (e: unknown) => {
         if (this.destroyed) return;
-        this.checkError.set(toApiError(e));
+        this.resendError.set(toApiError(e));
       })
       .finally(() => {
         if (this.destroyed) return;

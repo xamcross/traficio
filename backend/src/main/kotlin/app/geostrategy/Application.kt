@@ -123,6 +123,7 @@ fun main() {
     JobWorker(deps.jobs, mapOf("assessment" to pipeline::handle), leaseSeconds = 900).start(appScope)
 
     val revalidator = BillingRevalidator(deps.users, CannedFreemiusClient())
+    val billingLog = LoggerFactory.getLogger(BillingRevalidator::class.java)
     appScope.launch {
         while (isActive) {
             try {
@@ -130,7 +131,7 @@ fun main() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                claudeLog.warn("billing revalidation failed: {}", e.message)
+                billingLog.warn("billing revalidation failed: {}", e.message)
             }
             delay(24 * 60 * 60 * 1000L)
         }

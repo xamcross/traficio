@@ -5,7 +5,7 @@ import { UserStore } from '../../core/auth/user-store';
 import { SiteDto, UsageDto } from '../../core/api/types';
 import { FREEMIUS_PORTAL_URL, PRO_PRICE_LABEL, PRO_TIER_COPY } from '../../core/config';
 import { ErrorNote } from '../../shared/error-note';
-import { formatDate, formatDateShort, numberWord } from '../../shared/copy';
+import { capitalize, formatDate, formatDateShort, numberWord, plural } from '../../shared/copy';
 import { toApiError } from '../../shared/to-api-error';
 import { pricingUrlFor } from '../../shared/upgrade-redirect';
 
@@ -36,7 +36,8 @@ export class Account implements OnInit {
   protected readonly usage = signal<UsageDto | null>(null);
   protected readonly sites = signal<SiteDto[]>([]);
   protected readonly loading = signal(true);
-  protected readonly error = signal<ApiError | null>(null);
+  protected readonly usageError = signal<ApiError | null>(null);
+  protected readonly sitesError = signal<ApiError | null>(null);
 
   protected readonly resent = signal(false);
   protected readonly resendBusy = signal(false);
@@ -45,8 +46,9 @@ export class Account implements OnInit {
   protected readonly proSitesLeft = computed(() => Math.max(0, PRO_TIER_COPY.sites - this.sites().length));
   protected readonly hasReadyCheck = computed(() => this.sites().some((s) => s.latestReadyAssessmentId));
   protected readonly word = numberWord;
+  protected readonly plural = plural;
   protected readonly price = PRO_PRICE_LABEL;
-  protected readonly proSites = numberWord(PRO_TIER_COPY.sites).replace(/^./, (c) => c.toUpperCase());
+  protected readonly proSites = capitalize(numberWord(PRO_TIER_COPY.sites));
   protected readonly proChecks = numberWord(PRO_TIER_COPY.checks);
 
   /** Set once on destroy. Every async continuation checks it first.
@@ -60,19 +62,16 @@ export class Account implements OnInit {
 
   private async load(): Promise<void> {
     this.loading.set(true);
-    this.error.set(null);
-    try {
-      const [usage, sites] = await Promise.all([this.api.usage(), this.api.listSites().catch(() => [] as SiteDto[])]);
-      if (this.destroyed) return;
-      this.usage.set(usage);
-      this.sites.set(sites);
-    } catch (e) {
-      if (this.destroyed) return;
-      this.error.set(toApiError(e));
-    } finally {
-      if (this.destroyed) return;
-      this.loading.set(false);
-    }
+    this.usageError.set(null);
+    this.sitesError.set(null);
+    // Promise.allSettled means one failed request does not hide the other's result.
+    const [usageResult, sitesResult] = await Promise.allSettled([this.api.usage(), this.api.listSites()]);
+    if (this.destroyed) return;
+    if (usageResult.status === 'fulfilled') this.usage.set(usageResult.value);
+    else this.usageError.set(toApiError(usageResult.reason));
+    if (sitesResult.status === 'fulfilled') this.sites.set(sitesResult.value);
+    else this.sitesError.set(toApiError(sitesResult.reason));
+    this.loading.set(false);
   }
 
   protected lastChecked(site: SiteDto): string {
@@ -97,6 +96,7 @@ export class Account implements OnInit {
   protected resend(): void {
     if (this.resendBusy()) return;
     this.resendBusy.set(true);
+    this.resent.set(false);
     this.resendError.set(null);
     this.api
       .resendVerification()

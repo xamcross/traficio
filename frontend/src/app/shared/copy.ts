@@ -30,6 +30,9 @@ export function numberWord(n: number): string { return n >= 1 && n <= 12 ? WORDS
 /** Picks the singular form or the plural form. Every count in the copy uses this. */
 export function plural(n: number, one: string, many: string): string { return n === 1 ? one : many; }
 
+/** Makes the first letter of a string upper case. Every "start of a sentence" case in the copy uses this. */
+export function capitalize(s: string): string { return s.charAt(0).toUpperCase() + s.slice(1); }
+
 /**
  * Effort text, spec §4.3. Under 90 minutes: minutes, to the nearest five. An
  * estimate that reads "about 47 minutes" claims a precision we do not have.

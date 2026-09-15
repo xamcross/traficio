@@ -9,6 +9,10 @@ import java.util.concurrent.TimeUnit
 suspend fun ensureIndexes(db: MongoDatabase) {
     db.getCollection<Document>("users")
         .createIndex(Indexes.ascending("email"), IndexOptions().unique(true))
+    // UserRepository.listByTier reads this index. BillingRevalidator.run calls it once a
+    // day, and the index keeps that call off a full collection scan.
+    db.getCollection<Document>("users")
+        .createIndex(Indexes.ascending("tier"))
     db.getCollection<Document>("tokens")
         .createIndex(Indexes.ascending("tokenHash"), IndexOptions().unique(true))
     db.getCollection<Document>("tokens")
