@@ -1,6 +1,6 @@
 import { DestroyRef, inject, Injectable, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { ApiClient } from '../api/api-client';
+import { ApiClient, ApiError } from '../api/api-client';
 import { UserDto } from '../api/types';
 
 @Injectable({ providedIn: 'root' })
@@ -36,9 +36,20 @@ export class UserStore {
   }
 
   private async fetchUser(): Promise<void> {
-    try { this.user.set(await this.api.me()); }
-    catch { this.user.set(null); }
-    finally { this.loaded.set(true); }
+    try {
+      this.user.set(await this.api.me());
+      this.loaded.set(true);
+    } catch (e) {
+      // A real 401 means the session is gone. Any other failure is the network or the
+      // server, not the session. Keep the current user signed in. Do not sign a
+      // visitor out on a dropped network connection.
+      if (e instanceof ApiError && e.status === 401) {
+        this.user.set(null);
+        this.loaded.set(true);
+      } else {
+        console.warn('UserStore.refresh() failed. The signed-in user stays.', e);
+      }
+    }
   }
 
   clear(): void { this.user.set(null); this.loaded.set(true); }

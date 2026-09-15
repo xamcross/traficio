@@ -1,6 +1,6 @@
 import { PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ApiClient } from '../api/api-client';
+import { ApiClient, ApiError } from '../api/api-client';
 import { UserDto } from '../api/types';
 import { UserStore } from './user-store';
 
@@ -45,6 +45,70 @@ describe('UserStore', () => {
     expect(store.loaded()).toBeTrue();
   });
 
+  describe('when a refresh fails', () => {
+    function makeUser(overrides: Partial<UserDto> = {}): UserDto {
+      return { id: 'u1', email: 'a@b.com', emailVerified: true, tier: 'free', ...overrides };
+    }
+
+    beforeEach(() => {
+      spyOn(console, 'warn'); // a network or server error logs a warning by design
+    });
+
+    it('keeps the current user on a network error (status 0)', async () => {
+      store.user.set(makeUser());
+      api.meResult = Promise.reject(new ApiError('network_error', 'We could not reach the server.', 0));
+
+      await store.refresh();
+
+      expect(store.user()?.id).toBe('u1');
+    });
+
+    it('keeps the current user on a server error (status 502)', async () => {
+      store.user.set(makeUser());
+      api.meResult = Promise.reject(new ApiError('network_error', 'We could not reach the server.', 502));
+
+      await store.refresh();
+
+      expect(store.user()?.id).toBe('u1');
+    });
+
+    it('clears the user on a real 401', async () => {
+      store.user.set(makeUser());
+      api.meResult = Promise.reject(new ApiError('unauthenticated', 'Please log in.', 401));
+
+      await store.refresh();
+
+      expect(store.user()).toBeNull();
+    });
+
+    it('keeps the current user on a 403 (a valid session, forbidden from something else)', async () => {
+      store.user.set(makeUser());
+      api.meResult = Promise.reject(new ApiError('forbidden', 'Not allowed.', 403));
+
+      await store.refresh();
+
+      expect(store.user()?.id).toBe('u1');
+    });
+
+    it('leaves loaded false on a network error during the first load, so the next guard retries', async () => {
+      expect(store.loaded()).toBeFalse();
+      api.meResult = Promise.reject(new ApiError('network_error', 'We could not reach the server.', 0));
+
+      await store.refresh();
+
+      expect(store.loaded()).toBeFalse();
+    });
+
+    it('leaves loaded true on a network error after a load has already happened', async () => {
+      store.loaded.set(true);
+      api.meResult = Promise.reject(new ApiError('network_error', 'We could not reach the server.', 0));
+
+      await store.refresh();
+
+      expect(store.loaded()).toBeTrue();
+    });
+  });
+
   describe('when the tab becomes visible again', () => {
     afterEach(() => {
       Reflect.deleteProperty(document, 'visibilityState');
@@ -87,6 +151,18 @@ describe('UserStore', () => {
       await Promise.resolve();
 
       expect(api.meCalls).toBe(0);
+    });
+
+    it('keeps the current user when the refresh on becoming visible hits a network error', async () => {
+      spyOn(console, 'warn'); // the network error logs a warning by design
+      store.user.set({ id: 'u1', email: 'a@b.com', emailVerified: true, tier: 'free' });
+      api.meResult = Promise.reject(new ApiError('network_error', 'We could not reach the server.', 0));
+
+      makeVisible();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(store.user()?.id).toBe('u1');
     });
   });
 });
