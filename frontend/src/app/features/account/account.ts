@@ -2,8 +2,8 @@ import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angula
 import { Router, RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
-import { SiteDto, UsageDto } from '../../core/api/types';
-import { FREEMIUS_PORTAL_URL, PRO_PRICE_LABEL, PRO_TIER_COPY } from '../../core/config';
+import { SiteDto, SubscriptionDto, UsageDto } from '../../core/api/types';
+import { PRO_PRICE_LABEL, PRO_TIER_COPY } from '../../core/config';
 import { ErrorNote } from '../../shared/error-note';
 import { capitalize, formatDate, formatDateShort, numberWord, plural } from '../../shared/copy';
 import { toApiError } from '../../shared/to-api-error';
@@ -31,8 +31,6 @@ export class Account implements OnInit {
   private destroyRef = inject(DestroyRef);
   protected readonly store = inject(UserStore);
 
-  protected readonly portalUrl = FREEMIUS_PORTAL_URL;
-
   protected readonly usage = signal<UsageDto | null>(null);
   protected readonly sites = signal<SiteDto[]>([]);
   protected readonly loading = signal(true);
@@ -43,10 +41,19 @@ export class Account implements OnInit {
   protected readonly resendBusy = signal(false);
   protected readonly resendError = signal<ApiError | null>(null);
 
+  protected readonly subscription = signal<SubscriptionDto | null>(null);
+  protected readonly subscriptionError = signal<ApiError | null>(null);
+  protected readonly confirmingCancel = signal(false);
+  protected readonly cancelling = signal(false);
+  protected readonly cancelError = signal<ApiError | null>(null);
+  protected readonly portalLinkBusy = signal(false);
+  protected readonly portalLinkError = signal<ApiError | null>(null);
+
   protected readonly proSitesLeft = computed(() => Math.max(0, PRO_TIER_COPY.sites - this.sites().length));
   protected readonly hasReadyCheck = computed(() => this.sites().some((s) => s.latestReadyAssessmentId));
   protected readonly word = numberWord;
   protected readonly plural = plural;
+  protected readonly formatDate = formatDate;
   protected readonly price = PRO_PRICE_LABEL;
   protected readonly proSites = capitalize(numberWord(PRO_TIER_COPY.sites));
   protected readonly proChecks = numberWord(PRO_TIER_COPY.checks);
@@ -64,15 +71,20 @@ export class Account implements OnInit {
     this.loading.set(true);
     this.usageError.set(null);
     this.sitesError.set(null);
+    this.subscriptionError.set(null);
     // Promise.allSettled means one failed request does not hide the other's result.
     // store.refresh() also settles. A Freemius webhook can change the tier while this
     // page is closed. The store otherwise reloads only at app start or on login.
-    const [usageResult, sitesResult] = await Promise.allSettled([this.api.usage(), this.api.listSites(), this.store.refresh()]);
+    const [usageResult, sitesResult, subscriptionResult] = await Promise.allSettled([
+      this.api.usage(), this.api.listSites(), this.api.getSubscription(), this.store.refresh(),
+    ]);
     if (this.destroyed) return;
     if (usageResult.status === 'fulfilled') this.usage.set(usageResult.value);
     else this.usageError.set(toApiError(usageResult.reason));
     if (sitesResult.status === 'fulfilled') this.sites.set(sitesResult.value);
     else this.sitesError.set(toApiError(sitesResult.reason));
+    if (subscriptionResult.status === 'fulfilled') this.subscription.set(subscriptionResult.value);
+    else this.subscriptionError.set(toApiError(subscriptionResult.reason));
     this.loading.set(false);
   }
 
@@ -107,6 +119,60 @@ export class Account implements OnInit {
         (e: unknown) => { if (this.destroyed) return; this.resendError.set(toApiError(e)); },
       )
       .finally(() => { if (this.destroyed) return; this.resendBusy.set(false); });
+  }
+
+  protected startCancel(): void {
+    this.cancelError.set(null);
+    this.confirmingCancel.set(true);
+  }
+
+  protected keepPlan(): void {
+    this.confirmingCancel.set(false);
+  }
+
+  protected async confirmCancel(): Promise<void> {
+    if (this.cancelling()) return;
+    this.cancelling.set(true);
+    this.cancelError.set(null);
+    try {
+      const updated = await this.api.cancelSubscription();
+      if (this.destroyed) return;
+      this.subscription.set(updated);
+      this.confirmingCancel.set(false);
+    } catch (e) {
+      if (this.destroyed) return;
+      this.cancelError.set(toApiError(e));
+    } finally {
+      if (this.destroyed) return;
+      this.cancelling.set(false);
+    }
+  }
+
+  protected async openPaymentMethod(): Promise<void> {
+    if (this.portalLinkBusy()) return;
+    // Opened synchronously, inside the click handler, so the browser's popup blocker sees it as
+    // a direct result of the click. The URL is not known yet: it is filled in once the request
+    // below resolves. Opening it only then, after an awaited network call, is what a popup
+    // blocker treats as unsolicited and silently drops.
+    const tab = window.open('', '_blank');
+    if (!tab) {
+      this.portalLinkError.set(new ApiError('popup_blocked', 'Your browser blocked the pop-up. Allow pop-ups for this site and try again.', 0));
+      return;
+    }
+    this.portalLinkBusy.set(true);
+    this.portalLinkError.set(null);
+    try {
+      const { url } = await this.api.getPortalLink();
+      if (this.destroyed) { tab.close(); return; }
+      tab.location.href = url;
+    } catch (e) {
+      tab.close();
+      if (this.destroyed) return;
+      this.portalLinkError.set(toApiError(e));
+    } finally {
+      if (this.destroyed) return;
+      this.portalLinkBusy.set(false);
+    }
   }
 
   protected async logout(): Promise<void> {
