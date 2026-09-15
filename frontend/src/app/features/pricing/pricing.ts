@@ -3,7 +3,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiClient } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
 import { PlanDto, SiteDto } from '../../core/api/types';
-import { FREEMIUS_PORTAL_URL, PRO_PRICE_LABEL } from '../../core/config';
+import { PRO_PRICE_LABEL } from '../../core/config';
 import { capitalize, numberWord, plural } from '../../shared/copy';
 import { ImpactBadge } from '../../shared/impact-badge';
 import { SiteFooter } from '../../shared/site-footer';
@@ -37,7 +37,6 @@ type Phase = 'idle' | 'opening' | 'unlocking' | 'timeout';
         [isPro]="store.user()?.tier === 'pro'"
         [signedIn]="store.user() !== null"
         [busy]="phase() !== 'idle'"
-        [portalUrl]="portalUrl"
         [sandboxNote]="sandboxMode()"
         [freeButton]="gate() ? 'Stay on Free' : 'Check my site free'"
         (unlock)="unlock()"
@@ -120,7 +119,6 @@ export class Pricing implements OnInit {
   protected readonly store = inject(UserStore);
 
   protected readonly price = PRO_PRICE_LABEL;
-  protected readonly portalUrl = FREEMIUS_PORTAL_URL;
   protected readonly word = numberWord;
   protected readonly plural = plural;
   protected readonly gate = signal<{ site: SiteDto; plan: PlanDto } | null>(null);

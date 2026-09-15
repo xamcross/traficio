@@ -61,6 +61,16 @@ class BillingWebhookTest {
          "license":{"id":"lic-1","plan_id":"plan-pro","expiration":"2027-01-01T00:00:00Z"}}}
     """.trimIndent())
 
+    // Not a captured payload: no subscription.created event has been captured for this product
+    // yet (see the note on #38's original renewalBody, before it had a real fixture). Shaped
+    // from the documented Subscription entity (https://freemius.com/help/api/subscriptions/),
+    // whose own id field is "id" like every other Freemius entity. Confirm the field name
+    // against a real event before trusting this in production.
+    private fun subscriptionCreatedBody(email: String, subscriptionId: String, licenseId: String) = withEventMeta("""
+        {"type":"subscription.created","objects":{"user":{"email":"$email"},
+         "subscription":{"id":"$subscriptionId","plan_id":"plan-pro","license_id":"$licenseId","gateway":"stripe"}}}
+    """.trimIndent())
+
     /** A validly-shaped, validly-signable upgrade event padded past the webhook body limit. */
     private fun oversizedUpgradeBody(email: String) = withEventMeta("""
         {"type":"license.created","objects":{"user":{"email":"$email"},
@@ -181,6 +191,48 @@ class BillingWebhookTest {
         val free = runBlocking { repo.findByEmail("ada@example.com")!! }
         assertEquals("free", free.tier)
         assertEquals("expired", free.freemius!!.subscriptionStatus)
+    }
+
+    @Test
+    fun `a subscription created event stores the subscription id and a later license created event does not erase it`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+        val repo = UserRepository(db)
+
+        val sub = subscriptionCreatedBody("ada@example.com", subscriptionId = "sub-1", licenseId = "lic-1")
+        assertEquals(HttpStatusCode.OK, http.webhook(sub, hmacSha256Hex(secret, sub)).status)
+        val afterSubscription = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("pro", afterSubscription.tier)
+        assertEquals("sub-1", afterSubscription.freemius!!.subscriptionId)
+
+        val license = upgradeBody("ada@example.com")
+        assertEquals(HttpStatusCode.OK, http.webhook(license, hmacSha256Hex(secret, license)).status)
+        val afterLicense = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("lic-1", afterLicense.freemius!!.licenseId)
+        // license.created carries no subscription object. Its own event must not blank out
+        // the subscription id that the earlier subscription.created event already stored.
+        assertEquals("sub-1", afterLicense.freemius!!.subscriptionId)
+    }
+
+    @Test
+    fun `a license created event before the subscription created event keeps the license id once the subscription id arrives`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+        val repo = UserRepository(db)
+
+        val license = upgradeBody("ada@example.com")
+        assertEquals(HttpStatusCode.OK, http.webhook(license, hmacSha256Hex(secret, license)).status)
+
+        val sub = subscriptionCreatedBody("ada@example.com", subscriptionId = "sub-1", licenseId = "lic-1")
+        assertEquals(HttpStatusCode.OK, http.webhook(sub, hmacSha256Hex(secret, sub)).status)
+        val after = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("pro", after.tier)
+        assertEquals("lic-1", after.freemius!!.licenseId)
+        assertEquals("sub-1", after.freemius!!.subscriptionId)
     }
 
     @Test

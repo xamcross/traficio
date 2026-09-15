@@ -7,7 +7,6 @@ import { UpgradeFlow } from './upgrade-flow';
 import { ApiClient } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
 import { CheckoutDto, PlanDto, SiteDto, UserDto } from '../../core/api/types';
-import { FREEMIUS_PORTAL_URL } from '../../core/config';
 
 @Component({ selector: 'pricing-spec-blank', template: '' })
 class BlankPage {}
@@ -211,14 +210,12 @@ describe('Pricing', () => {
     expect(button(el, 'Unlock my plan').disabled).toBeFalse();
   });
 
-  it('shows the manage-subscription link for a Pro user and hides Unlock my plan', async () => {
+  it('shows a manage-subscription link to the account page for a Pro user and hides Unlock my plan', async () => {
     const proUser: UserDto = { id: 'u2', email: 'pro@rivertonbakery.com', emailVerified: true, tier: 'pro' };
     const { el } = await setup({}, proUser);
     const link = Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Manage subscription')) as HTMLAnchorElement | undefined;
     expect(link).toBeTruthy();
-    expect(link!.getAttribute('href')).toBe(FREEMIUS_PORTAL_URL);
-    expect(link!.getAttribute('target')).toBe('_blank');
-    expect(link!.getAttribute('rel')).toBe('noopener');
+    expect(link!.getAttribute('href')).toBe('/account');
     expect(el.textContent).toContain('You are on Pro.');
     expect(el.textContent).not.toContain('Unlock my plan');
   });

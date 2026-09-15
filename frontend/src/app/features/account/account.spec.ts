@@ -4,9 +4,8 @@ import { Location } from '@angular/common';
 import { provideRouter } from '@angular/router';
 import { Account } from './account';
 import { ApiClient, ApiError } from '../../core/api/api-client';
-import { SiteDto, UsageDto, UserDto } from '../../core/api/types';
+import { PortalLinkDto, SiteDto, SubscriptionDto, UsageDto, UserDto } from '../../core/api/types';
 import { UserStore } from '../../core/auth/user-store';
-import { FREEMIUS_PORTAL_URL } from '../../core/config';
 
 /** No-op routed targets so provideRouter() has something real to navigate to. */
 @Component({ selector: 'account-spec-blank', template: '' })
@@ -24,6 +23,10 @@ function makeUsage(overrides: Partial<UsageDto> = {}): UsageDto {
   return { assessmentsUsed: 1, assessmentsLimit: 10, sitesUsed: 2, sitesLimit: 5, nextCheckAt: null, ...overrides };
 }
 
+function makeSubscription(overrides: Partial<SubscriptionDto> = {}): SubscriptionDto {
+  return { tier: 'pro', status: 'active', planId: 'plan-pro', currentPeriodEnd: '2027-01-01T00:00:00Z', ...overrides };
+}
+
 /** Hand-rolled fake with controllable, per-call-configurable promises. No jasmine.createSpy. */
 class FakeApiClient {
   usageResult: Promise<UsageDto> = Promise.resolve(makeUsage());
@@ -33,10 +36,15 @@ class FakeApiClient {
   // Matches the default makeUser(), so a test that pre-sets store.user to plain
   // makeUser() sees no change once load() refreshes the store from this.
   meResult: Promise<UserDto> = Promise.resolve(makeUser());
+  subscriptionResult: Promise<SubscriptionDto> = Promise.resolve(makeSubscription());
+  cancelSubscriptionResult: Promise<SubscriptionDto> = Promise.resolve(makeSubscription({ status: 'cancelled' }));
+  portalLinkResult: Promise<PortalLinkDto> = Promise.resolve({ url: 'https://users.freemius.com/login/magic-token' });
 
   resendVerificationCalls = 0;
   logoutCalls = 0;
   meCalls = 0;
+  cancelSubscriptionCalls = 0;
+  portalLinkCalls = 0;
 
   usage(): Promise<UsageDto> {
     return this.usageResult;
@@ -55,6 +63,17 @@ class FakeApiClient {
   me(): Promise<UserDto> {
     this.meCalls++;
     return this.meResult;
+  }
+  getSubscription(): Promise<SubscriptionDto> {
+    return this.subscriptionResult;
+  }
+  cancelSubscription(): Promise<SubscriptionDto> {
+    this.cancelSubscriptionCalls++;
+    return this.cancelSubscriptionResult;
+  }
+  getPortalLink(): Promise<PortalLinkDto> {
+    this.portalLinkCalls++;
+    return this.portalLinkResult;
   }
 }
 
@@ -100,11 +119,12 @@ describe('Account', () => {
     expect(text).not.toContain('Delete my account');
   });
 
-  it('pro: manage subscription card, no upgrade card', async () => {
+  it('pro: subscription section with renewal date, no upgrade card', async () => {
     const store = TestBed.inject(UserStore);
     store.user.set(makeUser({ tier: 'pro' }));
     api.meResult = Promise.resolve(makeUser({ tier: 'pro' }));
     api.usageResult = Promise.resolve({ assessmentsUsed: 3, assessmentsLimit: 10, sitesUsed: 2, sitesLimit: 5, nextCheckAt: null });
+    api.subscriptionResult = Promise.resolve(makeSubscription({ status: 'active', currentPeriodEnd: '2027-01-01T00:00:00Z' }));
     const fixture = TestBed.createComponent(Account);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -112,15 +132,137 @@ describe('Account', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     const text = compiled.textContent ?? '';
     expect(text).toContain('YOU ARE ON PRO');
-    expect(text).toContain('Manage subscription');
+    expect(text).toContain('Renews 1 January 2027.');
+    expect(text).toContain('Update payment method');
+    expect(text).toContain('Cancel subscription');
     expect(text).not.toContain('Unlock my plan');
     expect(text).toContain('3 of 10');
+  });
 
-    const link = Array.from(compiled.querySelectorAll('a')).find((a) => a.textContent?.includes('Manage subscription'));
-    expect(link).toBeTruthy();
-    expect(link!.getAttribute('href')).toBe(FREEMIUS_PORTAL_URL);
-    expect(link!.getAttribute('target')).toBe('_blank');
-    expect(link!.getAttribute('rel')).toBe('noopener');
+  it('pro, cancelled: shows the end date and hides the cancel button', async () => {
+    const store = TestBed.inject(UserStore);
+    store.user.set(makeUser({ tier: 'pro' }));
+    api.meResult = Promise.resolve(makeUser({ tier: 'pro' }));
+    api.subscriptionResult = Promise.resolve(makeSubscription({ status: 'cancelled', currentPeriodEnd: '2027-01-01T00:00:00Z' }));
+    const fixture = TestBed.createComponent(Account);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const text = compiled.textContent ?? '';
+    expect(text).toContain('Your Pro plan ends 1 January 2027.');
+    expect(text).not.toContain('Cancel subscription');
+    expect(text).toContain('Update payment method');
+  });
+
+  it('cancels the subscription after a confirm step, then shows the end date and hides the button', async () => {
+    const store = TestBed.inject(UserStore);
+    store.user.set(makeUser({ tier: 'pro' }));
+    api.meResult = Promise.resolve(makeUser({ tier: 'pro' }));
+    api.subscriptionResult = Promise.resolve(makeSubscription({ status: 'active', currentPeriodEnd: '2027-01-01T00:00:00Z' }));
+    api.cancelSubscriptionResult = Promise.resolve(makeSubscription({ status: 'cancelled', currentPeriodEnd: '2027-01-01T00:00:00Z' }));
+    const fixture = TestBed.createComponent(Account);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    findButtonByText(compiled, 'Cancel subscription')!.click();
+    fixture.detectChanges();
+    expect(compiled.textContent).toContain('Keep my plan');
+    expect(api.cancelSubscriptionCalls).toBe(0); // the confirm step has not been answered yet
+
+    findButtonByText(compiled, 'Yes, cancel')!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.cancelSubscriptionCalls).toBe(1);
+    expect(compiled.textContent).toContain('Your Pro plan ends 1 January 2027.');
+    expect(findButtonByText(compiled, 'Cancel subscription')).toBeNull();
+  });
+
+  it('backing out of the confirm step with "Keep my plan" does not call cancel', async () => {
+    const store = TestBed.inject(UserStore);
+    store.user.set(makeUser({ tier: 'pro' }));
+    api.meResult = Promise.resolve(makeUser({ tier: 'pro' }));
+    const fixture = TestBed.createComponent(Account);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    findButtonByText(compiled, 'Cancel subscription')!.click();
+    fixture.detectChanges();
+    findButtonByText(compiled, 'Keep my plan')!.click();
+    fixture.detectChanges();
+
+    expect(api.cancelSubscriptionCalls).toBe(0);
+    expect(compiled.textContent).toContain('Cancel subscription');
+  });
+
+  it('shows an error note when cancelling fails, and keeps the confirm step open', async () => {
+    const store = TestBed.inject(UserStore);
+    store.user.set(makeUser({ tier: 'pro' }));
+    api.meResult = Promise.resolve(makeUser({ tier: 'pro' }));
+    api.cancelSubscriptionResult = Promise.reject(new ApiError('cancel_failed', 'We could not reach Freemius to cancel the subscription. Please try again.', 502));
+    const fixture = TestBed.createComponent(Account);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    findButtonByText(compiled, 'Cancel subscription')!.click();
+    fixture.detectChanges();
+    findButtonByText(compiled, 'Yes, cancel')!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('We could not reach Freemius to cancel the subscription.');
+    expect(compiled.textContent).toContain('Keep my plan'); // still on the confirm step
+  });
+
+  it('opens a blank tab synchronously on click, then navigates it once the portal link resolves', async () => {
+    const store = TestBed.inject(UserStore);
+    store.user.set(makeUser({ tier: 'pro' }));
+    api.meResult = Promise.resolve(makeUser({ tier: 'pro' }));
+    api.portalLinkResult = Promise.resolve({ url: 'https://users.freemius.com/login/magic-token' });
+    const fakeTab = { location: { href: '' }, close: jasmine.createSpy('close') } as unknown as Window;
+    const openSpy = spyOn(window, 'open').and.returnValue(fakeTab);
+    const fixture = TestBed.createComponent(Account);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    findButtonByText(compiled, 'Update payment method')!.click();
+    // The tab opens synchronously, in the same tick as the click, before the network call
+    // that supplies the URL resolves — this is what keeps a popup blocker from dropping it.
+    expect(openSpy).toHaveBeenCalledWith('', '_blank');
+    expect(fakeTab.location.href).toBe('');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.portalLinkCalls).toBe(1);
+    expect(fakeTab.location.href).toBe('https://users.freemius.com/login/magic-token');
+  });
+
+  it('shows an error and never calls the API when the browser blocks the pop-up', async () => {
+    const store = TestBed.inject(UserStore);
+    store.user.set(makeUser({ tier: 'pro' }));
+    api.meResult = Promise.resolve(makeUser({ tier: 'pro' }));
+    spyOn(window, 'open').and.returnValue(null);
+    const fixture = TestBed.createComponent(Account);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    findButtonByText(compiled, 'Update payment method')!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.portalLinkCalls).toBe(0);
+    expect(compiled.textContent).toContain('Your browser blocked the pop-up.');
   });
 
   it('refreshes the tier from /v1/me on load, so a stale Pro display does not linger after a downgrade', async () => {
@@ -135,7 +277,7 @@ describe('Account', () => {
 
     expect(api.meCalls).toBe(1);
     expect(text).toContain('Unlock my plan');
-    expect(text).not.toContain('Manage subscription');
+    expect(text).not.toContain('Cancel subscription');
   });
 
   it('shows a "Confirm your email" note with a resend button when emailVerified is false', async () => {

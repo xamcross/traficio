@@ -3,19 +3,26 @@ package app.geostrategy.billing
 import app.geostrategy.auth.hmacSha256Hex
 import app.geostrategy.auth.md5Hex
 import io.ktor.client.HttpClient
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.slf4j.LoggerFactory
 import java.security.MessageDigest
 import java.time.Instant
@@ -50,6 +57,11 @@ data class FreemiusEvent(
     val email: String?,
     val licenseId: String?,
     val planId: String?,
+    // The subscription's own id, from the objects.subscription object of a subscription.created
+    // payload. Freemius's payment objects reference it the same way (a real payment.refund
+    // payload's "subscription_id" field, BillingWebhookTest.kt), so a subscription object's own
+    // id field is "id", the same convention as every other Freemius entity in this file.
+    val subscriptionId: String?,
     val expiresAt: Instant?,
     // The event's own id and time. Freemius sends these in the envelope's top-level "id" and
     // "created" fields (real payload, event 1417312989). BillingService uses the two values to
@@ -70,11 +82,13 @@ fun parseFreemiusEvent(rawBody: String): FreemiusEvent? {
     val objects = root.obj("objects")
     val user = objects?.obj("user") ?: root.obj("user")
     val license = objects?.obj("license") ?: root.obj("license")
+    val subscription = objects?.obj("subscription") ?: root.obj("subscription")
     return FreemiusEvent(
         type = type,
         email = user?.str("email")?.lowercase(),
         licenseId = license?.str("id"),
         planId = license?.str("plan_id"),
+        subscriptionId = subscription?.str("id"),
         expiresAt = parseFreemiusTimestamp(license?.str("expiration")),
         eventId = root.str("id"),
         eventTime = parseFreemiusTimestamp(root.str("created")),
@@ -154,6 +168,51 @@ class HttpFreemiusClient(
         throw e
     } catch (e: Exception) {
         log.warn("Freemius license lookup for {} failed: {}", licenseId, e.message)
+        null
+    }
+
+    // See https://docs.freemius.com/api/subscriptions/cancel: `DELETE
+    // /v1/products/{product_id}/subscriptions/{subscription_id}.json`, Bearer token auth.
+    // Cancelling an already-cancelled subscription is also a 200, so any success status is a win.
+    override suspend fun cancelSubscription(subscriptionId: String): Boolean = try {
+        withTimeoutOrNull(timeoutMillis) {
+            val response = http.delete("https://api.freemius.com/v1/products/$productId/subscriptions/$subscriptionId.json") {
+                header(HttpHeaders.Authorization, "Bearer $apiToken")
+            }
+            if (!response.status.isSuccess()) log.warn("Freemius subscription cancel for {} failed: HTTP {}", subscriptionId, response.status.value)
+            response.status.isSuccess()
+        } ?: run {
+            log.warn("Freemius subscription cancel for {} timed out after {}ms", subscriptionId, timeoutMillis)
+            false
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        log.warn("Freemius subscription cancel for {} failed: {}", subscriptionId, e.message)
+        false
+    }
+
+    // See https://freemius.com/blog/changelog/one-click-customer-portal-login-via-api/: `POST
+    // /v1/products/{product_id}/portal/login.json`, Bearer token auth, body {"email": ...}.
+    // The response has a "link" field: a magic login link into the customer portal, good for
+    // 5 minutes. It logs the customer straight into the portal with no password of their own.
+    override suspend fun portalLoginLink(email: String): String? = try {
+        withTimeoutOrNull(timeoutMillis) {
+            val response = http.post("https://api.freemius.com/v1/products/$productId/portal/login.json") {
+                header(HttpHeaders.Authorization, "Bearer $apiToken")
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject { put("email", email) }.toString())
+            }
+            check(response.status.isSuccess()) { "HTTP ${response.status.value}" }
+            Json.parseToJsonElement(response.bodyAsText()).jsonObject.str("link")
+        } ?: run {
+            log.warn("Freemius portal login link for {} timed out after {}ms", email, timeoutMillis)
+            null
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        log.warn("Freemius portal login link for {} failed: {}", email, e.message)
         null
     }
 }

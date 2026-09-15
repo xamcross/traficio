@@ -53,8 +53,34 @@
       @if (store.user()?.tier === 'pro') {
         <aside class="card side pro stack">
           <span class="eyebrow">YOU ARE ON PRO</span>
-          <p class="muted">Manage your payment method, invoices, and cancellation in the customer portal.</p>
-          <a class="btn btn-outline" [href]="portalUrl" target="_blank" rel="noopener">Manage subscription</a>
+          @if (subscription(); as s) {
+            @if (s.status === 'cancelled') {
+              <p class="muted">Your Pro plan ends {{ s.currentPeriodEnd ? formatDate(s.currentPeriodEnd) : 'soon' }}. Your score stays free after that.</p>
+            } @else {
+              <p class="muted">{{ s.currentPeriodEnd ? 'Renews ' + formatDate(s.currentPeriodEnd) + '.' : 'Manage your payment method or cancel below.' }}</p>
+            }
+          }
+          @if (subscriptionError(); as e) {<app-error-note [error]="e" />}
+
+          @if (confirmingCancel()) {
+            <div class="stack" style="gap:10px">
+              <span class="muted small">Cancel your Pro plan? You keep Pro until{{ subscription()?.currentPeriodEnd ? ' ' + formatDate(subscription()!.currentPeriodEnd!) : ' the end of your paid period' }}.</span>
+              <div class="row" style="gap:10px">
+                <button type="button" class="btn btn-outline" (click)="confirmCancel()" [disabled]="cancelling()">Yes, cancel</button>
+                <button type="button" class="btn btn-text" (click)="keepPlan()">Keep my plan</button>
+              </div>
+            </div>
+          } @else {
+            <div class="row" style="gap:10px; flex-wrap: wrap">
+              <button type="button" class="btn btn-outline" (click)="openPaymentMethod()" [disabled]="portalLinkBusy()">Update payment method</button>
+              @if (subscription()?.status !== 'cancelled') {
+                <button type="button" class="btn btn-text" (click)="startCancel()">Cancel subscription</button>
+              }
+            </div>
+          }
+          @if (cancelError(); as e) {<app-error-note [error]="e" />}
+          @if (portalLinkError(); as e) {<app-error-note [error]="e" />}
+          <span class="faint small" style="text-align:center">Your score stays free.</span>
         </aside>
       } @else {
         <aside class="card side stack">

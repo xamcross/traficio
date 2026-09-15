@@ -77,7 +77,7 @@ import { plural } from '../../shared/copy';
 
       <h2>Cancelling and refunds</h2>
       <p>
-        Cancel at any time from the Manage subscription link on your account page, or by email to
+        Cancel at any time from your account page, or by email to
         <a href="mailto:support@traficio.com">support@traficio.com</a>. Your Pro features run to the
         end of the month you have paid for. After that your account returns to Free. Your score and
         your findings stay. Your plan locks: you see the task titles, not the steps. Your score

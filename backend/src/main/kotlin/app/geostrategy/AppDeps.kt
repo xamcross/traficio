@@ -7,6 +7,7 @@ import app.geostrategy.auth.OneTimeTokenService
 import app.geostrategy.auth.PasswordHasher
 import app.geostrategy.auth.SessionService
 import app.geostrategy.billing.BillingService
+import app.geostrategy.billing.FreemiusClient
 import app.geostrategy.claude.ClaudeClient
 import app.geostrategy.config.AppConfig
 import app.geostrategy.crawl.Crawler
@@ -32,6 +33,8 @@ class AppDeps(
     val plans: PlanRepository,
     val ssrf: SsrfGuard,
     val billing: BillingService?,
+    /** The account-side cancel and portal-link routes call this directly, not through BillingService. */
+    val freemiusClient: FreemiusClient,
     /** The full assessment's model client. The preview route never reads this field. */
     val claude: ClaudeClient,
     /** A crawler with a small page cap, for the anonymous preview only. */

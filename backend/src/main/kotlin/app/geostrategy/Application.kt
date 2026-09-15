@@ -83,6 +83,13 @@ fun main() {
             claudeLog.warn("ANTHROPIC_API_KEY is not set. Assessments use the canned Claude client.")
         }
 
+    val billingLog = LoggerFactory.getLogger(BillingRevalidator::class.java)
+    val freemiusClient: FreemiusClient = config.freemiusApiToken
+        ?.let { HttpFreemiusClient(httpClient, FREEMIUS_PRODUCT_ID, it) }
+        ?: CannedFreemiusClient().also {
+            billingLog.warn("FREEMIUS_API_TOKEN is not set. The revalidator trusts only the stored expiresAt.")
+        }
+
     val deps = AppDeps(
         config = config,
         users = users,
@@ -99,6 +106,7 @@ fun main() {
         plans = PlanRepository(db),
         ssrf = SsrfGuard(),
         billing = config.freemiusSecretKey?.let { BillingService(users, config.freemiusProPlanId, db) },
+        freemiusClient = freemiusClient,
         claude = claude,
         // A smaller page cap than a full assessment: a preview is a taste, and the cap
         // bounds the cost of abuse.
@@ -125,13 +133,7 @@ fun main() {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     JobWorker(deps.jobs, mapOf("assessment" to pipeline::handle), leaseSeconds = 900).start(appScope)
 
-    val billingLog = LoggerFactory.getLogger(BillingRevalidator::class.java)
-    val freemiusClient: FreemiusClient = config.freemiusApiToken
-        ?.let { HttpFreemiusClient(httpClient, FREEMIUS_PRODUCT_ID, it) }
-        ?: CannedFreemiusClient().also {
-            billingLog.warn("FREEMIUS_API_TOKEN is not set. The revalidator trusts only the stored expiresAt.")
-        }
-    val revalidator = BillingRevalidator(deps.users, freemiusClient)
+    val revalidator = BillingRevalidator(deps.users, deps.freemiusClient)
     appScope.launch {
         while (isActive) {
             try {

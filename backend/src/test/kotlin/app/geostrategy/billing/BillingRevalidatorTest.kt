@@ -16,6 +16,8 @@ class BillingRevalidatorTest {
 
     private class FixedFreemiusClient(private val states: Map<String, LicenseState?>) : FreemiusClient {
         override suspend fun checkLicense(licenseId: String) = states[licenseId]
+        override suspend fun cancelSubscription(subscriptionId: String) = false
+        override suspend fun portalLoginLink(email: String): String? = null
     }
 
     @Test

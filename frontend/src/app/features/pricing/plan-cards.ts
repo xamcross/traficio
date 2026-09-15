@@ -1,9 +1,11 @@
 import { Component, computed, input, output } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FREE_TIER_COPY, PRO_PRICE_LABEL, PRO_TIER_COPY } from '../../core/config';
 import { capitalize, numberWord } from '../../shared/copy';
 
 @Component({
   selector: 'app-plan-cards',
+  imports: [RouterLink],
   template: `
     <div class="cards">
       <section class="plan-card card-soft">
@@ -36,7 +38,7 @@ import { capitalize, numberWord } from '../../shared/copy';
         </ul>
         <span class="spacer"></span>
         @if (isPro()) {
-          <a class="btn btn-outline" [href]="portalUrl()" target="_blank" rel="noopener">Manage subscription</a>
+          <a class="btn btn-outline" routerLink="/account">Manage subscription</a>
           <span class="faint small center">You are on Pro.</span>
         } @else {
           <button type="button" class="btn" [class.btn-primary]="!freeIsPrimary()" [class.btn-outline]="freeIsPrimary()" (click)="unlock.emit()" [disabled]="busy()">{{ proButton() }}</button>
@@ -70,7 +72,6 @@ export class PlanCards {
   /** False for a visitor with no account. That visitor has no plan to unlock yet. */
   signedIn = input(false);
   busy = input(false);
-  portalUrl = input('');
   /** True while the signed-in account opens the Freemius sandbox instead of a live sale. */
   sandboxNote = input(false);
   freeButton = input('Stay on Free');

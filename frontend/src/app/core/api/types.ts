@@ -33,6 +33,8 @@ export interface UsageDto { assessmentsUsed: number; assessmentsLimit: number; s
 
 export interface SandboxDto { ctx: string; token: string; }
 export interface CheckoutDto { planId: string | null; sandbox: SandboxDto | null; }
+export interface SubscriptionDto { tier: Tier; status: string | null; planId: string | null; currentPeriodEnd: string | null; }
+export interface PortalLinkDto { url: string; }
 
 export type PreviewSeverity = 'critical' | 'high' | 'medium' | 'low' | 'good';
 export interface PreviewCheck { id: string; severity: PreviewSeverity | string; description: string; }

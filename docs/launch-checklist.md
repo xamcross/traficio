@@ -237,7 +237,7 @@ could not cover with mocks and canned clients.
 - [ ] 9.5 **Checkout in sandbox.** Put Freemius in sandbox mode. Buy Pro from the
       pricing page. Confirm: the overlay opens with your email pre-filled, the
       webhook upgrades the account to Pro, and the account page shows the Pro
-      limits and the "Manage subscription" link.
+      limits and the subscription section, with a renewal date.
 - [ ] 9.6 **Downgrade path.** Cancel or refund the sandbox purchase. Confirm the
       account returns to Free and extra sites become read-only.
 - [x] 9.7 **Session across subdomains.** Verified 2026-08-18 in a real browser: login on
