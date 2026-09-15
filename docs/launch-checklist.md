@@ -217,8 +217,9 @@ Work from the `backend/` directory.
 Run these once after the API is up (steps 4.2–4.5). They cover the paths that tests
 could not cover with mocks and canned clients.
 
-- [ ] 9.1 **Email flow.** Register. Open the verification email. Click the link.
-      Confirm the account verifies. Left open for #14.
+- [x] 9.1 **Email flow.** Register. Open the verification email. Click the link.
+      Confirm the account verifies. Confirmed: #14 closed 2026-09-15 with this criterion
+      ticked.
 - [x] 9.2 **Password reset.** Request a reset. Take the link from the email
       (`/reset-password?token=...`). Confirmed 2026-09-14: the new password worked (#14).
 - [ ] 9.3 **Google sign-in.** Log in with Google. Confirm you land on the dashboard.
