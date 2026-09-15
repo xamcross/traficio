@@ -25,9 +25,12 @@ type State =
   imports: [RouterLink, ErrorNote, ResultView, NextTaskView],
   template: `
     <div class="page surface home" [class.flush]="state().kind === 'ready' && isPro()">
+      @if (site(); as s) {
+        <div class="row site-bar"><span class="muted small">{{ s.domain }}</span><span class="spacer"></span><a class="small" [routerLink]="['/dashboard']" [queryParams]="{ list: 1 }">Add another site</a></div>
+      }
       @switch (state().kind) {
         @case ('loading') {<p class="muted">Loading…</p>}
-        @case ('error') {<app-error-note [error]="errorOf()" /><p><a routerLink="/dashboard">Back to my sites</a></p>}
+        @case ('error') {<app-error-note [error]="errorOf()" /><p><a [routerLink]="['/dashboard']" [queryParams]="{ list: 1 }">Back to my sites</a></p>}
         @case ('first') {
           <section class="card stack first">
             <span class="eyebrow">YOUR SITE</span>
@@ -79,6 +82,9 @@ type State =
     .tight { gap: 8px; }
     .report-link-row { margin-top: 20px; }
     .small { font-size: 13px; }
+    .site-bar { margin-bottom: 24px; }
+    .home.flush .site-bar { padding: 24px 44px 0; margin-bottom: 0; }
+    @media (max-width: 760px) { .home.flush .site-bar { padding: 20px 20px 0; } }
   `,
 })
 export class SiteHome implements OnInit {

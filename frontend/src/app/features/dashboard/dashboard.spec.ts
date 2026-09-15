@@ -1,9 +1,10 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Location } from '@angular/common';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { Dashboard } from './dashboard';
 import { ApiClient, ApiError } from '../../core/api/api-client';
+import { UserStore } from '../../core/auth/user-store';
 import { AssessmentDto, PlanDto, SiteDto, UsageDto, UserDto } from '../../core/api/types';
 import { clearPendingUrl, readPendingUrl, savePendingUrl } from '../../core/pending-url';
 
@@ -263,6 +264,19 @@ describe('Dashboard', () => {
     expect(TestBed.inject(Location).path()).toBe('/sites/S1');
   });
 
+  it('with exactly one site and ?list=1 shows the list instead of redirecting', async () => {
+    TestBed.overrideProvider(ActivatedRoute, { useValue: { snapshot: { queryParamMap: convertToParamMap({ list: '1' }) } } });
+    api.listSitesResult = Promise.resolve([makeSite({ id: 'S1', domain: 'one.com' })]);
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(TestBed.inject(Location).path()).not.toBe('/sites/S1');
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent).toContain('one.com');
+    expect(addSiteInput(el)).not.toBeNull();
+  });
+
   it('with two sites lists them with scores and read-only state, and hides the add form at the cap', async () => {
     api.listSitesResult = Promise.resolve([
       makeSite({ id: 'S1', domain: 'one.com', platform: 'wordpress', latestScores: { seo: 62, aeo: 34, geo: 28, overall: 41 }, latestAssessment: { id: 'A1', status: 'ready', createdAt: '2026-07-28T09:00:00Z', completedAt: '2026-07-28T10:00:00Z' }, latestReadyAssessmentId: 'A1' }),
@@ -316,6 +330,23 @@ describe('Dashboard', () => {
     await fixture.whenStable();
     expect(api.createSiteCalls).toEqual(['new.example.com']);
     expect(TestBed.inject(Location).path()).toBe('/sites/S7');
+  });
+
+  it('a free account at its site limit sees the upgrade line with a link to pricing, and no form', async () => {
+    TestBed.overrideProvider(ActivatedRoute, { useValue: { snapshot: { queryParamMap: convertToParamMap({ list: '1' }) } } });
+    api.listSitesResult = Promise.resolve([makeSite({ id: 'S1' })]);
+    api.usageResult = Promise.resolve({ assessmentsUsed: 0, assessmentsLimit: 1, sitesUsed: 1, sitesLimit: 1, nextCheckAt: null });
+    const fixture = TestBed.createComponent(Dashboard);
+    const store = TestBed.inject(UserStore);
+    store.loaded.set(true);
+    store.user.set({ id: 'u1', email: 'a@b.com', emailVerified: true, tier: 'free' });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent).toContain('Pro lets you add four more sites.');
+    expect(Array.from(el.querySelectorAll('a')).some((a) => a.getAttribute('href') === '/pricing')).toBe(true);
+    expect(addSiteInput(el)).toBeNull();
   });
 
   it('a url of three spaces keeps "Add site" disabled and calls createSite with nothing', async () => {

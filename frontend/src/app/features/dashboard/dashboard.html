@@ -36,7 +36,7 @@
       </section>
     }
 
-    @if (canAdd() || addError()) {
+    @if (canAdd() || addError() || showUpgradeLine()) {
       <section class="add stack">
         @if (canAdd()) {
           <h2>{{ sites().length === 0 ? 'Add your site' : 'Add another site' }}</h2>
@@ -44,6 +44,8 @@
             <label class="stack tight"><span class="muted small">Website</span><input type="text" formControlName="url" placeholder="yourbusiness.com" autocomplete="url" /></label>
             <div class="row"><button type="submit" class="btn btn-primary" [disabled]="addBusy() || addForm.invalid">Add site</button></div>
           </form>
+        } @else if (showUpgradeLine()) {
+          <p class="small">Pro lets you add {{ word(proSitesLeft()) }} more {{ plural(proSitesLeft(), 'site', 'sites') }}. <a [routerLink]="['/pricing']">Upgrade</a></p>
         }
         @if (addError(); as e) {
           @if (e.code === 'invalid_url') {<p class="error-note" role="alert">That address does not look right. Enter it like example.com.</p>}

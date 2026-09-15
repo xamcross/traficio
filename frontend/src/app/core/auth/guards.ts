@@ -1,4 +1,5 @@
-import { inject } from '@angular/core';
+import { inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformServer } from '@angular/common';
 import { CanActivateFn, Router } from '@angular/router';
 import { UserStore } from './user-store';
 
@@ -9,6 +10,15 @@ export const authGuard: CanActivateFn = async () => {
 };
 
 export const guestGuard: CanActivateFn = async () => {
+  const store = inject(UserStore); const router = inject(Router);
+  if (!store.loaded()) await store.refresh();
+  return store.user() ? router.createUrlTree(['/dashboard']) : true;
+};
+
+/** Guards the root path. The route pre-renders at build time, so on the
+ *  server it must not call /v1/me — it always returns true there. */
+export const rootGuard: CanActivateFn = async () => {
+  if (isPlatformServer(inject(PLATFORM_ID))) return true;
   const store = inject(UserStore); const router = inject(Router);
   if (!store.loaded()) await store.refresh();
   return store.user() ? router.createUrlTree(['/dashboard']) : true;

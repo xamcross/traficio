@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, guestGuard } from './core/auth/guards';
+import { authGuard, guestGuard, rootGuard } from './core/auth/guards';
 
 // The title and the data.description on each route feed the PageTitleStrategy
 // (see core/seo/page-title-strategy.ts). The ten public routes below also
@@ -13,6 +13,7 @@ export const routes: Routes = [
       description:
         'See how findable your website is in Google, answer boxes and AI assistants like ChatGPT. Get your score and every problem we find, free. No card needed.',
     },
+    canActivate: [rootGuard],
     loadComponent: () => import('./features/landing/landing').then(m => m.Landing),
   },
   {

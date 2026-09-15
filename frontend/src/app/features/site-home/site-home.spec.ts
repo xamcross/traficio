@@ -150,6 +150,21 @@ describe('SiteHome', () => {
     expect(el.textContent).toContain('That is every task done.');
   });
 
+  it('offers "Add another site" to /dashboard?list=1 near the site name', async () => {
+    const api = new FakeApiClient();
+    const { el } = await setup(api);
+    const link = el.querySelector('a[href="/dashboard?list=1"]');
+    expect(link?.textContent).toContain('Add another site');
+  });
+
+  it('points "Back to my sites" in the error state to /dashboard?list=1', async () => {
+    const api = new FakeApiClient();
+    api.listSites = () => Promise.reject(new Error('boom'));
+    const { el } = await setup(api);
+    const link = el.querySelector('a[href="/dashboard?list=1"]');
+    expect(link?.textContent).toContain('Back to my sites');
+  });
+
   it('shows the earlier result with a note when the latest failed after a ready check', async () => {
     const api = new FakeApiClient();
     api.sites = [site({ latestAssessment: { id: 'A2', status: 'failed', createdAt: '2026-08-01T00:00:00Z', completedAt: '2026-08-01T00:01:00Z' }, latestReadyAssessmentId: 'A1' })];
