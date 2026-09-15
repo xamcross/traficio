@@ -27,6 +27,11 @@ data class FreemiusEvent(
     val licenseId: String?,
     val planId: String?,
     val expiresAt: Instant?,
+    // The event's own id and time. Freemius sends these in the envelope's top-level "id" and
+    // "created" fields (real payload, event 1417312989). BillingService uses the two values to
+    // reject a replayed event and an out-of-order event.
+    val eventId: String?,
+    val eventTime: Instant?,
 )
 
 private val freemiusLog = LoggerFactory.getLogger("app.geostrategy.billing.Freemius")
@@ -46,17 +51,24 @@ fun parseFreemiusEvent(rawBody: String): FreemiusEvent? {
         email = user?.str("email")?.lowercase(),
         licenseId = license?.str("id"),
         planId = license?.str("plan_id"),
-        expiresAt = parseFreemiusExpiration(license?.str("expiration")),
+        expiresAt = parseFreemiusTimestamp(license?.str("expiration")),
+        eventId = root.str("id"),
+        eventTime = parseFreemiusTimestamp(root.str("created")),
     )
 }
 
 /**
- * Parses a Freemius `expiration` value. Tries an ISO-8601 instant first, then falls back to
- * the MySQL-style timestamp Freemius actually sends, interpreted as UTC. A value that is
- * present and non-blank but matches neither format is a misconfiguration worth surfacing:
- * silently treating it as "never expires" would let a cancelled user keep pro forever.
+ * Parses a Freemius timestamp. Freemius uses this format for two fields: a license's
+ * `expiration`, and an event's own `created` field. The function first tries an ISO-8601
+ * instant. It then tries the MySQL-style timestamp that Freemius actually sends, and reads
+ * that value as UTC.
+ *
+ * A present, non-blank value that matches neither format is a misconfiguration. The function
+ * logs a warning and returns null. Do not treat that null as a safe default:
+ * - A missing expiration is not "never expires". A cancelled user would then keep the pro tier.
+ * - A missing event time is not "always in order". The event would then lose its replay check.
  */
-private fun parseFreemiusExpiration(raw: String?): Instant? {
+private fun parseFreemiusTimestamp(raw: String?): Instant? {
     if (raw.isNullOrBlank()) return null
     try {
         return Instant.parse(raw)
@@ -66,7 +78,7 @@ private fun parseFreemiusExpiration(raw: String?): Instant? {
     try {
         return LocalDateTime.parse(raw, MYSQL_TIMESTAMP).toInstant(ZoneOffset.UTC)
     } catch (e: DateTimeParseException) {
-        freemiusLog.warn("Unparseable Freemius license expiration value: '{}'", raw)
+        freemiusLog.warn("Unparseable Freemius timestamp value: '{}'", raw)
         return null
     }
 }

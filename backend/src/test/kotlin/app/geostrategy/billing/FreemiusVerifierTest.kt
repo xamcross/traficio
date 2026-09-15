@@ -77,4 +77,23 @@ class FreemiusVerifierTest {
         val e = parseFreemiusEvent(mysql)!!
         assertEquals(Instant.parse("2027-01-01T10:00:00Z"), e.expiresAt)
     }
+
+    @Test
+    fun `parser reads the event id and the event time from the top-level id and created fields`() {
+        // A real Freemius webhook payload confirms these field names (event 1417312989). The
+        // event id is the top-level "id" field. The event time is the top-level "created"
+        // field, in the same MySQL-style UTC format Freemius uses for `license.expiration`.
+        val real = """{"type":"license.created","id":"1417312989","created":"2026-09-14 13:50:18",
+             "user":{"email":"a@x.co"},"license":{"id":"L1","expiration":"2027-01-01 10:00:00"}}"""
+        val e = parseFreemiusEvent(real)!!
+        assertEquals("1417312989", e.eventId)
+        assertEquals(Instant.parse("2026-09-14T13:50:18Z"), e.eventTime)
+    }
+
+    @Test
+    fun `parser leaves the event id and the event time null when the payload has neither`() {
+        val e = parseFreemiusEvent("""{"type":"license.created","user":{"email":"a@x.co"}}""")!!
+        assertEquals(null, e.eventId)
+        assertEquals(null, e.eventTime)
+    }
 }

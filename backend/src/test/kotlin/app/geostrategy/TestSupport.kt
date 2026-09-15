@@ -97,7 +97,7 @@ fun testDeps(
         assessments = assessments,
         plans = PlanRepository(db),
         ssrf = ssrf,
-        billing = config.freemiusSecretKey?.let { BillingService(users, config.freemiusProPlanId) },
+        billing = config.freemiusSecretKey?.let { BillingService(users, config.freemiusProPlanId, db) },
         claude = claude,
         previewCrawler = previewCrawler,
         previewLimiter = previewLimiter,

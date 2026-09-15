@@ -10,6 +10,7 @@ import app.geostrategy.registerAndLogin
 import app.geostrategy.testDeps
 import app.geostrategy.users.UserRepository
 import ch.qos.logback.classic.Level
+import com.mongodb.client.model.Filters.eq
 import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -24,8 +25,15 @@ import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.writeStringUtf8
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
+import org.bson.Document
 import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -34,17 +42,31 @@ class BillingWebhookTest {
     private val secret = "whsec-test"
     private val env = mapOf("FREEMIUS_SECRET_KEY" to secret, "FREEMIUS_PRO_PLAN_ID" to "plan-pro")
 
-    private fun upgradeBody(email: String) = """
+    // Each call returns a fresh, strictly-increasing (id, created) pair for a synthetic test
+    // event. This stops two events in one test from sharing an id, or from sharing one
+    // timestamp and landing out of order. The base year is 2020. Every real Freemius fixture
+    // below is dated 2026, so a test that mixes the two still orders the real fixture last.
+    private val eventSeq = AtomicLong(1_577_836_800L)
+    private val eventCreatedFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneOffset.UTC)
+
+    private fun withEventMeta(json: String): String {
+        val n = eventSeq.getAndIncrement()
+        val id = "test-evt-$n"
+        val created = eventCreatedFormat.format(Instant.ofEpochSecond(n))
+        return json.replaceFirst("{", "{\"id\":\"$id\",\"created\":\"$created\",")
+    }
+
+    private fun upgradeBody(email: String) = withEventMeta("""
         {"type":"license.created","objects":{"user":{"email":"$email"},
          "license":{"id":"lic-1","plan_id":"plan-pro","expiration":"2027-01-01T00:00:00Z"}}}
-    """.trimIndent()
+    """.trimIndent())
 
     /** A validly-shaped, validly-signable upgrade event padded past the webhook body limit. */
-    private fun oversizedUpgradeBody(email: String) = """
+    private fun oversizedUpgradeBody(email: String) = withEventMeta("""
         {"type":"license.created","objects":{"user":{"email":"$email"},
          "license":{"id":"lic-1","plan_id":"plan-pro","expiration":"2027-01-01T00:00:00Z"}},
          "padding":"${"x".repeat(WEBHOOK_BODY_LIMIT_BYTES.toInt())}"}
-    """.trimIndent()
+    """.trimIndent())
 
     // A real license.extended payload (event 1417447021, 2026-09-15). The user object has no
     // name, picture, IP, or public key, and the license object has no secret key. The test sets
@@ -65,9 +87,60 @@ class BillingWebhookTest {
 
     // A real payment.created payload from the sandbox refund (event 1417313124). The email and
     // the Stripe, card, and IP fields are removed. The payload has no license object.
-    private fun paymentCreatedWithNoLicense(email: String) = """
+    private fun paymentCreatedWithNoLicense(email: String) = withEventMeta("""
         {"type":"payment.created","objects":{"user":{"email":"$email"},
          "payment":{"id":"2131050","license_id":"2043610","gross":-9,"type":"refund"}}}
+    """.trimIndent())
+
+    // A real license.created payload (event 1417312989, 2026-09-14 13:50:18). The user object
+    // has no name, picture, IP, or public key. The license object has no secret key. The test
+    // sets the email, the license id, the plan id, the event id, and the event time. All other
+    // values are from Freemius.
+    private fun realLicenseCreatedBody(
+        email: String,
+        licenseId: String = "2043610",
+        planId: String = "67740",
+        eventId: String = "1417312989",
+        createdAt: String = "2026-09-14 13:50:18",
+        expiration: String = "2026-10-15 13:50:16",
+    ) = """
+        {"type":"license.created","developer_id":null,"plugin_id":"39459","user_id":"10453125","install_id":null,
+         "data":{"expiration":"$expiration","license_id":"$licenseId"},
+         "event_trigger":"user","process_time":null,"state":"processed","id":"$eventId",
+         "created":"$createdAt","updated":"2026-09-14 13:51:02",
+         "objects":{"user":{"plugin_id":null,"user_id":null,"gross":0,"is_marketing_allowed":false,"source":0,
+          "last_login_at":null,"email_status":"delivered","email":"$email","is_verified":true,"auth":"password",
+          "id":"10453125","created":"2026-09-14 13:50:18","updated":null},
+         "license":{"plugin_id":"39459","user_id":"10453125","plan_id":"$planId","pricing_id":"89463","quota":1,
+          "activated":0,"activated_local":0,"expiration":"$expiration","is_free_localhost":true,
+          "is_block_features":true,"is_cancelled":false,"is_whitelabeled":false,"environment":1,"source":0,
+          "id":"$licenseId","created":"2026-09-14 13:50:18","updated":"2026-09-15 06:16:29"}}}
+    """.trimIndent()
+
+    // A real payment.refund payload (event 1417313125, 2026-09-14 13:51:04). The user object
+    // has no name, picture, IP, or public key. The payment object has no IP, card token, or
+    // Stripe charge id. The test sets the email, the license id, the event id, and the event
+    // time. All other values are from Freemius. This event has no license object. It has only
+    // a user object and a payment object.
+    private fun realPaymentRefundBody(
+        email: String,
+        licenseId: String = "2043610",
+        eventId: String = "1417313125",
+        createdAt: String = "2026-09-14 13:51:04",
+    ) = """
+        {"type":"payment.refund","developer_id":"38607","plugin_id":"39459","user_id":"10453125","install_id":null,
+         "data":{"payment_id":"2131047","license_id":"$licenseId"},
+         "event_trigger":"developer","process_time":null,"state":"processed","id":"$eventId",
+         "created":"$createdAt","updated":null,
+         "objects":{"user":{"plugin_id":null,"user_id":null,"gross":0,"is_marketing_allowed":false,"source":0,
+          "last_login_at":null,"email_status":"delivered","email":"$email","is_verified":true,"auth":"password",
+          "id":"10453125","created":"2026-09-14 13:50:18","updated":null},
+         "payment":{"subscription_id":"827085","payment_presentment_id":null,"gross":9,"bound_payment_id":"2131050",
+          "gateway_fee":0.76,"vat":1.8,"is_renewal":false,"type":"payment","user_id":"10453125","install_id":null,
+          "plan_id":"67740","pricing_id":"89463","license_id":"$licenseId","country_code":"at",
+          "zip_postal_code":"12345","vat_id":null,"coupon_id":null,"source":0,"plugin_id":"39459",
+          "gateway":"stripe","environment":1,"id":"2131047","created":"2026-09-14 13:50:19",
+          "updated":"2026-09-14 13:51:02","currency":"usd"}}}
     """.trimIndent()
 
     private suspend fun io.ktor.client.HttpClient.webhook(body: String, sig: String?) =
@@ -334,5 +407,158 @@ class BillingWebhookTest {
         assertEquals(HttpStatusCode.OK, http.webhook(payment, hmacSha256Hex(secret, payment)).status)
         val after = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!
         assertEquals(before, after)
+    }
+
+    @Test
+    fun `the same signed event delivered twice changes nothing on the second delivery`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+        val repo = UserRepository(db)
+
+        val up = upgradeBody("ada@example.com")
+        assertEquals(HttpStatusCode.OK, http.webhook(up, hmacSha256Hex(secret, up)).status)
+        val afterFirst = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("pro", afterFirst.tier)
+
+        // The second delivery answers 200, the same as the first. The equality check below
+        // includes updatedAt, so it proves BillingService did not write the user a second time.
+        assertEquals(HttpStatusCode.OK, http.webhook(up, hmacSha256Hex(secret, up)).status)
+        val afterSecond = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals(afterFirst, afterSecond)
+    }
+
+    @Test
+    fun `the same signed event delivered at the same time is recorded and applied only once`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+
+        val up = upgradeBody("ada@example.com")
+        val sig = hmacSha256Hex(secret, up)
+        val responses = coroutineScope {
+            awaitAll(async { http.webhook(up, sig) }, async { http.webhook(up, sig) })
+        }
+        assertTrue(responses.all { it.status == HttpStatusCode.OK })
+
+        val eventId = parseFreemiusEvent(up)!!.eventId!!
+        val recorded = db.getCollection<Document>("billingEvents").countDocuments(eq("eventId", eventId))
+        assertEquals(1L, recorded)
+        assertEquals("pro", runBlocking { UserRepository(db).findByEmail("ada@example.com")!! }.tier)
+    }
+
+    @Test
+    fun `two different events for the same user delivered at the same time settle on the newer one`() = testApplication {
+        val db = TestMongo.freshDb()
+        val realPlanEnv = mapOf("FREEMIUS_SECRET_KEY" to secret, "FREEMIUS_PRO_PLAN_ID" to "67740")
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = realPlanEnv)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+        val repo = UserRepository(db)
+
+        // An older event and a newer event for the same account race each other. The final
+        // state must reflect the newer event, no matter which write reaches Mongo first: a
+        // plain read-then-write could let the older event's write land last and win instead.
+        val olderRefund = realPaymentRefundBody("ada@example.com", eventId = "test-refund-race", createdAt = "2026-09-01 00:00:00")
+        val newerUpgrade = realLicenseCreatedBody("ada@example.com")
+        coroutineScope {
+            awaitAll(
+                async { http.webhook(olderRefund, hmacSha256Hex(secret, olderRefund)) },
+                async { http.webhook(newerUpgrade, hmacSha256Hex(secret, newerUpgrade)) },
+            )
+        }
+
+        val after = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("pro", after.tier)
+        assertEquals(Instant.parse("2026-09-14T13:50:18Z"), after.freemius!!.lastEventAt)
+    }
+
+    @Test
+    fun `an older license created event after a newer payment refund does not make a free user pro`() = testApplication {
+        val db = TestMongo.freshDb()
+        val realPlanEnv = mapOf("FREEMIUS_SECRET_KEY" to secret, "FREEMIUS_PRO_PLAN_ID" to "67740")
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = realPlanEnv)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+        val repo = UserRepository(db)
+
+        // The real payment.refund (13:51:04) lands first. A replay of the real license.created
+        // event then arrives late: that event actually happened earlier, at 13:50:18. Without
+        // the event-time check, this replay would reinstate pro with no new payment.
+        val refund = realPaymentRefundBody("ada@example.com")
+        assertEquals(HttpStatusCode.OK, http.webhook(refund, hmacSha256Hex(secret, refund)).status)
+
+        val staleUpgrade = realLicenseCreatedBody("ada@example.com")
+        assertEquals(HttpStatusCode.OK, http.webhook(staleUpgrade, hmacSha256Hex(secret, staleUpgrade)).status)
+
+        assertEquals("free", runBlocking { repo.findByEmail("ada@example.com")!! }.tier)
+    }
+
+    @Test
+    fun `a newer license created event after an older payment refund makes the user pro`() = testApplication {
+        val db = TestMongo.freshDb()
+        val realPlanEnv = mapOf("FREEMIUS_SECRET_KEY" to secret, "FREEMIUS_PRO_PLAN_ID" to "67740")
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = realPlanEnv)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+        val repo = UserRepository(db)
+
+        val earlyRefund = realPaymentRefundBody("ada@example.com", eventId = "test-refund-early", createdAt = "2026-09-01 00:00:00")
+        assertEquals(HttpStatusCode.OK, http.webhook(earlyRefund, hmacSha256Hex(secret, earlyRefund)).status)
+
+        val laterUpgrade = realLicenseCreatedBody("ada@example.com")
+        assertEquals(HttpStatusCode.OK, http.webhook(laterUpgrade, hmacSha256Hex(secret, laterUpgrade)).status)
+
+        assertEquals("pro", runBlocking { repo.findByEmail("ada@example.com")!! }.tier)
+    }
+
+    @Test
+    fun `an event for an email that is not registered yet can still apply once retried after registration`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+
+        // Freemius delivers the event before the account exists. The server acks it, but must
+        // not treat the event id as spent: the account was never actually updated.
+        val up = upgradeBody("ada@example.com")
+        assertEquals(HttpStatusCode.OK, http.webhook(up, hmacSha256Hex(secret, up)).status)
+
+        registerAndLogin(http, "ada@example.com")
+
+        // A retry of the identical event, now that the account exists, must still apply.
+        assertEquals(HttpStatusCode.OK, http.webhook(up, hmacSha256Hex(secret, up)).status)
+        assertEquals("pro", runBlocking { UserRepository(db).findByEmail("ada@example.com")!! }.tier)
+    }
+
+    @Test
+    fun `two different events for the same user with the identical event time both apply`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+        val repo = UserRepository(db)
+
+        // Freemius timestamps only have one-second resolution, so two distinct real events can
+        // share one `created` value. Neither should lose to the other on that account alone.
+        val sameCreated = "2026-09-15 06:16:29"
+        val upgrade = """
+            {"type":"license.created","id":"evt-same-time-a","created":"$sameCreated",
+             "objects":{"user":{"email":"ada@example.com"},
+             "license":{"id":"lic-1","plan_id":"plan-pro","expiration":"2027-01-01T00:00:00Z"}}}
+        """.trimIndent()
+        assertEquals(HttpStatusCode.OK, http.webhook(upgrade, hmacSha256Hex(secret, upgrade)).status)
+        assertEquals("pro", runBlocking { repo.findByEmail("ada@example.com")!! }.tier)
+
+        val cancel = """
+            {"type":"subscription.cancelled","id":"evt-same-time-b","created":"$sameCreated",
+             "objects":{"user":{"email":"ada@example.com"}}}
+        """.trimIndent()
+        assertEquals(HttpStatusCode.OK, http.webhook(cancel, hmacSha256Hex(secret, cancel)).status)
+
+        val after = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("pro", after.tier)
+        assertEquals("cancelled", after.freemius!!.subscriptionStatus)
     }
 }

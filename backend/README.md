@@ -110,8 +110,15 @@ before it decodes the body as UTF-8.
 
 Warning: verify the signature header name and the payload shapes against real
 Freemius webhooks before production. The test fixtures define the parser's
-current contract. The webhook has no replay protection. The signature covers
-only the body. Review both points before production.
+current contract.
+
+The webhook rejects a replayed or an out-of-order event. Each event carries
+its own id and its own time, in the payload's top-level `id` and `created`
+fields. The server records each event id in the `billingEvents` collection,
+under a unique index. A second delivery of the same id fails the insert, and
+the server changes nothing for it. The server also compares the event's time
+to the `lastEventAt` value stored on the account. The server applies a write
+only when the stored value is empty or older than the event's time.
 
 ## Request body limits
 

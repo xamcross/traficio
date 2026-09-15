@@ -95,7 +95,7 @@ fun main() {
         assessments = AssessmentRepository(db),
         plans = PlanRepository(db),
         ssrf = SsrfGuard(),
-        billing = config.freemiusSecretKey?.let { BillingService(users, config.freemiusProPlanId) },
+        billing = config.freemiusSecretKey?.let { BillingService(users, config.freemiusProPlanId, db) },
         claude = claude,
         // A smaller page cap than a full assessment: a preview is a taste, and the cap
         // bounds the cost of abuse.
