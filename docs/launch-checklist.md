@@ -26,13 +26,9 @@ Facts (2026-08-18):
       `6a1d5f0463c3fcd7d61bf4cc`). The M0 cluster exists. See section 2.
 - [x] 1.2 **Anthropic** API key set as the Fly secret `ANTHROPIC_API_KEY` (2026-08-18).
       Real assessments run. The key was pasted into a chat once; rotate it when convenient.
-- [ ] 1.3 **Email sending — deferred (owner decision 2026-08-18).** The API sends no
-      email until an email API is set. Each verification and reset email is written
-      to `fly logs` instead (`EMAIL (not sent, no RESEND_API_KEY) ... token=...`).
-      To verify a test account, copy the link from the log line. Before real users:
-      choose an email API. The code supports Resend (`RESEND_API_KEY`, `EMAIL_FROM`);
-      another provider needs one small `EmailSender` implementation. See
-      `docs/2026-08-18-owner-setup-guide.md`, step 2.
+- [x] 1.3 **Email sending.** Connected 2026-09-14 (#10). The provider is Resend. The
+      sender is `noreply@traficio.com`. Each verification and reset email arrives in
+      the inbox.
 - [ ] 1.4 Create a **Google Cloud** OAuth client (type: Web application). Note the
       client id and the client secret.
 - [ ] 1.5 Create a **Freemius** account. Create the product and the Pro plan. Set the
@@ -221,12 +217,11 @@ Work from the `backend/` directory.
 Run these once after the API is up (steps 4.2–4.5). They cover the paths that tests
 could not cover with mocks and canned clients.
 
-- [ ] 9.1 **Email flow.** Deferred with 1.3. Until an email API is set: register, then
-      run `fly logs`, copy the verification link from the `EMAIL (not sent ...)` line,
-      open it. Confirm the account verifies.
-- [ ] 9.2 **Password reset.** Request a reset. Take the link from the email, or from
-      `fly logs` while 1.3 is deferred (`/reset-password?token=...`). Confirm the new
-      password works.
+- [x] 9.1 **Email flow.** Register. Open the verification email. Click the link.
+      Confirm the account verifies. Confirmed: #14 closed 2026-09-15 with this criterion
+      ticked.
+- [x] 9.2 **Password reset.** Request a reset. Take the link from the email
+      (`/reset-password?token=...`). Confirmed 2026-09-14: the new password worked (#14).
 - [ ] 9.3 **Google sign-in.** Log in with Google. Confirm you land on the dashboard.
 - [ ] 9.4 **Live-key assessment (streaming smoke test).** Add a real site. Run one
       assessment with the real `ANTHROPIC_API_KEY`. Watch `fly logs`. Confirm: the
@@ -282,7 +277,7 @@ Steps 1–8 must finish before step 9. Step 11 can run in parallel after step 7.
 
 **Working today (2026-08-23):** `https://traficio.com` serves the SPA; the API at
 `https://api.traficio.com` runs with the Atlas database; register, login, and the
-session work end to end. The verification email prints in `fly logs` until Resend is
-set (1.3). A check runs with the canned Claude client until `ANTHROPIC_API_KEY` is set.
+session work end to end. The verification email sends through Resend (1.3). A check
+runs with the canned Claude client until `ANTHROPIC_API_KEY` is set.
 **Next:** follow `docs/2026-08-18-owner-setup-guide.md` (Google → Freemius → Cloudflare
-finishing touches → smoke tests). Email sending is deferred (1.3).
+finishing touches → smoke tests).
