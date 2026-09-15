@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom, Observable } from 'rxjs';
 import { API_BASE } from '../config';
-import { AssessmentDto, PlanDto, PreviewDto, SiteDto, UsageDto, UserDto } from './types';
+import { AssessmentDto, CheckoutDto, PlanDto, PreviewDto, SiteDto, UsageDto, UserDto } from './types';
 
 export class ApiError extends Error {
   constructor(readonly code: string, message: string, readonly status: number) { super(message); }
@@ -50,4 +50,5 @@ export class ApiClient {
   shareAssessment(id: string) { return unwrap(this.http.post<{ slug: string }>(this.url(`/v1/assessments/${id}/share`), null)); }
   unshareAssessment(id: string) { return unwrap(this.http.delete(this.url(`/v1/assessments/${id}/share`))); }
   preview(url: string) { return unwrap(this.http.post<PreviewDto>(this.url('/v1/preview'), { url })); }
+  checkout() { return unwrap(this.http.get<CheckoutDto>(this.url('/v1/billing/checkout'))); }
 }

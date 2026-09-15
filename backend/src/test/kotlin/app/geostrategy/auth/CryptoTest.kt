@@ -37,4 +37,9 @@ class CryptoTest {
         assertEquals(expected, hmacSha256Hex("key", bytes))
         assertEquals(hmacSha256Hex("key", bytes), hmacSha256Hex("key", String(bytes, Charsets.UTF_8)))
     }
+
+    @Test
+    fun `md5Hex matches the known test vector for 'abc'`() {
+        assertEquals("900150983cd24fb0d6963f7d28e17f72", md5Hex("abc"))
+    }
 }

@@ -71,6 +71,8 @@ export class PlanCards {
   signedIn = input(false);
   busy = input(false);
   portalUrl = input('');
+  /** True while the signed-in account opens the Freemius sandbox instead of a live sale. */
+  sandboxNote = input(false);
   freeButton = input('Stay on Free');
   unlock = output<void>();
   stayFree = output<void>();
@@ -83,6 +85,7 @@ export class PlanCards {
   protected readonly freeIsPrimary = computed(() => this.context() === 'public' && !this.isPro() && !this.signedIn());
   protected readonly proButton = computed(() => (this.freeIsPrimary() ? 'Start free, then unlock' : 'Unlock my plan'));
   protected readonly proNote = computed(() => {
+    if (this.sandboxNote()) return 'Sandbox checkout. No card is charged.';
     if (this.context() === 'gate') return 'Your plan is already written and waiting.';
     if (this.freeIsPrimary()) return 'You see your score and every finding before you pay.';
     return 'Cancel any time. Your score stays free.';

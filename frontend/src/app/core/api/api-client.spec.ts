@@ -70,4 +70,14 @@ describe('ApiClient', () => {
     expect(sites.length).toBe(1);
     expect(sites[0].id).toBe('s1');
   });
+
+  it('checkout gets /v1/billing/checkout and resolves with planId and sandbox', async () => {
+    const promise = api.checkout();
+
+    const req = httpMock.expectOne('/v1/billing/checkout');
+    expect(req.request.method).toBe('GET');
+    req.flush({ planId: 'plan-pro', sandbox: { ctx: '123', token: 'abc' } });
+
+    await expectAsync(promise).toBeResolvedTo({ planId: 'plan-pro', sandbox: { ctx: '123', token: 'abc' } });
+  });
 });

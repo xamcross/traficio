@@ -38,6 +38,7 @@ type Phase = 'idle' | 'opening' | 'unlocking' | 'timeout';
         [signedIn]="store.user() !== null"
         [busy]="phase() !== 'idle'"
         [portalUrl]="portalUrl"
+        [sandboxNote]="sandboxMode()"
         [freeButton]="gate() ? 'Stay on Free' : 'Check my site free'"
         (unlock)="unlock()"
         (stayFree)="stayFree()" />
@@ -125,6 +126,7 @@ export class Pricing implements OnInit {
   protected readonly gate = signal<{ site: SiteDto; plan: PlanDto } | null>(null);
   protected readonly phase = signal<Phase>('idle');
   protected readonly note = signal<string | null>(null);
+  protected readonly sandboxMode = signal(false);
   private siteId: string | null = null;
   // The Freemius success callback can fire minutes later, after the visitor left the page.
   // Guard every post-payment step so a stale callback cannot navigate a destroyed component.
@@ -140,6 +142,12 @@ export class Pricing implements OnInit {
     this.siteId = this.route.snapshot.queryParamMap.get('site');
     const user = this.store.user();
     if (!user || user.tier === 'pro') return;
+    try {
+      const checkout = await this.api.checkout();
+      this.sandboxMode.set(checkout.sandbox !== null);
+    } catch {
+      // No sandbox note: the checkout still opens live when clicked.
+    }
     try {
       const sites = await this.api.listSites();
       // No ?site= given: use the first site with a ready check.

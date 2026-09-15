@@ -94,10 +94,25 @@ export class UpgradeFlow {
 
   async openCheckout(email: string, onSuccess: () => void): Promise<void> {
     if (this.productId.startsWith('REPLACE_ME')) throw new Error('not_connected');
-    await this.loadScript();
+    const [, checkout] = await Promise.all([this.loadScript(), this.api.checkout()]);
     const fs = (window as unknown as FreemiusGlobal).FS;
-    const handler = new fs!.Checkout({ product_id: this.productId, public_key: this.publicKey });
-    handler.open({ user_email: email, readonly_user: true, success: onSuccess });
+
+    const constructorOptions: Record<string, unknown> = { product_id: this.productId, public_key: this.publicKey };
+    if (checkout.planId) constructorOptions['plan_id'] = checkout.planId;
+    const handler = new fs!.Checkout(constructorOptions);
+
+    // The overlay can call both purchaseCompleted and success for one purchase. Only the
+    // first call should start afterPayment's poll.
+    let fired = false;
+    const fireOnce = () => { if (fired) return; fired = true; onSuccess(); };
+    const openOptions: Record<string, unknown> = {
+      user_email: email,
+      readonly_user: true,
+      purchaseCompleted: fireOnce,
+      success: fireOnce,
+    };
+    if (checkout.sandbox) openOptions['sandbox'] = checkout.sandbox;
+    handler.open(openOptions);
   }
 
   async awaitUpgrade(): Promise<boolean> {
