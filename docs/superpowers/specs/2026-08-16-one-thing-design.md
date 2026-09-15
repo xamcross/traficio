@@ -199,6 +199,7 @@ Layout, top to bottom, inside a 1080 px surface:
 3. "What we found" with "{n} things, across {areas} areas" (n = all findings including `good`; areas = distinct categories). Rows: severity badge, `evidence`, then a mono caption "{AREA} · {pages}". `pages` rule, with k = `affectedPages.length`: "AFFECTS EVERY PAGE" when k = 0 or k ≥ `pageCount`; "1 PAGE" when k = 1; "{k} PAGES" otherwise. Sort: high, medium, low, good. Empty findings: "We found nothing to fix. Check again after your next change." (Pro) / "We found nothing to fix." (Free).
 4. Free only — the **NEXT teaser** card. Eyebrow "NEXT". Heading "We wrote you {N words} things to fix, in order." Text "Each one is a short set of steps you can follow yourself, with a way to check it worked. About {effort} of work in total. The first one alone should move your score the most." Button "Read my plan" → `/pricing?site=<siteId>`. Caption "Included with Pro, from $9 a month". Right: a locked list "YOUR PLAN · {N} TASKS / LOCKED": the first task with a "BIGGEST WIN" badge and "{stepCount} steps · {effortMinutes} min", the second and third task with minutes, then a muted row "{N−3} more" when N > 3.
 5. Pro only, on the report route — a link row "Do this next →" to the site home and "See all {N} tasks" to the plan.
+6. Free only, on the site home — a link "Full report →" to `/assessments/:id/report`. It is the only in-app path to the share control (`.superpowers/frontend-share-report.md`), added after this spec.
 
 Number words: 1–12 as words ("eight"), 13 and above as digits.
 

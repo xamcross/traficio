@@ -118,6 +118,23 @@ describe('SiteHome', () => {
     expect(el.textContent).not.toContain('DO THIS NEXT');
   });
 
+  it('links a free ready result to the full report, where the share control lives', async () => {
+    const api = new FakeApiClient();
+    api.sites = [site({ latestAssessment: { id: 'A1', status: 'ready', createdAt: '', completedAt: '' }, latestReadyAssessmentId: 'A1' })];
+    const { el } = await setup(api, 'free');
+    const link = el.querySelector('a[href="/assessments/A1/report"]');
+    expect(link?.textContent).toContain('Full report');
+  });
+
+  it('gives no report link when pro and the plan failed to load, so the guard is not just "not pro and has a plan"', async () => {
+    const api = new FakeApiClient();
+    api.sites = [site({ latestAssessment: { id: 'A1', status: 'ready', createdAt: '', completedAt: '' }, latestReadyAssessmentId: 'A1' })];
+    api.planResult = Promise.reject(new Error('plan fetch failed'));
+    const { el } = await setup(api, 'pro');
+    expect(el.textContent).toContain('Visibility out of 100');
+    expect(el.querySelector('a[href="/assessments/A1/report"]')).toBeNull();
+  });
+
   it('shows the next-task view for pro, patches done and reloads the plan', async () => {
     const api = new FakeApiClient();
     api.sites = [site({ latestAssessment: { id: 'A1', status: 'ready', createdAt: '', completedAt: '' }, latestReadyAssessmentId: 'A1' })];

@@ -141,6 +141,9 @@ describe('Report', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Visibility out of 100');
     expect(compiled.textContent).toContain('What we found');
+    // The report page is the target of the site home's "Full report" link
+    // (site-home.ts). It must not link to itself.
+    expect(compiled.querySelector('a[href="/assessments/A1/report"]')).toBeNull();
   });
 
   it('redirects to the progress route when the assessment is not ready', async () => {
