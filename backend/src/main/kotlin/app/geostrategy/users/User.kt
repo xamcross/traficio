@@ -19,6 +19,9 @@ import java.time.Instant
 data class FreemiusInfo(
     val licenseId: String? = null,
     val planId: String? = null,
+    // The Freemius subscription id, from the subscription.created webhook. Null for a lifetime
+    // purchase (no subscription object) or an account that upgraded before this field existed.
+    val subscriptionId: String? = null,
     val subscriptionStatus: String? = null,
     val expiresAt: Instant? = null,
     // The `created` time of the last Freemius event that changed this record. BillingService
@@ -97,6 +100,21 @@ class UserRepository(db: MongoDatabase) {
     }
 
     suspend fun listByTier(tier: String): List<User> = col.find(eq("tier", tier)).toList()
+
+    /**
+     * Marks the stored subscription cancelled, right after the cancel route confirms it at
+     * Freemius. Conditional on the stored subscriptionId still matching the one the caller just
+     * cancelled, for the same reason as [downgradeProIfMatches]: a concurrent webhook must not
+     * be overwritten by a stale request. The tier and the expiry date are untouched: the account
+     * stays pro until expiresAt, and the subscription.cancelled webhook then confirms this same
+     * status. Returns whether a document was actually modified.
+     */
+    suspend fun markSubscriptionCancelled(id: ObjectId, expectedSubscriptionId: String): Boolean {
+        val filter = and(eq("_id", id), eq("freemius.subscriptionId", expectedSubscriptionId))
+        val update = combine(set("freemius.subscriptionStatus", "cancelled"), set("updatedAt", Instant.now()))
+        val result = col.updateOne(filter, update)
+        return result.modifiedCount > 0
+    }
 
     /**
      * Downgrades a pro user to free, but only if the stored billing state still matches what

@@ -103,6 +103,27 @@ class UserRepositoryTest {
     }
 
     @Test
+    fun `markSubscriptionCancelled only writes when the stored subscriptionId still matches`() = runBlocking {
+        val repo = UserRepository(TestMongo.freshDb())
+        val u = repo.insert(newUser("cancel@example.com"))
+        repo.setBilling(u.id, "pro", FreemiusInfo(licenseId = "L1", subscriptionId = "sub-1", subscriptionStatus = "active"))
+
+        // A new subscription's webhook lands concurrently, between the cancel route's read
+        // of the account and this write of the subscription it already cancelled at Freemius.
+        repo.setBilling(u.id, "pro", FreemiusInfo(licenseId = "L1", subscriptionId = "sub-2", subscriptionStatus = "active"))
+
+        val stale = repo.markSubscriptionCancelled(u.id, expectedSubscriptionId = "sub-1")
+        assertFalse(stale)
+        assertEquals("active", repo.findById(u.id)!!.freemius!!.subscriptionStatus)
+
+        val matching = repo.markSubscriptionCancelled(u.id, expectedSubscriptionId = "sub-2")
+        assertTrue(matching)
+        val cancelled = repo.findById(u.id)!!
+        assertEquals("pro", cancelled.tier)
+        assertEquals("cancelled", cancelled.freemius!!.subscriptionStatus)
+    }
+
+    @Test
     fun `a fresh database has a tier index for the daily billing scan`() = runBlocking {
         val db = TestMongo.freshDb()
         val indexNames = db.getCollection<Document>("users").listIndexes().map { it.getString("name") }.toList()

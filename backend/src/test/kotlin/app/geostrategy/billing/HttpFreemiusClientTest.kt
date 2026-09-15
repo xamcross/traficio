@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -61,6 +62,46 @@ class HttpFreemiusClientTest {
     fun `a network failure is unknown`() = runBlocking {
         val engine = MockEngine { throw IOException("connection reset") }
         assertNull(clientFor(engine).checkLicense("lic-1"))
+    }
+
+    @Test
+    fun `cancelling a subscription sends the DELETE with the bearer token and reports success`() = runBlocking {
+        val engine = MockEngine { request ->
+            assertEquals("Bearer tok_abc", request.headers[HttpHeaders.Authorization])
+            assertEquals("DELETE", request.method.value)
+            assertTrue(request.url.toString() == "https://api.freemius.com/v1/products/39459/subscriptions/sub-1.json")
+            jsonResponse("""{"id":"sub-1","canceled_at":"2026-09-15 00:00:00"}""")
+        }
+        assertTrue(clientFor(engine).cancelSubscription("sub-1"))
+    }
+
+    @Test
+    fun `a failed cancel answers false`() = runBlocking {
+        val engine = MockEngine { jsonResponse("""{"code":"not_found"}""", HttpStatusCode.NotFound) }
+        assertEquals(false, clientFor(engine).cancelSubscription("sub-missing"))
+    }
+
+    @Test
+    fun `a network failure on cancel answers false`() = runBlocking {
+        val engine = MockEngine { throw IOException("connection reset") }
+        assertEquals(false, clientFor(engine).cancelSubscription("sub-1"))
+    }
+
+    @Test
+    fun `a portal login link request posts the email and returns the link`() = runBlocking {
+        val engine = MockEngine { request ->
+            assertEquals("Bearer tok_abc", request.headers[HttpHeaders.Authorization])
+            assertTrue(request.url.toString() == "https://api.freemius.com/v1/products/39459/portal/login.json")
+            assertTrue(String(request.body.toByteArray()).contains("\"ada@example.com\""))
+            jsonResponse("""{"link":"https://users.freemius.com/login/magic-token","token":"tok"}""")
+        }
+        assertEquals("https://users.freemius.com/login/magic-token", clientFor(engine).portalLoginLink("ada@example.com"))
+    }
+
+    @Test
+    fun `a failed portal login link request answers null`() = runBlocking {
+        val engine = MockEngine { jsonResponse("boom", HttpStatusCode.InternalServerError) }
+        assertNull(clientFor(engine).portalLoginLink("ada@example.com"))
     }
 
     @Test

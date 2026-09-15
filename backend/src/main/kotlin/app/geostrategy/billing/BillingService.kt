@@ -43,11 +43,20 @@ class BillingService(
                     log.info("freemius event {} for non-pro plan {} ignored", event.type, event.planId)
                     return
                 }
+                // subscription.created carries a subscription object but no license object, and
+                // license.created carries the reverse. Each event's absent fields fall back to
+                // the account's existing values, so the two do not erase each other, however
+                // Freemius orders their delivery.
+                val existing = user.freemius
                 val applied = users.setBillingIfNewer(
                     user.id, "pro",
                     FreemiusInfo(
-                        licenseId = event.licenseId, planId = event.planId, subscriptionStatus = "active",
-                        expiresAt = event.expiresAt, lastEventAt = event.eventTime,
+                        licenseId = event.licenseId ?: existing?.licenseId,
+                        planId = event.planId ?: existing?.planId,
+                        subscriptionId = event.subscriptionId ?: existing?.subscriptionId,
+                        subscriptionStatus = "active",
+                        expiresAt = event.expiresAt ?: existing?.expiresAt,
+                        lastEventAt = event.eventTime,
                     ),
                     event.eventTime,
                 )
@@ -112,11 +121,19 @@ class BillingService(
 
 interface FreemiusClient {
     suspend fun checkLicense(licenseId: String): LicenseState?
+
+    /** Cancels a subscription at Freemius. True on success, false on any failure. */
+    suspend fun cancelSubscription(subscriptionId: String): Boolean
+
+    /** A one-click, short-lived login link into the Freemius customer portal, or null on failure. */
+    suspend fun portalLoginLink(email: String): String?
 }
 
-/** Placeholder client: always answers "unknown", for tests and a server with no API token. */
+/** Placeholder client: always answers "unknown"/failure, for tests and a server with no API token. */
 class CannedFreemiusClient : FreemiusClient {
     override suspend fun checkLicense(licenseId: String): LicenseState? = null
+    override suspend fun cancelSubscription(subscriptionId: String): Boolean = false
+    override suspend fun portalLoginLink(email: String): String? = null
 }
 
 class BillingRevalidator(
