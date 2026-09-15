@@ -41,4 +41,9 @@ suspend fun ensureIndexes(db: MongoDatabase) {
     // index drops a bucket once its window ends, so old counters never build up.
     db.getCollection<Document>("previewLimits")
         .createIndex(Indexes.ascending("expiresAt"), IndexOptions().expireAfter(0, TimeUnit.SECONDS))
+    // BillingService inserts one document per Freemius event id here, before it applies the
+    // event. The unique index rejects a second insert of the same event id. This stops the
+    // server from applying one event two times, even under a concurrent replay.
+    db.getCollection<Document>("billingEvents")
+        .createIndex(Indexes.ascending("eventId"), IndexOptions().unique(true))
 }
