@@ -58,6 +58,9 @@ type State =
             <app-next-task-view [assessment]="readyOf().assessment" [plan]="p" [previousOverall]="readyOf().previousOverall" [doneBusy]="doneBusy()" [checkBusy]="checkBusy()" (done)="markDone($event)" (checkAgain)="check()" />
           } @else {
             <app-result-view [assessment]="readyOf().assessment" [plan]="readyOf().plan" [tier]="isPro() ? 'pro' : 'free'" [siteId]="siteId" />
+            @if (!isPro()) {
+              <div class="row report-link-row"><a class="small" [routerLink]="['/assessments', readyOf().assessment.id, 'report']">Full report →</a></div>
+            }
           }
           @if (checkError(); as e) {<p class="error-note" role="alert">{{ assessmentErrorCopy(e) }}</p>}
           @if (doneError(); as e) {<app-error-note [error]="e" />}
@@ -74,6 +77,8 @@ type State =
     .failure { max-width: 620px; gap: 30px; }
     .failed-note { margin-bottom: 24px; }
     .tight { gap: 8px; }
+    .report-link-row { margin-top: 20px; }
+    .small { font-size: 13px; }
   `,
 })
 export class SiteHome implements OnInit {
