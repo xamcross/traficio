@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.bson.Document
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -70,6 +71,35 @@ class UserRepositoryTest {
         val matching = repo.downgradeProIfMatches(u.id, expectedLicenseId = "L2", expectedExpiresAt = renewedExpiresAt)
         assertTrue(matching)
         assertEquals("free", repo.findById(u.id)!!.tier)
+    }
+
+    @Test
+    fun `extendProIfMatches only writes when the observed billing state still matches`() = runBlocking {
+        val repo = UserRepository(TestMongo.freshDb())
+        val u = repo.insert(newUser("extend@example.com"))
+        // MongoDB stores an Instant with millisecond precision, so a reloaded document never
+        // matches a nanosecond-precision Instant.now() exactly. Truncate up front.
+        val staleExpiresAt = Instant.now().minusSeconds(3600).truncatedTo(ChronoUnit.MILLIS)
+        repo.setBilling(u.id, "pro", FreemiusInfo(licenseId = "L1", expiresAt = staleExpiresAt, subscriptionStatus = "active"))
+
+        // A renewal webhook lands concurrently between the revalidator's read and its write.
+        val renewedExpiresAt = Instant.now().plusSeconds(3600).truncatedTo(ChronoUnit.MILLIS)
+        repo.setBilling(u.id, "pro", FreemiusInfo(licenseId = "L2", expiresAt = renewedExpiresAt, subscriptionStatus = "active"))
+
+        // An extend based on the stale, pre-renewal snapshot must not apply.
+        val staleWrite = repo.extendProIfMatches(u.id, expectedLicenseId = "L1", expectedExpiresAt = staleExpiresAt, newExpiresAt = staleExpiresAt.plusSeconds(60))
+        assertFalse(staleWrite)
+        assertEquals("L2", repo.findById(u.id)!!.freemius!!.licenseId)
+        assertEquals(renewedExpiresAt, repo.findById(u.id)!!.freemius!!.expiresAt)
+
+        // An extend based on the current, matching snapshot must apply and keep the tier pro.
+        val laterExpiresAt = renewedExpiresAt.plusSeconds(3600).truncatedTo(ChronoUnit.MILLIS)
+        val matching = repo.extendProIfMatches(u.id, expectedLicenseId = "L2", expectedExpiresAt = renewedExpiresAt, newExpiresAt = laterExpiresAt)
+        assertTrue(matching)
+        val extended = repo.findById(u.id)!!
+        assertEquals("pro", extended.tier)
+        assertEquals(laterExpiresAt, extended.freemius!!.expiresAt)
+        assertEquals("active", extended.freemius!!.subscriptionStatus)
     }
 
     @Test

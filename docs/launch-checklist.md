@@ -263,10 +263,12 @@ could not cover with mocks and canned clients.
 These are not dashboard actions. They are small code tasks that wait on real
 account data or a decision. Ask for them when you are ready.
 
-- [ ] 11.1 **Real `FreemiusClient`.** The daily license revalidator currently uses a
-      canned client. It downgrades only on stored expiry dates. A real client needs
-      the Freemius API credentials from step 1.5 and one endpoint call
-      (license validation). Small task; do it before you rely on revalidation.
+- [x] 11.1 **Real `FreemiusClient`.** Issue #16, PR (2026-09-15): `HttpFreemiusClient`
+      calls `GET /v1/products/{product_id}/licenses/{license_id}.json` with the
+      `FREEMIUS_API_TOKEN` Bearer token, and `BillingRevalidator` asks it before it
+      downgrades a Pro user whose stored `expiresAt` is already past. See
+      `backend/README.md`, "Daily license revalidation". Still open: deploy, then
+      confirm one revalidator run in `fly logs` with no Freemius API error.
 - [ ] 11.2 **Deferred code minors.** A hygiene pass is ledgered in
       `.superpowers/sdd/2026-08-06-angular-frontend/progress.md` and
       `.superpowers/sdd/2026-08-06-billing-hardening/progress.md`

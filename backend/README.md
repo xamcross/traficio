@@ -103,6 +103,11 @@ Set these environment variables to enable billing:
 - `FREEMIUS_SECRET_KEY` — the store secret. Without it, the webhook answers 503.
 - `FREEMIUS_PRO_PLAN_ID` — the Pro plan id. Events for other plans are ignored.
 - `FREEMIUS_SIGNATURE_HEADER` — the signature header name. The default is `X-Signature`.
+- `FREEMIUS_API_TOKEN` — the product's Bearer Authorization Token, from the Freemius
+  dashboard's product Settings > API & Keys tab. Set, the daily `BillingRevalidator`
+  asks the Freemius API for a license's live state before it downgrades a stale
+  account. Unset, it falls back to `CannedFreemiusClient`, which always answers
+  "unknown", so the revalidator trusts only the stored `expiresAt`.
 
 Point the Freemius webhook to `POST /v1/billing/freemius/webhook`.
 The server verifies each call with HMAC-SHA256 over the raw request bytes,
@@ -119,6 +124,24 @@ under a unique index. A second delivery of the same id fails the insert, and
 the server changes nothing for it. The server also compares the event's time
 to the `lastEventAt` value stored on the account. The server applies a write
 only when the stored value is empty or older than the event's time.
+
+### Daily license revalidation
+
+`BillingRevalidator` checks each Pro user once a day. A missed or late
+webhook can leave the stored `expiresAt` stale, so the revalidator does not
+trust that date alone. For a Pro user whose `expiresAt` is already past, it
+asks `FreemiusClient` for the license's live state:
+
+- Active, with a later expiration: the server stores the new `expiresAt`.
+  The user stays Pro.
+- Not active: the server downgrades the user to Free, with
+  `downgradeProIfMatches`.
+- Unknown (a network error, a 5xx answer, or `CannedFreemiusClient`): the
+  server does not downgrade until the stored `expiresAt` is 3 days in the
+  past. It logs each unknown answer at WARN level.
+
+Every write is conditional on the billing state the revalidator just
+observed, so a renewal webhook landing concurrently is not overwritten.
 
 ## Request body limits
 
@@ -138,6 +161,6 @@ A body over its limit gets a 413 response with an `invalid_request` error body.
 
 1. Set `ANTHROPIC_API_KEY`. The client streams responses to avoid timeouts.
 2. The assessment job lease is 900 seconds. Do not lower it for slow sites.
-3. Implement a real `FreemiusClient` for license revalidation. The canned
-   client only downgrades on expiry dates.
+3. Set `FREEMIUS_API_TOKEN` for real license revalidation. See "Daily license
+   revalidation" above.
 4. Review `SSE_MAX_MILLIS` (default 900000). Clients reconnect after the cap.

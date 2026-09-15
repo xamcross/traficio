@@ -111,12 +111,12 @@ class BillingService(
 }
 
 interface FreemiusClient {
-    suspend fun isLicenseActive(licenseId: String): Boolean?
+    suspend fun checkLicense(licenseId: String): LicenseState?
 }
 
-/** Placeholder client: answers "unknown" so only expiry-based downgrades run. */
+/** Placeholder client: always answers "unknown", for tests and a server with no API token. */
 class CannedFreemiusClient : FreemiusClient {
-    override suspend fun isLicenseActive(licenseId: String): Boolean? = null
+    override suspend fun checkLicense(licenseId: String): LicenseState? = null
 }
 
 class BillingRevalidator(
@@ -125,20 +125,46 @@ class BillingRevalidator(
 ) {
     private val log = LoggerFactory.getLogger(BillingRevalidator::class.java)
 
+    /**
+     * A stale, unconfirmed `expiresAt` does not downgrade an account on its own: the client's
+     * "unknown" answer gets this much grace, so a slow or failing Freemius API does not turn a
+     * paying customer into a Free one after one bad day.
+     */
+    private val unknownGracePeriod: java.time.Duration = java.time.Duration.ofDays(3)
+
     suspend fun run(now: java.time.Instant = java.time.Instant.now()): Int {
         var downgraded = 0
         for (user in users.listByTier("pro")) {
             val info = user.freemius ?: continue
-            val expired = info.expiresAt?.isBefore(now) == true
-            val revoked = info.licenseId?.let { client.isLicenseActive(it) } == false
-            if (expired || revoked) {
-                // Conditional on the billing state we just observed, so a renewal webhook
-                // landing concurrently (between the read above and this write) is not clobbered.
-                if (users.downgradeProIfMatches(user.id, info.licenseId, info.expiresAt)) {
-                    downgraded++
-                    log.info("downgraded {} (expired={}, revoked={})", user.email, expired, revoked)
-                } else {
-                    log.info("skipped downgrade for {}: billing state changed concurrently", user.email)
+            val expiresAt = info.expiresAt ?: continue
+            if (!expiresAt.isBefore(now)) continue
+            val state = info.licenseId?.let { client.checkLicense(it) }
+            when {
+                state != null && state.active -> {
+                    if (users.extendProIfMatches(user.id, info.licenseId, info.expiresAt, state.expiresAt)) {
+                        log.info("extended {} to {}", user.email, state.expiresAt)
+                    } else {
+                        log.info("skipped extend for {}: billing state changed concurrently", user.email)
+                    }
+                }
+                state != null -> {
+                    if (users.downgradeProIfMatches(user.id, info.licenseId, info.expiresAt)) {
+                        downgraded++
+                        log.info("downgraded {} (freemius reports the license inactive)", user.email)
+                    } else {
+                        log.info("skipped downgrade for {}: billing state changed concurrently", user.email)
+                    }
+                }
+                else -> {
+                    log.warn("freemius license check for {} (license {}) returned unknown", user.email, info.licenseId)
+                    if (java.time.Duration.between(expiresAt, now) >= unknownGracePeriod) {
+                        if (users.downgradeProIfMatches(user.id, info.licenseId, info.expiresAt)) {
+                            downgraded++
+                            log.info("downgraded {} (expiresAt {} unknown for {})", user.email, expiresAt, unknownGracePeriod)
+                        } else {
+                            log.info("skipped downgrade for {}: billing state changed concurrently", user.email)
+                        }
+                    }
                 }
             }
         }

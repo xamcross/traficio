@@ -54,4 +54,10 @@ class AppConfigTest {
         assertEquals("pk_test", c.freemiusPublicKey)
         assertEquals(listOf("ada@example.com", "bob@example.com"), c.freemiusSandboxEmails)
     }
+
+    @Test
+    fun `freemius api token is absent by default and reads FREEMIUS_API_TOKEN`() {
+        assertEquals(null, AppConfig.fromEnv(emptyMap()).freemiusApiToken)
+        assertEquals("tok_123", AppConfig.fromEnv(mapOf("FREEMIUS_API_TOKEN" to "tok_123")).freemiusApiToken)
+    }
 }
