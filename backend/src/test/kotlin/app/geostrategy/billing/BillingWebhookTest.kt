@@ -25,6 +25,7 @@ import io.ktor.server.testing.testApplication
 import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.writeStringUtf8
 import kotlinx.coroutines.runBlocking
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -43,6 +44,30 @@ class BillingWebhookTest {
         {"type":"license.created","objects":{"user":{"email":"$email"},
          "license":{"id":"lic-1","plan_id":"plan-pro","expiration":"2027-01-01T00:00:00Z"}},
          "padding":"${"x".repeat(WEBHOOK_BODY_LIMIT_BYTES.toInt())}"}
+    """.trimIndent()
+
+    // A real license.extended payload (event 1417447021, 2026-09-15). The user object has no
+    // name, picture, IP, or public key, and the license object has no secret key. The test sets
+    // the email, the license id, and the new expiration. All other values are from Freemius.
+    private fun licenseExtendedBody(email: String, licenseId: String, expiration: String) = """
+        {"type":"license.extended","developer_id":"38607","plugin_id":"39459","user_id":"10453125","install_id":null,
+         "data":{"from":"2026-09-14 13:50:05","to":"$expiration","license_id":"$licenseId"},
+         "event_trigger":"developer","process_time":null,"state":"processed","id":"1417447021",
+         "created":"2026-09-15 06:16:29","updated":"2026-09-15 06:17:02",
+         "objects":{"user":{"plugin_id":null,"user_id":null,"gross":0,"is_marketing_allowed":false,"source":0,
+          "last_login_at":null,"email_status":"delivered","email":"$email","is_verified":true,"auth":"password",
+          "id":"10453125","created":"2026-09-14 13:50:18","updated":null},
+         "license":{"plugin_id":"39459","user_id":"10453125","plan_id":"67740","pricing_id":"89463","quota":1,
+          "activated":0,"activated_local":0,"expiration":"$expiration","is_free_localhost":true,
+          "is_block_features":true,"is_cancelled":false,"is_whitelabeled":false,"environment":1,"source":0,
+          "id":"$licenseId","created":"2026-09-14 13:50:18","updated":"2026-09-15 06:16:29"}}}
+    """.trimIndent()
+
+    // A real payment.created payload from the sandbox refund (event 1417313124). The email and
+    // the Stripe, card, and IP fields are removed. The payload has no license object.
+    private fun paymentCreatedWithNoLicense(email: String) = """
+        {"type":"payment.created","objects":{"user":{"email":"$email"},
+         "payment":{"id":"2131050","license_id":"2043610","gross":-9,"type":"refund"}}}
     """.trimIndent()
 
     private suspend fun io.ktor.client.HttpClient.webhook(body: String, sig: String?) =
@@ -251,5 +276,63 @@ class BillingWebhookTest {
         } finally {
             logs.stop()
         }
+    }
+
+    @Test
+    fun `a real license extended event with the matching license id sets the later expiresAt and the user stays pro`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+        val repo = UserRepository(db)
+
+        val up = upgradeBody("ada@example.com")
+        http.webhook(up, hmacSha256Hex(secret, up))
+        val firstExpiry = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!.expiresAt!!
+
+        val renewal = licenseExtendedBody("ada@example.com", "lic-1", "2027-02-01 00:00:00")
+        assertEquals(HttpStatusCode.OK, http.webhook(renewal, hmacSha256Hex(secret, renewal)).status)
+
+        val downgraded = BillingRevalidator(repo, CannedFreemiusClient()).run(firstExpiry.plusSeconds(3600))
+        assertEquals(0, downgraded)
+        val after = runBlocking { repo.findByEmail("ada@example.com")!! }
+        assertEquals("pro", after.tier)
+        assertEquals(Instant.parse("2027-02-01T00:00:00Z"), after.freemius!!.expiresAt)
+    }
+
+    @Test
+    fun `a license extended event for a different license id changes nothing`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+        val repo = UserRepository(db)
+
+        val up = upgradeBody("ada@example.com")
+        http.webhook(up, hmacSha256Hex(secret, up))
+        val before = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!
+
+        val renewal = licenseExtendedBody("ada@example.com", "lic-other", "2027-02-01 00:00:00")
+        assertEquals(HttpStatusCode.OK, http.webhook(renewal, hmacSha256Hex(secret, renewal)).status)
+        val after = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!
+        assertEquals(before, after)
+    }
+
+    @Test
+    fun `payment created without a license object changes nothing`() = testApplication {
+        val db = TestMongo.freshDb()
+        application { appModule(testDeps(db, email = RecordingEmailSender(), env = env)) }
+        val http = createClient { install(HttpCookies) }
+        registerAndLogin(http, "ada@example.com")
+        val repo = UserRepository(db)
+
+        val up = upgradeBody("ada@example.com")
+        http.webhook(up, hmacSha256Hex(secret, up))
+        val before = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!
+
+        val payment = paymentCreatedWithNoLicense("ada@example.com")
+        assertEquals(HttpStatusCode.OK, http.webhook(payment, hmacSha256Hex(secret, payment)).status)
+        val after = runBlocking { repo.findByEmail("ada@example.com")!! }.freemius!!
+        assertEquals(before, after)
     }
 }

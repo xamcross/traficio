@@ -6,7 +6,8 @@ import org.slf4j.LoggerFactory
 
 private val UPGRADE_TYPES = setOf("license.created", "license.activated", "subscription.created")
 private val DOWNGRADE_TYPES = setOf("payment.refund", "license.expired", "license.cancelled", "license.deactivated")
-private val HANDLED_TYPES = UPGRADE_TYPES + DOWNGRADE_TYPES + setOf("subscription.cancelled")
+private val EXPIRY_UPDATE_TYPES = setOf("license.extended")
+private val HANDLED_TYPES = UPGRADE_TYPES + DOWNGRADE_TYPES + EXPIRY_UPDATE_TYPES + setOf("subscription.cancelled")
 
 class BillingService(
     private val users: UserRepository,
@@ -38,6 +39,16 @@ class BillingService(
             event.type == "subscription.cancelled" -> {
                 val info = user.freemius ?: return
                 users.setBilling(user.id, user.tier, info.copy(subscriptionStatus = "cancelled"))
+            }
+            // A renewal extends the license. Freemius then sends license.extended with the user
+            // and license objects. A payment.created event has no license object. A
+            // license.updated event has no user object, so the server cannot find the account.
+            // The license id check rejects an event for another license.
+            event.type in EXPIRY_UPDATE_TYPES -> {
+                val info = user.freemius
+                if (info != null && event.licenseId != null && event.licenseId == info.licenseId && event.expiresAt != null) {
+                    users.setBilling(user.id, user.tier, info.copy(expiresAt = event.expiresAt))
+                }
             }
             event.type in DOWNGRADE_TYPES -> {
                 users.setBilling(user.id, "free", (user.freemius ?: FreemiusInfo()).copy(subscriptionStatus = "expired"))
