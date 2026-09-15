@@ -1,13 +1,14 @@
 import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiClient, ApiError } from '../../core/api/api-client';
 import { UserStore } from '../../core/auth/user-store';
+import { PRO_TIER_COPY } from '../../core/config';
 import { SiteDto, UsageDto } from '../../core/api/types';
 import { clearPendingUrl, readPendingUrl } from '../../core/pending-url';
 import { ErrorNote } from '../../shared/error-note';
 import { assessmentErrorCopy } from '../../shared/assessment-error-copy';
-import { formatDate } from '../../shared/copy';
+import { formatDate, numberWord, plural } from '../../shared/copy';
 import { toApiError } from '../../shared/to-api-error';
 import { notBlank } from '../../shared/validators';
 import { pricingUrlFor } from '../../shared/upgrade-redirect';
@@ -29,6 +30,7 @@ import { pricingUrlFor } from '../../shared/upgrade-redirect';
 export class Dashboard implements OnInit {
   private api = inject(ApiClient);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private destroyRef = inject(DestroyRef);
   protected readonly store = inject(UserStore);
 
@@ -44,6 +46,8 @@ export class Dashboard implements OnInit {
   protected readonly resendError = signal<ApiError | null>(null);
   protected readonly assessmentErrorCopy = assessmentErrorCopy;
   protected readonly pricingUrl = pricingUrlFor;
+  protected readonly word = numberWord;
+  protected readonly plural = plural;
 
   protected readonly addForm = new FormGroup({
     url: new FormControl('', { nonNullable: true, validators: [notBlank] }),
@@ -100,7 +104,7 @@ export class Dashboard implements OnInit {
       const list = [...sites];
       this.sites.set(list);
       this.usage.set(usage);
-      if (list.length === 1 && !this.checkError() && !this.addError()) {
+      if (list.length === 1 && !this.checkError() && !this.addError() && !this.route.snapshot.queryParamMap.has('list')) {
         await this.router.navigateByUrl(`/sites/${list[0].id}`);
         return;
       }
@@ -116,6 +120,15 @@ export class Dashboard implements OnInit {
   protected canAdd(): boolean {
     const u = this.usage();
     return !u || u.sitesUsed < u.sitesLimit;
+  }
+
+  protected proSitesLeft(): number {
+    return Math.max(0, PRO_TIER_COPY.sites - this.sites().length);
+  }
+
+  /** A Free account past its site limit has somewhere to go; a Pro account at its own limit does not. */
+  protected showUpgradeLine(): boolean {
+    return !this.canAdd() && this.store.user()?.tier !== 'pro' && this.proSitesLeft() > 0;
   }
 
   protected lastChecked(site: SiteDto): string {
