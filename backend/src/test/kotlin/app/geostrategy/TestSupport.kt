@@ -7,6 +7,8 @@ import app.geostrategy.auth.OneTimeTokenService
 import app.geostrategy.auth.PasswordHasher
 import app.geostrategy.auth.SessionService
 import app.geostrategy.billing.BillingService
+import app.geostrategy.billing.CannedFreemiusClient
+import app.geostrategy.billing.FreemiusClient
 import app.geostrategy.claude.CannedClaudeClient
 import app.geostrategy.claude.ClaudeClient
 import app.geostrategy.config.AppConfig
@@ -81,6 +83,7 @@ fun testDeps(
     previewCrawler: Crawler = Crawler(MapFetcher(emptyMap()), pageCap = 5),
     previewLimiter: PreviewRateLimiter = PreviewRateLimiter(db),
     previewSemaphore: Semaphore = Semaphore(3),
+    freemiusClient: FreemiusClient = CannedFreemiusClient(),
 ): AppDeps {
     val config = AppConfig.fromEnv(env)
     val users = UserRepository(db)
@@ -98,6 +101,7 @@ fun testDeps(
         plans = PlanRepository(db),
         ssrf = ssrf,
         billing = config.freemiusSecretKey?.let { BillingService(users, config.freemiusProPlanId, db) },
+        freemiusClient = freemiusClient,
         claude = claude,
         previewCrawler = previewCrawler,
         previewLimiter = previewLimiter,
