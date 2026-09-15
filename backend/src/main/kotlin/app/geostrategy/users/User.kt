@@ -121,4 +121,27 @@ class UserRepository(db: MongoDatabase) {
         val result = col.updateOne(filter, update)
         return result.modifiedCount > 0
     }
+
+    /**
+     * Stores a live, later expiration for a pro user whose stored `expiresAt` looked past due,
+     * once Freemius confirms the license is still active. Conditional on the billing state the
+     * caller last observed (licenseId and expiresAt), for the same reason as
+     * [downgradeProIfMatches]: a renewal webhook landing concurrently must not be overwritten
+     * with a stale snapshot. Returns whether a document was actually modified.
+     */
+    suspend fun extendProIfMatches(id: ObjectId, expectedLicenseId: String?, expectedExpiresAt: Instant?, newExpiresAt: Instant?): Boolean {
+        val filter = and(
+            eq("_id", id),
+            eq("tier", "pro"),
+            eq("freemius.licenseId", expectedLicenseId),
+            eq("freemius.expiresAt", expectedExpiresAt),
+        )
+        val update = combine(
+            set("freemius.expiresAt", newExpiresAt),
+            set("freemius.subscriptionStatus", "active"),
+            set("updatedAt", Instant.now()),
+        )
+        val result = col.updateOne(filter, update)
+        return result.modifiedCount > 0
+    }
 }

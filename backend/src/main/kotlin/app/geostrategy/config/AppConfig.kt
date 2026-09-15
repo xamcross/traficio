@@ -35,6 +35,10 @@ data class AppConfig(
     // hands out a sandbox token for their account.
     val freemiusSandboxEmails: List<String>,
     val freemiusSignatureHeader: String,
+    // The Bearer token for the Freemius product-scope API. Set, BillingRevalidator asks
+    // Freemius for a license's live state before it downgrades a stale account. Unset, the
+    // revalidator falls back to CannedFreemiusClient and trusts only the stored expiresAt.
+    val freemiusApiToken: String?,
     val sseMaxMillis: Long,
 ) {
     companion object {
@@ -74,6 +78,7 @@ data class AppConfig(
                     ?.filter { it.isNotEmpty() }
                     ?: emptyList(),
                 freemiusSignatureHeader = env["FREEMIUS_SIGNATURE_HEADER"] ?: "X-Signature",
+                freemiusApiToken = env["FREEMIUS_API_TOKEN"],
                 sseMaxMillis = env["SSE_MAX_MILLIS"]?.toLong() ?: 900_000L,
             )
         }

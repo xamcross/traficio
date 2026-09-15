@@ -13,6 +13,9 @@ import app.geostrategy.auth.googleAuthRoutes
 import app.geostrategy.billing.BillingService
 import app.geostrategy.billing.BillingRevalidator
 import app.geostrategy.billing.CannedFreemiusClient
+import app.geostrategy.billing.FREEMIUS_PRODUCT_ID
+import app.geostrategy.billing.FreemiusClient
+import app.geostrategy.billing.HttpFreemiusClient
 import app.geostrategy.billing.billingRoutes
 import app.geostrategy.claude.CannedClaudeClient
 import app.geostrategy.claude.ClaudeClient
@@ -122,8 +125,13 @@ fun main() {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     JobWorker(deps.jobs, mapOf("assessment" to pipeline::handle), leaseSeconds = 900).start(appScope)
 
-    val revalidator = BillingRevalidator(deps.users, CannedFreemiusClient())
     val billingLog = LoggerFactory.getLogger(BillingRevalidator::class.java)
+    val freemiusClient: FreemiusClient = config.freemiusApiToken
+        ?.let { HttpFreemiusClient(httpClient, FREEMIUS_PRODUCT_ID, it) }
+        ?: CannedFreemiusClient().also {
+            billingLog.warn("FREEMIUS_API_TOKEN is not set. The revalidator trusts only the stored expiresAt.")
+        }
+    val revalidator = BillingRevalidator(deps.users, freemiusClient)
     appScope.launch {
         while (isActive) {
             try {

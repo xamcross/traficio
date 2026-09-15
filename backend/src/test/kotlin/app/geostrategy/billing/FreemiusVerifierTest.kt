@@ -96,4 +96,13 @@ class FreemiusVerifierTest {
         assertEquals(null, e.eventId)
         assertEquals(null, e.eventTime)
     }
+
+    @Test
+    fun `an explicit JSON null expiration means a lifetime license, not an unparseable date`() {
+        // A lifetime license's `expiration` field comes back as an explicit JSON null, not a
+        // missing key (confirmed in the licenses.retrieve API response schema). That must read
+        // as "no expiration", the same as a missing key, not as a malformed date string.
+        val e = parseFreemiusEvent("""{"type":"license.created","user":{"email":"a@x.co"},"license":{"id":"L1","expiration":null}}""")!!
+        assertNull(e.expiresAt)
+    }
 }

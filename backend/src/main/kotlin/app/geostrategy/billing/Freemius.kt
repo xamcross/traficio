@@ -2,8 +2,18 @@ package app.geostrategy.billing
 
 import app.geostrategy.auth.hmacSha256Hex
 import app.geostrategy.auth.md5Hex
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
+import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.LoggerFactory
@@ -98,4 +108,52 @@ private fun parseFreemiusTimestamp(raw: String?): Instant? {
 }
 
 private fun JsonObject.obj(key: String): JsonObject? = try { this[key]?.jsonObject } catch (e: Exception) { null }
-private fun JsonObject.str(key: String): String? = try { this[key]?.jsonPrimitive?.content } catch (e: Exception) { null }
+
+// contentOrNull, not content: an explicit JSON null (a lifetime license's `expiration`, in a
+// real licenses.retrieve response) must read as a missing value, not as the literal string
+// "null", which parseFreemiusTimestamp would then log as an unparseable date.
+private fun JsonObject.str(key: String): String? = try { this[key]?.jsonPrimitive?.contentOrNull } catch (e: Exception) { null }
+
+/** A license's live state, from the Freemius API. `expiresAt` is null for a lifetime license. */
+data class LicenseState(val active: Boolean, val expiresAt: Instant?)
+
+/**
+ * Asks the Freemius product-scope API for one license's live state. See
+ * https://freemius.com/help/api/licenses/retrieve/: `GET
+ * /v1/products/{product_id}/licenses/{license_id}.json`, Bearer token auth. The response has
+ * `is_cancelled` (boolean) and `expiration` (nullable Freemius timestamp; null means a
+ * lifetime license). Freemius has no single "is active" field, so this derives it: a license
+ * is active when it is not cancelled and its expiration is null or still in the future.
+ */
+class HttpFreemiusClient(
+    private val http: HttpClient,
+    private val productId: String,
+    private val apiToken: String,
+    private val timeoutMillis: Long = 10_000,
+) : FreemiusClient {
+    private val log = LoggerFactory.getLogger(HttpFreemiusClient::class.java)
+
+    // The timeout wraps the whole call, the body read included: a stalled response body must
+    // not hang this user's check past timeoutMillis, the same way Crawler.kt bounds a whole
+    // fetch (headers and body) rather than just the request that returns the headers.
+    override suspend fun checkLicense(licenseId: String): LicenseState? = try {
+        withTimeoutOrNull(timeoutMillis) {
+            val response = http.get("https://api.freemius.com/v1/products/$productId/licenses/$licenseId.json") {
+                header(HttpHeaders.Authorization, "Bearer $apiToken")
+            }
+            check(response.status.isSuccess()) { "HTTP ${response.status.value}" }
+            val body = Json.parseToJsonElement(response.bodyAsText()).jsonObject
+            val isCancelled = body["is_cancelled"]?.jsonPrimitive?.booleanOrNull ?: false
+            val expiresAt = parseFreemiusTimestamp(body.str("expiration"))
+            LicenseState(active = !isCancelled && (expiresAt == null || expiresAt.isAfter(Instant.now())), expiresAt = expiresAt)
+        } ?: run {
+            log.warn("Freemius license lookup for {} timed out after {}ms", licenseId, timeoutMillis)
+            null
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        log.warn("Freemius license lookup for {} failed: {}", licenseId, e.message)
+        null
+    }
+}
