@@ -30,9 +30,13 @@ class FakeApiClient {
   listSitesResult: Promise<SiteDto[]> = Promise.resolve([]);
   resendVerificationResult: Promise<unknown> = Promise.resolve(undefined);
   logoutResult: Promise<unknown> = Promise.resolve(undefined);
+  // Matches the default makeUser(), so a test that pre-sets store.user to plain
+  // makeUser() sees no change once load() refreshes the store from this.
+  meResult: Promise<UserDto> = Promise.resolve(makeUser());
 
   resendVerificationCalls = 0;
   logoutCalls = 0;
+  meCalls = 0;
 
   usage(): Promise<UsageDto> {
     return this.usageResult;
@@ -49,7 +53,8 @@ class FakeApiClient {
     return this.logoutResult;
   }
   me(): Promise<UserDto> {
-    return Promise.reject(new Error('not used by Account'));
+    this.meCalls++;
+    return this.meResult;
   }
 }
 
@@ -73,6 +78,7 @@ describe('Account', () => {
   it('free at the limit: meters, next check date, site card, upgrade card', async () => {
     const store = TestBed.inject(UserStore);
     store.user.set(makeUser({ email: 'dana@rivertonbakery.com', tier: 'free' }));
+    api.meResult = Promise.resolve(makeUser({ email: 'dana@rivertonbakery.com', tier: 'free' }));
     api.usageResult = Promise.resolve({ assessmentsUsed: 1, assessmentsLimit: 1, sitesUsed: 1, sitesLimit: 1, nextCheckAt: '2026-09-01T10:00:00Z' });
     api.listSitesResult = Promise.resolve([{ id: 'S1', domain: 'rivertonbakery.com', url: 'https://rivertonbakery.com', platform: 'wordpress', latestScores: { seo: 62, aeo: 34, geo: 28, overall: 41 }, readOnly: false, latestAssessment: { id: 'A1', status: 'ready', createdAt: '2026-07-28T09:00:00Z', completedAt: '2026-07-28T10:00:00Z' }, latestReadyAssessmentId: 'A1' }]);
     const fixture = TestBed.createComponent(Account);
@@ -97,6 +103,7 @@ describe('Account', () => {
   it('pro: manage subscription card, no upgrade card', async () => {
     const store = TestBed.inject(UserStore);
     store.user.set(makeUser({ tier: 'pro' }));
+    api.meResult = Promise.resolve(makeUser({ tier: 'pro' }));
     api.usageResult = Promise.resolve({ assessmentsUsed: 3, assessmentsLimit: 10, sitesUsed: 2, sitesLimit: 5, nextCheckAt: null });
     const fixture = TestBed.createComponent(Account);
     fixture.detectChanges();
@@ -116,10 +123,26 @@ describe('Account', () => {
     expect(link!.getAttribute('rel')).toBe('noopener');
   });
 
+  it('refreshes the tier from /v1/me on load, so a stale Pro display does not linger after a downgrade', async () => {
+    const store = TestBed.inject(UserStore);
+    store.user.set(makeUser({ tier: 'pro' })); // stale: the store still says Pro from before the page loaded
+    api.meResult = Promise.resolve(makeUser({ tier: 'free' })); // the server now says Free
+    const fixture = TestBed.createComponent(Account);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(api.meCalls).toBe(1);
+    expect(text).toContain('Unlock my plan');
+    expect(text).not.toContain('Manage subscription');
+  });
+
   it('shows a "Confirm your email" note with a resend button when emailVerified is false', async () => {
     const fixture = TestBed.createComponent(Account);
     const store = TestBed.inject(UserStore);
     store.user.set(makeUser({ emailVerified: false }));
+    api.meResult = Promise.resolve(makeUser({ emailVerified: false }));
     store.loaded.set(true);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -142,6 +165,7 @@ describe('Account', () => {
     const fixture = TestBed.createComponent(Account);
     const store = TestBed.inject(UserStore);
     store.user.set(makeUser({ emailVerified: false }));
+    api.meResult = Promise.resolve(makeUser({ emailVerified: false }));
     store.loaded.set(true);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -161,6 +185,7 @@ describe('Account', () => {
     const fixture = TestBed.createComponent(Account);
     const store = TestBed.inject(UserStore);
     store.user.set(makeUser({ emailVerified: false }));
+    api.meResult = Promise.resolve(makeUser({ emailVerified: false }));
     store.loaded.set(true);
     fixture.detectChanges();
     await fixture.whenStable();
