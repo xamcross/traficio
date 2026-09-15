@@ -210,9 +210,11 @@ Work from the `backend/` directory.
       pre-rendered pages answer 200 and each carries its own apex canonical link; the
       8 client routes serve the CSR shell; `/r/<unknown>` answers 404; `robots.txt` and
       `sitemap.xml` name the apex only; `www` and `app` return 301 with the path kept.
-- [ ] 8.9 **Plan gate.** As a Free user with a ready check, open `/assessments/<id>/plan`.
-      Confirm the redirect to `/pricing?site=<id>` and that the locked list shows task
-      titles without steps. (Needs the API, section 4.)
+- [ ] 8.9 **Plan gate.** As a Free user with a ready check, open `/assessments/<id>/plan`
+      by hand. No link in the app leads there for a Free account. The `<id>` is the
+      assessment id from the progress URL `/assessments/<id>/progress`. Confirm the
+      redirect to `/pricing?site=<id>` and that the locked list shows task titles without
+      steps. (Needs the API, section 4.)
 
 ## 9. Smoke tests with real services
 
@@ -232,7 +234,11 @@ could not cover with mocks and canned clients.
       appear, and the recorded cost on the assessment document is plausible
       (~$0.30–0.75). This is the first real test of the streaming client with
       structured outputs. Open the progress page in the browser. Confirm the
-      live updates arrive through the Cloudflare proxy.
+      live updates arrive through the Cloudflare proxy. When the check is ready, the
+      app sends you to `/sites/<siteId>`. Open `/assessments/<id>/report` by hand. A
+      Free account has no link to it (issue #47). Turn on **Share this result**. Open
+      the `/r/<slug>` URL in a private window. Confirm the score and the findings are
+      text in the page source.
 - [ ] 9.5 **Checkout in sandbox.** Put Freemius in sandbox mode. Buy Pro from the
       pricing page. Confirm: the overlay opens with your email pre-filled, the
       webhook upgrades the account to Pro, and the account page shows the Pro
