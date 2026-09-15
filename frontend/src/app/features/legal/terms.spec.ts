@@ -35,6 +35,17 @@ describe('Terms', () => {
     expect(text).toContain('support@traficio.com');
   });
 
+  it('describes the downgrade as the code does it: the plan locks, the history closes, extra sites go read-only', () => {
+    expect(text).toContain('Your plan locks');
+    expect(text).toContain('score history closes');
+    expect(text).toContain('becomes read-only');
+    expect(text).not.toContain('history become read-only');
+  });
+
+  it('counts a check over a rolling 30 days, not a calendar month', () => {
+    expect(text).toContain('30 days from the day you start');
+  });
+
   it('carries a limitation of liability and a governing-law section', () => {
     expect(text).toContain('Our liability');
     expect(text).toContain('Governing law');

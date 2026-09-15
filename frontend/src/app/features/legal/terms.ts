@@ -61,9 +61,9 @@ import { plural } from '../../shared/copy';
         {{ plural(free.checks, 'check', 'checks') }} a month, with the score and the findings. Pro
         costs {{ price }} a month. It gives you {{ pro.sites }} {{ plural(pro.sites, 'site', 'sites') }},
         {{ pro.checks }} {{ plural(pro.checks, 'check', 'checks') }} a month, the full plan, the
-        re-check that confirms each fix, and your score history. A check counts against the month
-        in which you start it. We may change the limits of the Free plan. We tell you on the pricing
-        page.
+        re-check that confirms each fix, and your score history. A check counts for 30 days from
+        the day you start it, so a month here means any 30-day period. We may change the limits of
+        the Free plan. We tell you on the pricing page.
       </p>
 
       <h2>Payment</h2>
@@ -80,8 +80,9 @@ import { plural } from '../../shared/copy';
         Cancel at any time from the Manage subscription link on your account page, or by email to
         <a href="mailto:support@traficio.com">support@traficio.com</a>. Your Pro features run to the
         end of the month you have paid for. After that your account returns to Free. Your score and
-        your findings stay. Your plan and your history become read-only, and every site over the
-        Free limit becomes read-only too.
+        your findings stay. Your plan locks: you see the task titles, not the steps. Your score
+        history closes. Every site over the Free limit of {{ free.sites }}
+        {{ plural(free.sites, 'site', 'sites') }} becomes read-only.
       </p>
       <p>
         Freemius gives you a money-back guarantee of 7 days from your first payment. Ask for a

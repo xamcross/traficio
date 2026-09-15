@@ -30,8 +30,8 @@ import { SiteFooter } from '../../shared/site-footer';
       <p>
         When you sign up we store your email address, a hash of your password if you set one, and
         whether the email is verified. We use the email to log you in, to send you the verification
-        link, the password reset link, and messages about your account. We need this to give you the
-        service you signed up for.
+        link, the password reset link, the message that your plan is ready after a check, and
+        messages about your account. We need this to give you the service you signed up for.
       </p>
 
       <h3>Sign in with Google</h3>
@@ -61,9 +61,10 @@ import { SiteFooter } from '../../shared/site-footer';
       <h3>Payment</h3>
       <p>
         Freemius is the seller of the Pro plan and takes the payment. Your card details go to
-        Freemius, not to us, and we never see them. Freemius tells us your email, the license and
-        subscription ids, the plan, the status, and the renewal date, so that we can turn Pro on and
-        off for your account. Freemius handles your payment data under its own privacy policy.
+        Freemius, not to us, and we never see them. Freemius sends us your email, the license id,
+        the plan, the renewal date, and each event that changes the status: a purchase, a renewal, a
+        cancellation, a refund. We store these, so that we can turn Pro on and off for your account.
+        Freemius handles your payment data under its own privacy policy.
       </p>
 
       <h3>The free check on the home page</h3>
@@ -79,11 +80,14 @@ import { SiteFooter } from '../../shared/site-footer';
         days. Sign in with Google sets a second, short-lived cookie for the duration of that sign-in.
         The Freemius checkout, which opens on our pricing page, may set its own cookies. Cloudflare,
         which serves the site, may set a security cookie. We use no analytics or advertising
-        cookies, and we do no tracking across other sites.
+        cookies, and we do no tracking across other sites. The home page keeps the web address you
+        typed in your browser's storage until you sign in, so that the check can start. It does not
+        leave your browser.
       </p>
       <p>
-        Our servers log each request: the path, the time, the result, and the time it took. Our
-        hosting provider keeps those logs for 7 days.
+        Our servers log each request: the path, the time, the result, and the time it took. A
+        billing event logs the email it concerns. A rejected free check logs the address it came
+        from. Our hosting provider keeps those logs for 7 days.
       </p>
 
       <h2>The legal ground</h2>

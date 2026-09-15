@@ -48,4 +48,19 @@ describe('Privacy', () => {
     expect(text).toContain('Who we are');
     expect(text).not.toContain('to be confirmed');
   });
+
+  it('lists only the Freemius fields the webhook really carries', () => {
+    expect(text).toContain('the license id');
+    expect(text).not.toContain('subscription ids');
+  });
+
+  it('says that a billing event and a rejected free check leave the email or the address in the logs', () => {
+    expect(text).toContain('logs the email');
+    expect(text).toContain('logs the address');
+  });
+
+  it('names the plan-ready email and the browser storage of the typed address', () => {
+    expect(text).toContain('plan is ready');
+    expect(text).toContain("browser's storage");
+  });
 });
