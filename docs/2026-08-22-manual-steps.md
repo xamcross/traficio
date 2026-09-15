@@ -214,16 +214,24 @@ pre-production risk since the assessment engine was built: the streaming client,
 structured outputs and the 900-second job lease have only ever run against a canned client.
 
 1. Register at `https://traficio.com/signup` with an address you control.
-2. Until step 5 is done, take the verification link from `fly logs`. Find the line
-   `EMAIL (not sent, no RESEND_API_KEY)` and copy the `token=` URL out of it. Open it.
-3. Add a real site. Run a check.
+2. Click the link in the verification email. Email sending is connected since GitHub
+   issue #10 closed on 2026-09-14.
+3. Add a real site. Run a check. Note the progress URL, `/assessments/<id>/progress`. The
+   `<id>` is the assessment id. Steps 6 and 7 need it. The `GET /v1/sites` response in the
+   browser DevTools also shows it as `latestAssessment.id`.
 4. Watch `fly logs`. Confirm the crawl finishes, both Claude calls stream and complete,
    scores and a plan appear, and the recorded cost is about $0.30 to $0.75.
 5. Keep the progress page open in a browser while it runs. Confirm the live updates arrive
    through the Cloudflare proxy. That exercises the SSE path end to end.
-6. On the finished result, turn on **Share this result**, then open the `/r/<slug>` URL in a
-   private window. Confirm the page shows the score and the findings as real text. **This is
-   the last unverified piece of the public-results feature.**
+6. When the check is ready, the app sends you to `/sites/<siteId>`. That page has no share
+   control for a Free account (GitHub issue #47). Open
+   `https://traficio.com/assessments/<id>/report` by hand. Turn on **Share this result**,
+   then open the `/r/<slug>` URL in a private window. Confirm the page shows the score and
+   the findings as real text. **This is the last unverified piece of the public-results
+   feature.**
+7. Stay logged in as the Free user. Open `https://traficio.com/assessments/<id>/plan` by
+   hand. No link in the app leads there for a Free account. Confirm the redirect to
+   `/pricing?site=<siteId>` and that the locked list shows task titles without steps.
 
 ### 11. The remaining smoke tests · [C]
 
